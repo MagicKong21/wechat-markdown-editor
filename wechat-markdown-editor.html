@@ -1991,7 +1991,7 @@ http://www.lizhi.shop\`
                 // ========== 核心修复：手动记录撤销栈 ==========
                 // 1. 记录当前状态到撤销栈
                 undoStack.push(this.value);
-                redoStack = [];
+                redoStack.length = 0; // 清空重做栈
                 if (undoStack.length > 50) undoStack.shift();
                 
                 // 2. 标记为快捷键操作
