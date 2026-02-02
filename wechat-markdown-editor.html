@@ -301,11 +301,11 @@
         .controls {
             display: flex;
             justify-content: center;
+            align-items: center;
             gap: 15px;
             flex-wrap: wrap;
             margin-top: 20px;
-            padding: 15px;
-            padding-bottom: 40px;
+            padding: 12px;
             background-color: white;
             border-radius: 8px;
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
@@ -1360,59 +1360,45 @@ http://www.lizhi.shop`
         }
 
         /**
-         * 加载示例内容
-         */
+          * 加载示例内容
+          */
         function loadExample() {
-            const exampleMarkdown = `# Apple Creator Studio：创意工作者的超值订阅方案
+            const exampleMarkdown = `我是开头，巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉
+我是开头，巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉
+我是开头，巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉
+## 我是大标题 [Mac]
+大标题下的内容，巴拉巴拉
+### 我是小标题
+小标题下的内容，巴拉巴拉
+## 我是二号大标题 [Win]
+### 我是小标题
+小标题下的内容，巴拉巴拉
+## 我是三号大标题 [安卓]
+我是**加粗** (快捷键：Command + U)
+我是[[标蓝]] (快捷键：Command + B)
+我是**[[加粗同时标蓝]]**
+下面是网址 (快捷键：Command + K)
+\`我是网址：http://www.lizhi.shop\`
 
-苹果正式推出全新的订阅服务——**Apple Creator Studio**，对创意工作者、设计师和学生来说，这无疑是个大好消息！
+\`我是网址：
+http://www.lizhi.shop\`
 
-一份订阅，你就能解锁苹果旗下多款顶级创意类 App，而高校学生和老师更可享受每月仅 **18 元**的超值优惠。
+下面是列表：
+- 我是列表
+- 我是列表
+- 我是列表
+- 我是列表
+我是其他正文内容
 
-## Apple Creator Studio 是什么？
+## 我是大标题
+## 我是大标题
+## 我是大标题
+## 我是大标题
+## 我是大标题
+## 我是大标题
+## 我是大标题
 
-Apple Creator Studio 是苹果专为创意人士打造的一站式订阅服务，囊括了以下**专业级 App**：
-
-- **Final Cut Pro**：知名**视频**剪辑工具；
-- **Logic Pro**：专业**音乐**制作助手；
-- **Pixelmator Pro**：强大的**图片**编辑软件；
-- **Motion、Compressor、MainStage**：特效制作、**后期**压缩和音乐表演工具；
-- **Keynote、Pages、Numbers**：**办公**三件套，升级 AI 智能功能和高级内容；
-- **无边记 App**：创意**白板**笔记工具。
-
-这些工具覆盖了视频、音频、图片、办公等多种创作场景，是一套全能型创意工具组合。
-
-## 订阅价格是多少？
-
-Apple Creator Studio 将于 **1 月 29 日**上线，价格如下：
-
-- **普通用户**：38 元 / 月 或 **380 元** / 年
-- **高校学生与教职员工**：18 元 / 月 或 **180 元** / 年
-- **免费试用**：新用户可免费试用 1 个月；购买新 Mac 或符合条件的 iPad，可免费试用 3 个月！
-
-此外，标准订阅还支持**家庭共享**，最多 6 名家庭成员共享。若全家人分摊费用，每人每月不到 5.3 元，性价比拉满！
-
-## 这些 App 可以单独买吗？
-
-可以，但价格偏高：
-
-- **Final Cut Pro**：1,998 元；
-- **Logic Pro**：1,298 元；
-- **Pixelmator Pro**：328 元；
-- **Motion、Compressor**：各 328 元；
-- **MainStage**：198 元。
-
-在这些软件中，如果你需要使用**两款**或以上的话，那每年 380 元的 Apple Creator Studio 显然有着十足的性价比。
-
-不过对于教育用户，也依然可以选择**打包买断**其中部分软件，其实价格也还可以。
-
-## 值得注意的亮点
-
-Apple Creator Studio 将于 **1 月 29 日**，在 App Store 上线，届时记得通过免费试用的机会体验一下！
-
-\`测试：http://baidu.com\`
-\`商品下载地址：http://baidu.com\`
-\`点击**阅读原文**，前往苹果官网了解更多！\``;
+我是其他正文内容，巴拉巴拉`;
             
             document.getElementById('markdown-input').value = exampleMarkdown;
             updatePreview();
