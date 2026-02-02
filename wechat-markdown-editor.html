@@ -897,6 +897,15 @@ http://www.lizhi.shop`
             title6: `${githubBase}/title6.png`,
             title7: `${githubBase}/title7.png`,
             title8: `${githubBase}/title8.png`,
+            title9: `${githubBase}/title9.png`,
+            productCardQr: `${githubBase}/product-card-qr.png`,
+            productCardBanner: `${githubBase}/product-card-banner.png`
+        };
+            title4: `${githubBase}/title4.png`,
+            title5: `${githubBase}/title5.png`,
+            title6: `${githubBase}/title6.png`,
+            title7: `${githubBase}/title7.png`,
+            title8: `${githubBase}/title8.png`,
             title9: `${githubBase}/title9.png`
         };
 
@@ -1184,7 +1193,7 @@ http://www.lizhi.shop`
                     case 'product-card': {
                         // 查找匹配的图片
                         const matchedImg = findMatchingImage(block.productName);
-                        let qrImageSrc = 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JDLG2ASQGKbzL7oic13nv5BqDTyr8QD1RUfxC3xKABWBqJiaHWsJ4qxZCetAvFjKHeOF5tBKIibqeO1w/640?wx_fmt=png';
+                        let qrImageSrc = githubImages.productCardQr;
                         
                         if (matchedImg) {
                             qrImageSrc = matchedImg.dataUrl;
@@ -1202,7 +1211,7 @@ http://www.lizhi.shop`
                             <section style="text-align: center;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
                                 <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
                                     <span leaf="">
-                                        <img data-src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JCXEQODbGMq79bUUJMBnGM09eXMC35t5lrT5rOTC8iatLXYw6zDCsN99vvkFgsO7jKssUBNLaQpAicw/640?wx_fmt=png" class="rich_pages wxw-img" data-ratio="0.125" data-type="png" data-w="1000" style="vertical-align: middle; box-sizing: border-box; width: 677px !important; height: auto !important; visibility: visible !important;" data-backw="578" data-backh="72" data-aistatus="1" data-original-style="vertical-align:middle;box-sizing:border-box;width:100%;" src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JCXEQODbGMq79bUUJMBnGM09eXMC35t5lrT5rOTC8iatLXYw6zDCsN99vvkFgsO7jKssUBNLaQpAicw/640?wx_fmt=png" _width="100%" alt="长条配图">
+                                        <img data-src="${githubImages.productCardBanner}" class="rich_pages wxw-img" data-ratio="0.125" data-type="png" data-w="1000" style="vertical-align: middle; box-sizing: border-box; width: 677px !important; height: auto !important; visibility: visible !important;" data-backw="578" data-backh="72" data-aistatus="1" data-original-style="vertical-align:middle;box-sizing:border-box;width:100%;" src="${githubImages.productCardBanner}" _width="100%" alt="长条配图">
                                     </span>
                                 </section>
                             </section>
@@ -1521,7 +1530,7 @@ http://www.lizhi.shop`
                     case 'product-card': {
                         // 查找匹配的图片
                         const matchedImg = findMatchingImage(block.productName);
-                        let qrImageSrc = 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JDLG2ASQGKbzL7oic13nv5BqDTyr8QD1RUfxC3xKABWBqJiaHWsJ4qxZCetAvFjKHeOF5tBKIibqeO1w/640?wx_fmt=png';
+                        let qrImageSrc = githubImages.productCardQr;
                         
                         if (matchedImg) {
                             qrImageSrc = matchedImg.dataUrl;
@@ -1539,7 +1548,7 @@ http://www.lizhi.shop`
                             <section style="text-align: center;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
                                 <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
                                     <span leaf="">
-                                        <img data-src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JCXEQODbGMq79bUUJMBnGM09eXMC35t5lrT5rOTC8iatLXYw6zDCsN99vvkFgsO7jKssUBNLaQpAicw/640?wx_fmt=png" class="rich_pages wxw-img" data-ratio="0.125" data-type="png" data-w="1000" style="vertical-align: middle; box-sizing: border-box; width: 677px !important; height: auto !important; visibility: visible !important;" src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JCXEQODbGMq79bUUJMBnGM09eXMC35t5lrT5rOTC8iatLXYw6zDCsN99vvkFgsO7jKssUBNLaQpAicw/640?wx_fmt=png" _width="100%" alt="长条配图">
+                                        <img data-src="${githubImages.productCardBanner}" class="rich_pages wxw-img" data-ratio="0.125" data-type="png" data-w="1000" style="vertical-align: middle; box-sizing: border-box; width: 677px !important; height: auto !important; visibility: visible !important;" src="${githubImages.productCardBanner}" _width="100%" alt="长条配图">
                                     </span>
                                 </section>
                             </section>
