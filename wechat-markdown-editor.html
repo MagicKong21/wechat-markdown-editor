@@ -4,14 +4,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>微信公众号 Markdown 渲染编辑器</title>
+    <!-- 
+        微信公众号 Markdown 渲染编辑器
+        
+        功能特性：
+        - Markdown 到微信公众号 HTML 的转换
+        - 商品卡片组件支持（自动匹配二维码图片）
+        - 图片上传与 QR 码自动替换
+        - 淘口令批量更新
+        - 快捷键支持 (Cmd+B 加粗、Cmd+U 下划线、Cmd+K 链接)
+        - 撤销/重做功能
+        
+        技术栈：
+        - 原生 HTML/CSS/JavaScript
+        - Font Awesome 图标库
+        - jsQR 二维码识别
+        - QRCode.js 二维码生成
+    -->
+    
     <!-- 外部资源 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     
-    <!-- 样式区域 - 按功能模块划分 -->
+    <!-- ==================== 样式区域 ==================== -->
     <style>
-        /* ========== 全局基础样式 ========== */
+        /* 全局基础样式 */
         * {
             margin: 0;
             padding: 0;
@@ -19,6 +37,7 @@
             font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif;
         }
         
+        /* 页面主体 */
         body {
             background-color: #f5f7fa;
             color: #333;
@@ -27,8 +46,8 @@
             max-width: 1600px;
             margin: 0 auto;
         }
-
-        /* ========== 页面标题 ========== */
+        
+        /* 页面标题区域 */
         header {
             text-align: center;
             margin-top: 20px;
@@ -49,7 +68,8 @@
             line-height: 1.4;
         }
 
-        /* ========== 核心布局 - 编辑/预览区 ========== */
+        /* ==================== 布局样式 ==================== */
+        /* 编辑区与预览区容器 */
         .container {
             display: flex;
             flex-wrap: wrap;
@@ -57,6 +77,7 @@
             margin-bottom: 30px;
         }
         
+        /* 编辑器/预览容器通用样式 */
         .editor-container, .preview-container {
             flex: 1;
             min-width: 300px;
@@ -66,6 +87,7 @@
             background-color: white;
         }
         
+        /* 面板头部 */
         .panel-header {
             background: linear-gradient(135deg, #3498db, #2c3e50);
             color: white;
@@ -76,6 +98,7 @@
             font-size: 14px;
         }
         
+        /* 头部内的小按钮 */
         .panel-header .btn-sm {
             padding: 4px 10px;
             font-size: 12px;
@@ -86,12 +109,14 @@
             font-size: 16px;
         }
         
+        /* 面板内容区 */
         .panel-content {
             height: 500px;
             overflow: auto;
             padding: 0;
         }
         
+        /* Markdown 输入框 */
         #markdown-input {
             width: 100%;
             height: 100%;
@@ -656,7 +681,7 @@ http://www.lizhi.shop`
         </div>
     </div>
 
-    <!-- 控制按钮区 -->
+    <!-- ==================== 控制按钮区 ==================== -->
     <div class="controls">
         <div id="status-message" class="status-message"></div>
         <button class="btn btn-primary" id="copy-btn">
@@ -676,42 +701,54 @@ http://www.lizhi.shop`
         </div>
     </div>
     
-    <!-- 图片预览面板 -->
+    <!-- ==================== 图片预览面板 ==================== -->
     <div id="image-preview-panel" class="image-preview-panel" style="display: none;">
         <h4>已上传图片 <span style="font-size: 12px; color: #999; font-weight: normal;">(自动添加了日期参数)</span></h4>
         <div id="image-preview-grid" class="image-preview-grid"></div>
     </div>
     
-    <!-- 隐藏的复制容器 -->
+    <!-- 隐藏的复制容器（用于富文本复制） -->
     <div id="copy-container" contenteditable="true"></div>
 
+    <!-- ==================== JavaScript 逻辑 ==================== -->
     <script>
     
-        // ========== 全局撤销栈 ==========
-        let undoStack = [];
-        let redoStack = [];
+        /* ==================== 全局状态管理 ==================== */
         
-        // 图片上传管理
-        let uploadedImages = {}; // { filename: { dataUrl: string, useCount: number } }
+        // 撤销/重做栈
+        const undoStack = [];
+        const redoStack = [];
         
-        // 当前淘口令
+        // 上传的图片管理 { filename: { dataUrl, useCount, qrReplaced } }
+        const uploadedImages = {};
+        
+        // 当前淘口令（用于商品卡片展示）
         let currentTaoKouLing = '77《Dnd3UYMQhCh✔ https://s.tb.cn/h.77yL1DE &nbsp;CZ001';
         
+        // 获取编辑器元素
         const textarea = document.getElementById('markdown-input');
         
-        // 监听文本框原生输入，同步更新撤销栈
+        /* ==================== 撤销/重做功能 ==================== */
+        
+        /**
+         * 监听文本输入，同步更新撤销栈
+         */
         textarea.addEventListener('input', function() {
-            // 只记录非快捷键操作的原生输入（避免和手动记录重复）
+            // 只记录非快捷键操作的原生输入
             if (!this.dataset.isShortcutAction) {
                 undoStack.push(this.value);
-                redoStack = []; // 新输入清空重做栈
-                // 限制撤销栈长度，避免内存占用过大
+                redoStack.length = 0; // 清空重做栈
+                // 限制撤销栈长度
                 if (undoStack.length > 50) undoStack.shift();
             }
             delete this.dataset.isShortcutAction;
         });
         
-        // 图片上传处理
+        /* ==================== 图片上传与处理 ==================== */
+        
+        /**
+         * 图片上传事件监听
+         */
         document.getElementById('image-upload').addEventListener('change', function(e) {
             const files = Array.from(e.target.files);
             
@@ -721,10 +758,13 @@ http://www.lizhi.shop`
                 }
             });
             
-            // 清空 input 以允许重复上传同一文件
-            this.value = '';
+            this.value = ''; // 清空 input 允许重复上传
         });
         
+        /**
+         * 生成今日日期戳（用于追踪参数）
+         * @returns {string} 格式: pYYMMDD
+         */
         function getTodayStamp() {
             const d = new Date();
             const yy = String(d.getFullYear()).slice(-2);
@@ -733,29 +773,43 @@ http://www.lizhi.shop`
             return `p${yy}${mm}${dd}`;
         }
         
+        /**
+         * 更新二维码 URL 参数
+         * @param {string} originalUrl - 原始二维码 URL
+         * @returns {string} 更新后的 URL
+         */
         function getNewQRUrl(originalUrl) {
             const todayStamp = getTodayStamp();
             const targetCid = "53qvofdc";
+            
             if (originalUrl.includes('search_list')) {
+                // Search List 模板：更新 hmpl 参数
                 return originalUrl.replace(/hmpl=p\d+/, `hmpl=${todayStamp}`);
             } else if (originalUrl.includes('products')) {
+                // Products 模板：添加cid和hmpl参数
                 const baseUrl = originalUrl.split('?')[0];
                 return `${baseUrl}?cid=${targetCid}&hmsr=wechat&hmpl=${todayStamp}`;
             }
             return originalUrl;
         }
         
+        /**
+         * 处理上传的图片（识别并替换二维码）
+         * @param {File} file - 上传的文件对象
+         */
         function processImageWithQR(file) {
             const reader = new FileReader();
             reader.onload = async function(event) {
                 const img = new Image();
                 img.onload = async () => {
+                    // 创建画布处理图片
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
                     canvas.width = img.width;
                     canvas.height = img.height;
                     ctx.drawImage(img, 0, 0);
                     
+                    // 识别二维码
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     const code = jsQR(imageData.data, imageData.width, imageData.height);
                     
@@ -765,8 +819,13 @@ http://www.lizhi.shop`
                     if (code) {
                         const newUrl = getNewQRUrl(code.data);
                         if (newUrl !== code.data) {
+                            // 生成新二维码并绘制到图片上
                             const qrCanvas = document.createElement('canvas');
-                            await QRCode.toCanvas(qrCanvas, newUrl, { margin: 0, width: 216, errorCorrectionLevel: 'H' });
+                            await QRCode.toCanvas(qrCanvas, newUrl, { 
+                                margin: 0, 
+                                width: 216, 
+                                errorCorrectionLevel: 'H' 
+                            });
                             ctx.drawImage(qrCanvas, 760, 140, 216, 216);
                             finalDataUrl = canvas.toDataURL('image/png');
                             qrReplaced = true;
@@ -774,12 +833,14 @@ http://www.lizhi.shop`
                         }
                     }
                     
+                    // 保存处理后的图片
                     const filename = file.name.replace(/\.[^.]+$/, '');
                     uploadedImages[filename] = {
                         dataUrl: finalDataUrl,
                         useCount: 0,
                         qrReplaced: qrReplaced
                     };
+                    
                     updateImagePreview();
                     updatePreview();
                 };
@@ -788,36 +849,14 @@ http://www.lizhi.shop`
             reader.readAsDataURL(file);
         }
         
-        // 更新图片预览面板
-        function updateImagePreview() {
-            const panel = document.getElementById('image-preview-panel');
-            const grid = document.getElementById('image-preview-grid');
-            
-            const filenames = Object.keys(uploadedImages);
-            
-            if (filenames.length === 0) {
-                panel.style.display = 'none';
-                return;
-            }
-            
-            panel.style.display = 'block';
-            grid.innerHTML = '';
-            
-            filenames.forEach(filename => {
-                const img = uploadedImages[filename];
-                const isAssigned = assignedFilenames.includes(filename);
-                const item = document.createElement('div');
-                item.className = `image-preview-item ${isAssigned ? 'used' : 'unused'}`;
-                item.innerHTML = `
-                    <img src="${img.dataUrl}" alt="${filename}">
-                    <div class="status-icon">${isAssigned ? '✓' : '✗'}</div>
-                    <div class="filename">${filename}</div>
-                `;
-                grid.appendChild(item);
-            });
-        }
+        /* ==================== 图片匹配与使用计数 ==================== */
         
-        // 根据商品名称查找匹配的图片
+        /**
+         * 根据商品名称查找匹配的图片
+         * 匹配逻辑：比较商品名前10个字符与文件名
+         * @param {string} productName - 商品名称
+         * @returns {{ filename: string, dataUrl: string } | null}
+         */
         function findMatchingImage(productName) {
             const prefix = productName.substring(0, 10).toLowerCase();
             
@@ -829,50 +868,10 @@ http://www.lizhi.shop`
             return null;
         }
         
-        // 图片上传处理
-        document.getElementById('image-upload').addEventListener('change', function(e) {
-            const files = Array.from(e.target.files);
-            
-            files.forEach(file => {
-                if (file.type.startsWith('image/')) {
-                    processImageWithQR(file);
-                }
-            });
-            
-            // 清空 input 以允许重复上传同一文件
-            this.value = '';
-        });
-        
-        // 更新图片预览面板
-        function updateImagePreview() {
-            const panel = document.getElementById('image-preview-panel');
-            const grid = document.getElementById('image-preview-grid');
-            
-            const filenames = Object.keys(uploadedImages);
-            
-            if (filenames.length === 0) {
-                panel.style.display = 'none';
-                return;
-            }
-            
-            panel.style.display = 'block';
-            grid.innerHTML = '';
-            
-            filenames.forEach(filename => {
-                const img = uploadedImages[filename];
-                const isUsed = img.useCount > 0;
-                const item = document.createElement('div');
-                item.className = `image-preview-item ${isUsed ? 'used' : 'unused'}`;
-                item.innerHTML = `
-                    <img src="${img.dataUrl}" alt="${filename}">
-                    <div class="use-count">${img.useCount}</div>
-                    <div class="filename">${filename}</div>
-                `;
-                grid.appendChild(item);
-            });
-        }
-        
-        // 增加图片使用计数
+        /**
+         * 增加图片使用计数
+         * @param {string} dataUrl - 图片的 data URL
+         */
         function incrementImageUseCount(dataUrl) {
             for (const filename of Object.keys(uploadedImages)) {
                 if (uploadedImages[filename].dataUrl === dataUrl) {
@@ -882,9 +881,12 @@ http://www.lizhi.shop`
             }
         }
         
-        // ========== 常量定义区 ==========
-        // GitHub 资源链接（用于预览显示）
+        /* ==================== 图片资源常量定义 ==================== */
+        
+        // GitHub 资源基础 URL（用于预览显示）
         const githubBase = 'https://raw.githubusercontent.com/MagicKong21/wechat-markdown-editor/main/images';
+        
+        // GitHub 图片资源映射
         const githubImages = {
             header: `${githubBase}/header.png`,
             footer: `${githubBase}/footer.png`,
@@ -900,13 +902,6 @@ http://www.lizhi.shop`
             title9: `${githubBase}/title9.png`,
             productCardQr: `${githubBase}/product-card-qr.png`,
             productCardBanner: `${githubBase}/product-card-banner.png`
-        };
-            title4: `${githubBase}/title4.png`,
-            title5: `${githubBase}/title5.png`,
-            title6: `${githubBase}/title6.png`,
-            title7: `${githubBase}/title7.png`,
-            title8: `${githubBase}/title8.png`,
-            title9: `${githubBase}/title9.png`
         };
 
         // 微信原始链接（用于复制到微信编辑器）
@@ -996,19 +991,21 @@ http://www.lizhi.shop`
             <img data-src="${githubImages.heart}" class="rich_pages wxw-img __bg_gif" data-ratio="0.20673076923076922" data-s="300,640" data-type="gif" data-w="208" style="width: 72px !important; height: auto !important; visibility: visible !important; float: right;" src="${githubImages.heart}" _width="72px" alt="底部GIF">
         </section>`;
 
-        // 标准空行模板
+        // 标准空行模板（用于段落间距）
         const singleBr = '<p style="margin: 0px 16px; text-align: left; line-height: 1.6em;"><span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal;"><br></span></p>';
         const doubleBr = singleBr + singleBr;
 
-        // ========== 工具函数区 ==========
+        /* ==================== 文本格式化工具 ==================== */
+        
         /**
          * 处理行内格式：加粗、标蓝、加粗标蓝
          * @param {string} text - 需要处理的文本
-         * @param {boolean} skipWrapper - 是否跳过基础span包装（用于标题等需要紧凑显示的场景）
+         * @param {boolean} skipWrapper - 是否跳过基础span包装
          * @returns {string} 处理后的HTML文本
          */
         function processInlineFormatting(text, skipWrapper = false) {
             let processed = text || '';
+            
             // 加粗 **文本**
             processed = processed.replace(/\*\*(.*?)\*\*/g, '<span textstyle="" style="letter-spacing: normal; font-weight: bold;">$1</span>');
             // 标蓝 [[文本]]
@@ -1016,18 +1013,20 @@ http://www.lizhi.shop`
             // 加粗标蓝 [[**文本**]]
             processed = processed.replace(/\[\[\*\*(.*?)\*\*\]\]/g, '<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255); font-weight: bold;">$1</span>');
             
-            // 基础span包装（可选）
+            // 基础span包装
             if (!skipWrapper && !processed.includes('textstyle=""') && processed) {
                 processed = `<span textstyle="" style="letter-spacing: normal;">${processed}</span>`;
             }
             return processed;
         }
 
+        /* ==================== Markdown 解析与渲染 ==================== */
+        
         /**
-          * Markdown转微信预览HTML
-          * @param {string} markdown - Markdown文本
-          * @returns {string} 微信样式的HTML
-          */
+         * Markdown转微信预览HTML
+         * @param {string} markdown - Markdown文本
+         * @returns {string} 微信样式的HTML
+         */
         function markdownToWeChatHTML(markdown) {
             let rawLines = markdown.split('\n');
             let contentBlocks = [];
@@ -1035,7 +1034,7 @@ http://www.lizhi.shop`
             let currentList = [];
             let i = 0;
             
-            // 第一步：解析内容块（支持多行灰色底框）
+            // 第一步：解析内容块
             while (i < rawLines.length) {
                 const line = rawLines[i];
                 const trimmedLine = line.trim();
@@ -1044,11 +1043,11 @@ http://www.lizhi.shop`
                 if (trimmedLine.startsWith('`') && !trimmedLine.endsWith('`')) {
                     let boxLines = [];
                     
-                    // 收集开始行（去掉开头的 `）
+                    // 收集开始行
                     boxLines.push(trimmedLine.slice(1).trim());
                     i++;
                     
-                    // 收集中间行，直到遇到以 ` 结尾的行
+                    // 收集中间行
                     while (i < rawLines.length) {
                         const nextLine = rawLines[i].trim();
                         if (nextLine.endsWith('`')) {
