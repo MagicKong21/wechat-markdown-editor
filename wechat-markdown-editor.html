@@ -629,6 +629,18 @@ http://www.lizhi.shop`
                     result = result.split(sourceMap[key]).join(targetMap[key]);
                 }
             }
+            
+            // 复制到微信时，添加 data-original-style 属性实现自适应
+            if (useWechatLinks) {
+                result = result.replace(/<img([^>]*)src="([^"]*)"([^>]*)>/g, function(match, before, src, after) {
+                    // 如果还没有 data-original-style，添加它
+                    if (!match.includes('data-original-style')) {
+                        return `<img${before}src="${src}" data-original-style="width: 100%;height: auto !important;"${after}>`;
+                    }
+                    return match;
+                });
+            }
+            
             return result;
         }
 
