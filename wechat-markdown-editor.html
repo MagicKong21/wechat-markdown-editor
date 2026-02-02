@@ -1066,11 +1066,7 @@ http://www.lizhi.shop`
                         </div>`;
                     }
                     case 'product-card': {
-                        return `<section style="box-sizing: border-box;font-size: 16px;margin-bottom: 0;">
-                            <section style="text-align: center;margin-top: 0;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
-                                <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
-                                    <span leaf="">
-                                        // 查找匹配的图片
+                        // 查找匹配的图片
                         const matchedImg = findMatchingImage(block.productName);
                         let qrImageSrc = 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JDLG2ASQGKbzL7oic13nv5BqDTyr8QD1RUfxC3xKABWBqJiaHWsJ4qxZCetAvFjKHeOF5tBKIibqeO1w/640?wx_fmt=png';
                         
@@ -1103,6 +1099,7 @@ http://www.lizhi.shop`
                                 </section>
                             </section>
                         </section>`;
+                    }
                     }
                     case 'box': {
                         const innerContent = block.content;
@@ -1399,18 +1396,27 @@ http://www.lizhi.shop`
                         return titleHTML;
                     }
                     case 'product-card': {
+                        // 查找匹配的图片
+                        const matchedImg = findMatchingImage(block.productName);
+                        let qrImageSrc = 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JDLG2ASQGKbzL7oic13nv5BqDTyr8QD1RUfxC3xKABWBqJiaHWsJ4qxZCetAvFjKHeOF5tBKIibqeO1w/640?wx_fmt=png';
+                        
+                        if (matchedImg) {
+                            qrImageSrc = matchedImg.dataUrl;
+                            markImageAsUsed(matchedImg.dataUrl);
+                        }
+                        
                         return `<section style="box-sizing: border-box;font-size: 16px;margin-bottom: 0;">
                             <section style="text-align: center;margin-top: 0;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
                                 <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
                                     <span leaf="">
-                                        <img data-src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JDLG2ASQGKbzL7oic13nv5BqDTyr8QD1RUfxC3xKABWBqJiaHWsJ4qxZCetAvFjKHeOF5tBKIibqeO1w/640?wx_fmt=png" class="rich_pages wxw-img" data-ratio="0.39453125" data-s="300,640" data-type="png" data-w="1024" style="vertical-align: middle; box-sizing: border-box; width: 677px !important; height: auto !important; visibility: visible !important;" data-croporisrc="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JDLG2ASQGKbzL7oic13nv5BqDTyr8QD1RUfxC3xKABWBqJiaHWsJ4qxZCetAvFjKHeOF5tBKIibqeO1w/0?wx_fmt=png" data-cropselx2="578" data-cropsely2="241" data-backw="578" data-backh="228" data-imgfileid="100091380" data-aistatus="1" data-original-style="vertical-align:middle;box-sizing:border-box;width:100%;" src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JDLG2ASQGKbzL7oic13nv5BqDTyr8QD1RUfxC3xKABWBqJiaHWsJ4qxZCetAvFjKHeOF5tBKIibqeO1w/640?wx_fmt=png" _width="100%" alt="${block.productName}">
+                                        <img data-src="${qrImageSrc}" class="rich_pages wxw-img" data-ratio="0.39453125" data-s="300,640" data-type="png" data-w="1024" style="vertical-align: middle; box-sizing: border-box; width: 677px !important; height: auto !important; visibility: visible !important;" src="${qrImageSrc}" _width="100%" alt="${block.productName}">
                                     </span>
                                 </section>
                             </section>
                             <section style="text-align: center;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
                                 <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
                                     <span leaf="">
-                                        <img data-src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JCXEQODbGMq79bUUJMBnGM09eXMC35t5lrT5rOTC8iatLXYw6zDCsN99vvkFgsO7jKssUBNLaQpAicw/640?wx_fmt=png" class="rich_pages wxw-img" data-ratio="0.125" data-type="png" data-w="1000" style="vertical-align: middle; box-sizing: border-box; width: 677px !important; height: auto !important; visibility: visible !important;" data-backw="578" data-backh="72" data-aistatus="1" data-original-style="vertical-align:middle;box-sizing:border-box;width:100%;" src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JCXEQODbGMq79bUUJMBnGM09eXMC35t5lrT5rOTC8iatLXYw6zDCsN99vvkFgsO7jKssUBNLaQpAicw/640?wx_fmt=png" _width="100%" alt="长条配图">
+                                        <img data-src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JCXEQODbGMq79bUUJMBnGM09eXMC35t5lrT5rOTC8iatLXYw6zDCsN99vvkFgsO7jKssUBNLaQpAicw/640?wx_fmt=png" class="rich_pages wxw-img" data-ratio="0.125" data-type="png" data-w="1000" style="vertical-align: middle; box-sizing: border-box; width: 677px !important; height: auto !important; visibility: visible !important;" src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JCXEQODbGMq79bUUJMBnGM09eXMC35t5lrT5rOTC8iatLXYw6zDCsN99vvkFgsO7jKssUBNLaQpAicw/640?wx_fmt=png" _width="100%" alt="长条配图">
                                     </span>
                                 </section>
                             </section>
