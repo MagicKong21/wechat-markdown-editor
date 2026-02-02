@@ -815,6 +815,17 @@ http://www.lizhi.shop`
 
                 // 普通段落
                 if (trimmedLine) {
+                    // 检测商品卡片
+                    const productCardMatch = trimmedLine.match(/^商品卡片：(.+)$/);
+                    if (productCardMatch) {
+                        contentBlocks.push({
+                            type: 'product-card',
+                            productName: productCardMatch[1]
+                        });
+                        i++;
+                        continue;
+                    }
+                    
                     contentBlocks.push({
                         type: 'p',
                         content: trimmedLine
@@ -863,6 +874,32 @@ http://www.lizhi.shop`
                                 </div>
                             </div>
                         </div>`;
+                    }
+                    case 'product-card': {
+                        return `<section style="box-sizing: border-box;font-size: 16px;margin-bottom: 0;">
+                            <section style="text-align: center;margin-top: 0;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
+                                <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
+                                    <span leaf="">
+                                        <img data-src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JDLG2ASQGKbzL7oic13nv5BqDTyr8QD1RUfxC3xKABWBqJiaHWsJ4qxZCetAvFjKHeOF5tBKIibqeO1w/640?wx_fmt=png" class="rich_pages wxw-img" data-ratio="0.39453125" data-s="300,640" data-type="png" data-w="1024" style="vertical-align: middle; box-sizing: border-box; width: 677px !important; height: auto !important; visibility: visible !important;" data-croporisrc="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JDLG2ASQGKbzL7oic13nv5BqDTyr8QD1RUfxC3xKABWBqJiaHWsJ4qxZCetAvFjKHeOF5tBKIibqeO1w/0?wx_fmt=png" data-cropselx2="578" data-cropsely2="241" data-backw="578" data-backh="228" data-imgfileid="100091380" data-aistatus="1" data-original-style="vertical-align:middle;box-sizing:border-box;width:100%;" src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JDLG2ASQGKbzL7oic13nv5BqDTyr8QD1RUfxC3xKABWBqJiaHWsJ4qxZCetAvFjKHeOF5tBKIibqeO1w/640?wx_fmt=png" _width="100%" alt="${block.productName}">
+                                    </span>
+                                </section>
+                            </section>
+                            <section style="text-align: center;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
+                                <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
+                                    <span leaf="">
+                                        <img data-src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JCXEQODbGMq79bUUJMBnGM09eXMC35t5lrT5rOTC8iatLXYw6zDCsN99vvkFgsO7jKssUBNLaQpAicw/640?wx_fmt=png" class="rich_pages wxw-img" data-ratio="0.125" data-type="png" data-w="1000" style="vertical-align: middle; box-sizing: border-box; width: 677px !important; height: auto !important; visibility: visible !important;" data-backw="578" data-backh="72" data-aistatus="1" data-original-style="vertical-align:middle;box-sizing:border-box;width:100%;" src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JCXEQODbGMq79bUUJMBnGM09eXMC35t5lrT5rOTC8iatLXYw6zDCsN99vvkFgsO7jKssUBNLaQpAicw/640?wx_fmt=png" _width="100%" alt="长条配图">
+                                    </span>
+                                </section>
+                            </section>
+                            <section style="display: inline-block;width: 100%;vertical-align: top;padding-right: 10px;padding-left: 10px;border-width: 0px;background-color: rgb(246, 251, 253);box-sizing: border-box;">
+                                <section style="margin: 10px 0%;box-sizing: border-box;">
+                                    <section style="text-align: center;color: rgb(0, 0, 0);font-size: 12px;box-sizing: border-box;">
+                                        <p><span style="font-size: 10px;"><span leaf="">77《Dnd3UYMQhCh✔ https://s.tb.cn/h.77yL1DE &nbsp;CZ001</span></span></p>
+                                        <p><span style="font-size: 10px;"><span leaf="">电脑直接访问链接，手机复制本段所有内容</span></span></p>
+                                    </section>
+                                </section>
+                            </section>
+                        </section>`;
                     }
                     case 'box': {
                         const innerContent = block.content;
@@ -1082,6 +1119,17 @@ http://www.lizhi.shop`
                 }
 
                 if (trimmedLine) {
+                    // 检测商品卡片
+                    const productCardMatch = trimmedLine.match(/^商品卡片：(.+)$/);
+                    if (productCardMatch) {
+                        contentBlocks.push({
+                            type: 'product-card',
+                            productName: productCardMatch[1]
+                        });
+                        i++;
+                        continue;
+                    }
+                    
                     contentBlocks.push({ type: 'p', content: trimmedLine });
                 }
                 i++;
@@ -1146,6 +1194,32 @@ http://www.lizhi.shop`
                     
                         // 不在标题内部添加空行，由外部统一控制
                         return titleHTML;
+                    }
+                    case 'product-card': {
+                        return `<section style="box-sizing: border-box;font-size: 16px;margin-bottom: 0;">
+                            <section style="text-align: center;margin-top: 0;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
+                                <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
+                                    <span leaf="">
+                                        <img data-src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JDLG2ASQGKbzL7oic13nv5BqDTyr8QD1RUfxC3xKABWBqJiaHWsJ4qxZCetAvFjKHeOF5tBKIibqeO1w/640?wx_fmt=png" class="rich_pages wxw-img" data-ratio="0.39453125" data-s="300,640" data-type="png" data-w="1024" style="vertical-align: middle; box-sizing: border-box; width: 677px !important; height: auto !important; visibility: visible !important;" data-croporisrc="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JDLG2ASQGKbzL7oic13nv5BqDTyr8QD1RUfxC3xKABWBqJiaHWsJ4qxZCetAvFjKHeOF5tBKIibqeO1w/0?wx_fmt=png" data-cropselx2="578" data-cropsely2="241" data-backw="578" data-backh="228" data-imgfileid="100091380" data-aistatus="1" data-original-style="vertical-align:middle;box-sizing:border-box;width:100%;" src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JDLG2ASQGKbzL7oic13nv5BqDTyr8QD1RUfxC3xKABWBqJiaHWsJ4qxZCetAvFjKHeOF5tBKIibqeO1w/640?wx_fmt=png" _width="100%" alt="${block.productName}">
+                                    </span>
+                                </section>
+                            </section>
+                            <section style="text-align: center;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
+                                <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
+                                    <span leaf="">
+                                        <img data-src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JCXEQODbGMq79bUUJMBnGM09eXMC35t5lrT5rOTC8iatLXYw6zDCsN99vvkFgsO7jKssUBNLaQpAicw/640?wx_fmt=png" class="rich_pages wxw-img" data-ratio="0.125" data-type="png" data-w="1000" style="vertical-align: middle; box-sizing: border-box; width: 677px !important; height: auto !important; visibility: visible !important;" data-backw="578" data-backh="72" data-aistatus="1" data-original-style="vertical-align:middle;box-sizing:border-box;width:100%;" src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JCXEQODbGMq79bUUJMBnGM09eXMC35t5lrT5rOTC8iatLXYw6zDCsN99vvkFgsO7jKssUBNLaQpAicw/640?wx_fmt=png" _width="100%" alt="长条配图">
+                                    </span>
+                                </section>
+                            </section>
+                            <section style="display: inline-block;width: 100%;vertical-align: top;padding-right: 10px;padding-left: 10px;border-width: 0px;background-color: rgb(246, 251, 253);box-sizing: border-box;">
+                                <section style="margin: 10px 0%;box-sizing: border-box;">
+                                    <section style="text-align: center;color: rgb(0, 0, 0);font-size: 12px;box-sizing: border-box;">
+                                        <p><span style="font-size: 10px;"><span leaf="">77《Dnd3UYMQhCh✔ https://s.tb.cn/h.77yL1DE &nbsp;CZ001</span></span></p>
+                                        <p><span style="font-size: 10px;"><span leaf="">电脑直接访问链接，手机复制本段所有内容</span></span></p>
+                                    </section>
+                                </section>
+                            </section>
+                        </section>`;
                     }
                     case 'box': {
                         const innerContent = block.content;
