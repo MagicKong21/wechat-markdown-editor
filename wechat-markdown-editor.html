@@ -1121,17 +1121,20 @@ http://www.lizhi.shop`
 
                 // 普通段落
                 if (trimmedLine) {
-                    // 检测商品卡片（支持冒号后无内容的情况）
+                    // 检测商品卡片
                     const productCardMatch = trimmedLine.match(/^商品卡片：(.*)$/);
                     if (productCardMatch) {
                         let productName = productCardMatch[1];
-                        // 提取淘口令（格式：产品名 淘口令 URL）
+                        
+                        // 提取淘口令
                         const taoMatch = productName.match(/(77《[^》]+》.*?)(\s+https?:\/\/s\.tb\.cn\/)?$/);
                         if (taoMatch && taoMatch[1]) {
                             currentTaoKouLing = taoMatch[1].trim();
                         }
-                        // 去掉图片扩展名（用于和上传的图片文件名匹配）
+                        
+                        // 去掉图片扩展名用于匹配
                         productName = productName.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '');
+                        
                         contentBlocks.push({
                             type: 'product-card',
                             productName: productName
@@ -1156,25 +1159,23 @@ http://www.lizhi.shop`
                 });
             }
 
-            // 统计一级标题数量，用于计算图片序号
+            // 统计一级标题数量
             let h1Counter = 0;
             
             // 第二步：生成块HTML
             function generateBlockHTML(block) {
                 switch (block.type) {
                     case 'h1': {
-                        // 只根据一级标题的数量来计算图片序号
                         h1Counter++;
                         const imgIndex = (h1Counter - 1) % titleImages.length;
                         const imgUrl = titleImages[imgIndex];
-                        // 大标题：使用更严格的正则顺序处理不同类型的括号
+                        
+                        // 处理标题格式
                         let titleContent = block.content;
-                        // 第一步：处理加粗 **文本**
                         titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
-                        // 第二步：处理标蓝 [[文本]] - 必须先处理
                         titleContent = titleContent.replace(/\[\[(.*?)\]\]/g, '<span style="color: rgb(51, 173, 255);">$1</span>');
-                        // 第三步：处理 [] 为默认颜色和15号字体 - 只匹配单独的 [文本]
                         titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #333; font-size: 15px;">[$1]</span>');
+                        
                         return `<div class="level1-title">
                             <img src="${imgUrl}" width="50" height="50" alt="标题图标" style="margin-right: 8px;float: none;">
                             <span class="title-text">${titleContent}</span>
