@@ -6,6 +6,8 @@
     <title>微信公众号 Markdown 渲染编辑器</title>
     <!-- 外部资源 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     
     <!-- 样式区域 - 按功能模块划分 -->
     <style>
@@ -74,6 +76,12 @@
             font-size: 14px;
         }
         
+        .panel-header .btn-sm {
+            padding: 4px 10px;
+            font-size: 12px;
+            border-radius: 4px;
+        }
+        
         .panel-header i {
             font-size: 16px;
         }
@@ -124,6 +132,11 @@
             margin: 10px 0;
             line-height: 1.8;
             font-size: 14px;
+        }
+        
+        .wx-article .product-card-section p {
+            margin: 4px 0;
+            line-height: 1.5;
         }
         
         /* 一级标题样式 */
@@ -372,27 +385,20 @@
             box-shadow: 0 0 0 2px #dc3545;
         }
         
-        .image-preview-item .status-icon {
+        .image-preview-item .use-count {
             position: absolute;
             top: 2px;
             right: 2px;
-            width: 16px;
-            height: 16px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 10px;
-        }
-        
-        .image-preview-item.used .status-icon {
-            background: #28a745;
+            font-size: 11px;
+            font-weight: bold;
             color: white;
-        }
-        
-        .image-preview-item.unused .status-icon {
-            background: #dc3545;
-            color: white;
+            background: rgba(0,0,0,0.6);
         }
         
         .image-preview-item .filename {
@@ -423,12 +429,12 @@
         }
         
         .btn-primary {
-            background: linear-gradient(135deg, #3498db, #2980b9);
+            background: linear-gradient(135deg, #4285f4, #3367d6);
             color: white;
         }
         
         .btn-secondary {
-            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            background: linear-gradient(135deg, #ea4335, #d33426);
             color: white;
         }
         
@@ -589,6 +595,9 @@
             <div class="panel-header">
                 <i class="fas fa-edit"></i>
                 <h2>Markdown 编辑区</h2>
+                <button class="btn btn-sm" id="example-btn" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; margin-left: auto;">
+                    <i class="fas fa-file-alt"></i> 加载示例
+                </button>
             </div>
             <div class="panel-content">
                 <textarea id="markdown-input" placeholder="在这里输入 Markdown 文本...">我是开头，巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉
@@ -598,6 +607,8 @@
 大标题下的内容，巴拉巴拉
 ### 我是小标题
 小标题下的内容，巴拉巴拉
+商品卡片：Downie 4 - Mac在线视频下载软件 支持主流视频网站_推广二维码_2026-02-02-16-52-00.png
+
 ## 我是二号大标题 [Win]
 ### 我是小标题
 小标题下的内容，巴拉巴拉
@@ -654,12 +665,12 @@ http://www.lizhi.shop`
         <button class="btn btn-secondary" id="clear-btn">
             <i class="fas fa-broom"></i> 清空编辑器
         </button>
-        <button class="btn" id="example-btn" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white;">
-            <i class="fas fa-file-alt"></i> 加载示例
+        <button class="btn" id="update-taokouling-btn" style="background: linear-gradient(135deg, #34a853, #2e9549); color: white;">
+            <i class="fas fa-key"></i> 更新淘口令
         </button>
         <div class="image-upload-area">
             <input type="file" id="image-upload" class="image-upload-input" multiple accept="image/*">
-            <button class="btn" style="background: linear-gradient(135deg, #27ae60, #2ecc71); color: white;" onclick="document.getElementById('image-upload').click()">
+            <button class="btn" style="background: linear-gradient(135deg, #fbbc05, #e5a804); color: white;" onclick="document.getElementById('image-upload').click()">
                 <i class="fas fa-image"></i> 上传图片
             </button>
         </div>
@@ -667,7 +678,7 @@ http://www.lizhi.shop`
     
     <!-- 图片预览面板 -->
     <div id="image-preview-panel" class="image-preview-panel" style="display: none;">
-        <h4>已上传图片</h4>
+        <h4>已上传图片 <span style="font-size: 12px; color: #999; font-weight: normal;">(自动添加了日期参数)</span></h4>
         <div id="image-preview-grid" class="image-preview-grid"></div>
     </div>
     
@@ -680,8 +691,11 @@ http://www.lizhi.shop`
         let undoStack = [];
         let redoStack = [];
         
-        // ========== 上传图片管理 ==========
-        let uploadedImages = {}; // { filename: { dataUrl: string, used: boolean } }
+        // 图片上传管理
+        let uploadedImages = {}; // { filename: { dataUrl: string, useCount: number } }
+        
+        // 当前淘口令
+        let currentTaoKouLing = '77《Dnd3UYMQhCh✔ https://s.tb.cn/h.77yL1DE &nbsp;CZ001';
         
         const textarea = document.getElementById('markdown-input');
         
@@ -703,17 +717,125 @@ http://www.lizhi.shop`
             
             files.forEach(file => {
                 if (file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = function(event) {
-                        const filename = file.name.replace(/\.[^.]+$/, ''); // 去掉扩展名
-                        uploadedImages[filename] = {
-                            dataUrl: event.target.result,
-                            used: false
-                        };
-                        updateImagePreview();
-                        updatePreview();
+                    processImageWithQR(file);
+                }
+            });
+            
+            // 清空 input 以允许重复上传同一文件
+            this.value = '';
+        });
+        
+        function getTodayStamp() {
+            const d = new Date();
+            const yy = String(d.getFullYear()).slice(-2);
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `p${yy}${mm}${dd}`;
+        }
+        
+        function getNewQRUrl(originalUrl) {
+            const todayStamp = getTodayStamp();
+            const targetCid = "53qvofdc";
+            if (originalUrl.includes('search_list')) {
+                return originalUrl.replace(/hmpl=p\d+/, `hmpl=${todayStamp}`);
+            } else if (originalUrl.includes('products')) {
+                const baseUrl = originalUrl.split('?')[0];
+                return `${baseUrl}?cid=${targetCid}&hmsr=wechat&hmpl=${todayStamp}`;
+            }
+            return originalUrl;
+        }
+        
+        function processImageWithQR(file) {
+            const reader = new FileReader();
+            reader.onload = async function(event) {
+                const img = new Image();
+                img.onload = async () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+                    
+                    let finalDataUrl = event.target.result;
+                    let qrReplaced = false;
+                    
+                    if (code) {
+                        const newUrl = getNewQRUrl(code.data);
+                        if (newUrl !== code.data) {
+                            const qrCanvas = document.createElement('canvas');
+                            await QRCode.toCanvas(qrCanvas, newUrl, { margin: 0, width: 216, errorCorrectionLevel: 'H' });
+                            ctx.drawImage(qrCanvas, 760, 140, 216, 216);
+                            finalDataUrl = canvas.toDataURL('image/png');
+                            qrReplaced = true;
+                            console.log(`二维码已替换: ${file.name}`);
+                        }
+                    }
+                    
+                    const filename = file.name.replace(/\.[^.]+$/, '');
+                    uploadedImages[filename] = {
+                        dataUrl: finalDataUrl,
+                        useCount: 0,
+                        qrReplaced: qrReplaced
                     };
-                    reader.readAsDataURL(file);
+                    updateImagePreview();
+                    updatePreview();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // 更新图片预览面板
+        function updateImagePreview() {
+            const panel = document.getElementById('image-preview-panel');
+            const grid = document.getElementById('image-preview-grid');
+            
+            const filenames = Object.keys(uploadedImages);
+            
+            if (filenames.length === 0) {
+                panel.style.display = 'none';
+                return;
+            }
+            
+            panel.style.display = 'block';
+            grid.innerHTML = '';
+            
+            filenames.forEach(filename => {
+                const img = uploadedImages[filename];
+                const isAssigned = assignedFilenames.includes(filename);
+                const item = document.createElement('div');
+                item.className = `image-preview-item ${isAssigned ? 'used' : 'unused'}`;
+                item.innerHTML = `
+                    <img src="${img.dataUrl}" alt="${filename}">
+                    <div class="status-icon">${isAssigned ? '✓' : '✗'}</div>
+                    <div class="filename">${filename}</div>
+                `;
+                grid.appendChild(item);
+            });
+        }
+        
+        // 根据商品名称查找匹配的图片
+        function findMatchingImage(productName) {
+            const prefix = productName.substring(0, 10).toLowerCase();
+            
+            for (const filename of Object.keys(uploadedImages)) {
+                if (filename.toLowerCase().startsWith(prefix)) {
+                    return { filename, dataUrl: uploadedImages[filename].dataUrl };
+                }
+            }
+            return null;
+        }
+        
+        // 图片上传处理
+        document.getElementById('image-upload').addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            
+            files.forEach(file => {
+                if (file.type.startsWith('image/')) {
+                    processImageWithQR(file);
                 }
             });
             
@@ -738,37 +860,23 @@ http://www.lizhi.shop`
             
             filenames.forEach(filename => {
                 const img = uploadedImages[filename];
+                const isUsed = img.useCount > 0;
                 const item = document.createElement('div');
-                item.className = `image-preview-item ${img.used ? 'used' : 'unused'}`;
+                item.className = `image-preview-item ${isUsed ? 'used' : 'unused'}`;
                 item.innerHTML = `
                     <img src="${img.dataUrl}" alt="${filename}">
-                    <div class="status-icon">${img.used ? '✓' : '✗'}</div>
+                    <div class="use-count">${img.useCount}</div>
                     <div class="filename">${filename}</div>
                 `;
                 grid.appendChild(item);
             });
         }
         
-        // 根据商品名称查找匹配的图片
-        function findMatchingImage(productName) {
-            const productKeywords = productName.toLowerCase().split(/[\s\-_]+/);
-            
-            for (const filename of Object.keys(uploadedImages)) {
-                const filenameLower = filename.toLowerCase();
-                // 检查文件名是否包含商品名的任意关键词
-                const matchCount = productKeywords.filter(kw => filenameLower.includes(kw)).length;
-                if (matchCount > 0) {
-                    return uploadedImages[filename];
-                }
-            }
-            return null;
-        }
-        
-        // 标记图片为已使用
-        function markImageAsUsed(dataUrl) {
+        // 增加图片使用计数
+        function incrementImageUseCount(dataUrl) {
             for (const filename of Object.keys(uploadedImages)) {
                 if (uploadedImages[filename].dataUrl === dataUrl) {
-                    uploadedImages[filename].used = true;
+                    uploadedImages[filename].useCount++;
                     break;
                 }
             }
@@ -917,7 +1025,7 @@ http://www.lizhi.shop`
             let inList = false;
             let currentList = [];
             let i = 0;
-
+            
             // 第一步：解析内容块（支持多行灰色底框）
             while (i < rawLines.length) {
                 const line = rawLines[i];
@@ -1005,12 +1113,20 @@ http://www.lizhi.shop`
 
                 // 普通段落
                 if (trimmedLine) {
-                    // 检测商品卡片
-                    const productCardMatch = trimmedLine.match(/^商品卡片：(.+)$/);
+                    // 检测商品卡片（支持冒号后无内容的情况）
+                    const productCardMatch = trimmedLine.match(/^商品卡片：(.*)$/);
                     if (productCardMatch) {
+                        let productName = productCardMatch[1];
+                        // 提取淘口令（格式：产品名 淘口令 URL）
+                        const taoMatch = productName.match(/(77《[^》]+》.*?)(\s+https?:\/\/s\.tb\.cn\/)?$/);
+                        if (taoMatch && taoMatch[1]) {
+                            currentTaoKouLing = taoMatch[1].trim();
+                        }
+                        // 去掉图片扩展名（用于和上传的图片文件名匹配）
+                        productName = productName.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '');
                         contentBlocks.push({
                             type: 'product-card',
-                            productName: productCardMatch[1]
+                            productName: productName
                         });
                         i++;
                         continue;
@@ -1072,10 +1188,10 @@ http://www.lizhi.shop`
                         
                         if (matchedImg) {
                             qrImageSrc = matchedImg.dataUrl;
-                            markImageAsUsed(matchedImg.dataUrl);
+                            incrementImageUseCount(matchedImg.dataUrl);
                         }
                         
-                        return `<section style="box-sizing: border-box;font-size: 16px;margin-bottom: 0;">
+                        return `<section class="product-card-section" style="box-sizing: border-box;font-size: 16px;margin-bottom: 0;">
                             <section style="text-align: center;margin-top: 0;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
                                 <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
                                     <span leaf="">
@@ -1093,13 +1209,12 @@ http://www.lizhi.shop`
                             <section style="display: inline-block;width: 100%;vertical-align: top;padding-right: 10px;padding-left: 10px;border-width: 0px;background-color: rgb(246, 251, 253);box-sizing: border-box;">
                                 <section style="margin: 10px 0%;box-sizing: border-box;">
                                     <section style="text-align: center;color: rgb(0, 0, 0);font-size: 12px;box-sizing: border-box;">
-                                        <p><span style="font-size: 10px;"><span leaf="">77《Dnd3UYMQhCh✔ https://s.tb.cn/h.77yL1DE &nbsp;CZ001</span></span></p>
+                                         <p><span style="font-size: 10px;"><span leaf="">${currentTaoKouLing}</span></span></p>
                                         <p><span style="font-size: 10px;"><span leaf="">电脑直接访问链接，手机复制本段所有内容</span></span></p>
                                     </section>
                                 </section>
                             </section>
                         </section>`;
-                    }
                     }
                     case 'box': {
                         const innerContent = block.content;
@@ -1247,7 +1362,7 @@ http://www.lizhi.shop`
             let inList = false;
             let currentList = [];
             let i = 0;
-
+            
             // 解析内容块（支持多行灰色底框）
             while (i < rawLines.length) {
                 const line = rawLines[i];
@@ -1319,12 +1434,20 @@ http://www.lizhi.shop`
                 }
 
                 if (trimmedLine) {
-                    // 检测商品卡片
-                    const productCardMatch = trimmedLine.match(/^商品卡片：(.+)$/);
+                    // 检测商品卡片（支持冒号后无内容的情况）
+                    const productCardMatch = trimmedLine.match(/^商品卡片：(.*)$/);
                     if (productCardMatch) {
+                        let productName = productCardMatch[1];
+                        // 提取淘口令（格式：产品名 淘口令 URL）
+                        const taoMatch = productName.match(/(77《[^》]+》.*?)(\s+https?:\/\/s\.tb\.cn\/)?$/);
+                        if (taoMatch && taoMatch[1]) {
+                            currentTaoKouLing = taoMatch[1].trim();
+                        }
+                        // 去掉图片扩展名（用于和上传的图片文件名匹配）
+                        productName = productName.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '');
                         contentBlocks.push({
                             type: 'product-card',
-                            productName: productCardMatch[1]
+                            productName: productName
                         });
                         i++;
                         continue;
@@ -1402,10 +1525,10 @@ http://www.lizhi.shop`
                         
                         if (matchedImg) {
                             qrImageSrc = matchedImg.dataUrl;
-                            markImageAsUsed(matchedImg.dataUrl);
+                            incrementImageUseCount(matchedImg.dataUrl);
                         }
                         
-                        return `<section style="box-sizing: border-box;font-size: 16px;margin-bottom: 0;">
+                        return `<section class="product-card-section" style="box-sizing: border-box;font-size: 16px;margin-bottom: 0;">
                             <section style="text-align: center;margin-top: 0;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
                                 <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
                                     <span leaf="">
@@ -1423,7 +1546,7 @@ http://www.lizhi.shop`
                             <section style="display: inline-block;width: 100%;vertical-align: top;padding-right: 10px;padding-left: 10px;border-width: 0px;background-color: rgb(246, 251, 253);box-sizing: border-box;">
                                 <section style="margin: 10px 0%;box-sizing: border-box;">
                                     <section style="text-align: center;color: rgb(0, 0, 0);font-size: 12px;box-sizing: border-box;">
-                                        <p><span style="font-size: 10px;"><span leaf="">77《Dnd3UYMQhCh✔ https://s.tb.cn/h.77yL1DE &nbsp;CZ001</span></span></p>
+                                         <p><span style="font-size: 10px;"><span leaf="">${currentTaoKouLing}</span></span></p>
                                         <p><span style="font-size: 10px;"><span leaf="">电脑直接访问链接，手机复制本段所有内容</span></span></p>
                                     </section>
                                 </section>
@@ -1613,11 +1736,16 @@ http://www.lizhi.shop`
         /**
          * 更新预览区域内容
          */
-        function updatePreview() {
+         function updatePreview() {
             try {
+                // 先清零所有图片的使用计数
+                for (const filename of Object.keys(uploadedImages)) {
+                    uploadedImages[filename].useCount = 0;
+                }
                 const markdown = document.getElementById('markdown-input').value;
                 const html = markdownToWeChatHTML(markdown);
                 document.getElementById('wx-preview').innerHTML = html;
+                updateImagePreview();
             } catch (e) {
                 console.error('预览更新失败:', e);
                 document.getElementById('wx-preview').innerHTML = `<div style="padding: 20px; color: red;">渲染出错：${e.message}</div>`;
@@ -1636,12 +1764,42 @@ http://www.lizhi.shop`
         /**
          * 清空编辑器
          */
-        function clearEditor() {
+         function clearEditor() {
             document.getElementById('markdown-input').value = '';
+            currentTaoKouLing = '77《Dnd3UYMQhCh✔ https://s.tb.cn/h.77yL1DE &nbsp;CZ001';
             updatePreview();
             showStatus('编辑器已清空', 'success');
         }
 
+        /**
+          * 更新淘口令
+          */
+        function updateTaokouling() {
+            const newTaoKouLing = prompt('请输入新的淘口令：');
+            if (newTaoKouLing && newTaoKouLing.trim()) {
+                currentTaoKouLing = newTaoKouLing.trim();
+                const textarea = document.getElementById('markdown-input');
+                const lines = textarea.value.split('\n');
+                const updatedLines = lines.map(line => {
+                    if (line.startsWith('商品卡片：')) {
+                        const match = line.match(/^(商品卡片：.*?)(77《[^》]+》.*)$/);
+                        if (match) {
+                            const prefix = match[1].trim();
+                            const taoKouLing = match[2].trim();
+                            const parts = taoKouLing.split(' ');
+                            if (parts.length >= 3) {
+                                return `${prefix} ${currentTaoKouLing} ${parts[parts.length - 1]}`;
+                            }
+                        }
+                    }
+                    return line;
+                });
+                textarea.value = updatedLines.join('\n');
+                textarea.dispatchEvent(new Event('input'));
+                showStatus('淘口令已更新', 'success');
+            }
+        }
+        
         /**
           * 加载示例内容
           */
@@ -1653,6 +1811,8 @@ http://www.lizhi.shop`
 大标题下的内容，巴拉巴拉
 ### 我是小标题
 小标题下的内容，巴拉巴拉
+商品卡片：Downie 4 - Mac在线视频下载软件 支持主流视频网站_推广二维码_2026-02-02-16-52-00.png
+
 ## 我是二号大标题 [Win]
 ### 我是小标题
 小标题下的内容，巴拉巴拉
@@ -1824,6 +1984,7 @@ http://www.lizhi.shop\`
             document.getElementById('copy-btn').addEventListener('click', copyToClipboard);
             document.getElementById('clear-btn').addEventListener('click', clearEditor);
             document.getElementById('example-btn').addEventListener('click', loadExample);
+            document.getElementById('update-taokouling-btn').addEventListener('click', updateTaokouling);
             
             // 初始化快捷键
             setupShortcuts();
