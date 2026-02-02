@@ -585,25 +585,66 @@ http://www.lizhi.shop`
         });
         
         // ========== 常量定义区 ==========
-        // 固定开头图片HTML
+        // GitHub 资源链接（用于预览显示）
+        const githubBase = 'https://raw.githubusercontent.com/MagicKong21/wechat-markdown-editor/main/images';
+        const githubImages = {
+            header: `${githubBase}/header.png`,
+            footer: `${githubBase}/footer.png`,
+            heart: `${githubBase}/heart.gif`,
+            title1: `${githubBase}/title1.png`,
+            title2: `${githubBase}/title2.png`,
+            title3: `${githubBase}/title3.png`,
+            title4: `${githubBase}/title4.png`,
+            title5: `${githubBase}/title5.png`,
+            title6: `${githubBase}/title6.png`,
+            title7: `${githubBase}/title7.png`,
+            title8: `${githubBase}/title8.png`,
+            title9: `${githubBase}/title9.png`
+        };
+
+        // 微信原始链接（用于复制到微信编辑器）
+        const wechatImages = {
+            header: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JAOBIkhshOkLAQzpHiarLm7MYSAictXPZgJNd6Yel2Bia7CyW3Id78ICibeywxPPiclllOZhGmGP4KusvQ/640?wx_fmt=png',
+            footer: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JA9PRiaUibW3XyibONLPibefw2jwwLBic4uoBlZp4WiaLQfqZr9n5tJkPyic2B8I5jUE4gRdnUMrepCiaO9Qg/640?wx_fmt=png',
+            heart: 'https://mmbiz.qpic.cn/mmbiz_gif/aFXaQ2oY6JAbmS3wc8fxt3Lemribiaz5FbJWN9K3GTB1OeJtBE3au0xdUsQTVVVyOuERx44KVcl1kDXgbEvib2TtQ/640?wx_fmt=gif',
+            title1: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0u4CHiaMhAdl8MT33E9ByxnhpYuMGja3h82BzeYpzJQ90iaTxpsibR2Qlg/640?wx_fmt=png',
+            title2: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0xU9Fvm3ILCw745js1LmpsibFNyvia4QsicUbKwqeibUyrYvx0N4CN2trBw/640?wx_fmt=png',
+            title3: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0WZZD2XSfTRL4qMsKuHfseqVcjBRM0E29GIiatsL7vdPItywyXqHibNEQ/640?wx_fmt=png',
+            title4: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0f9nmMMDAvNIxXBVYXiadGiar3ovYA7wm63icczibatTnaQbZAdPrIXfeSw/640?wx_fmt=png',
+            title5: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0EG4nnJHvoicDYERdXImgoVQB5xeeVCGm52gQJWAGrbh3aAfdKicptPaw/640?wx_fmt=png',
+            title6: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0TNuC2icdFOz26U0cNfDfbUMA7sLd7hwbnswWMYaZc98icWZIKXNiaqF2w/640?wx_fmt=png',
+            title7: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0IYdQyRticDTyn7QuDBchIMx33ELCBicLXGC4c4USdqL3Q0aUMuw3lhkQ/640?wx_fmt=png',
+            title8: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JAeYJcv3OmLWcVbSVWu5HZbuuicibu0JkRbo788pnRMSiav6ZZJh9JR1kpcYuTDrweFNciaLcoF8TA7nw/640?wx_fmt=png&from=appmsg',
+            title9: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JAeYJcv3OmLWcVbSVWu5HZbSb2hian4bSbKLpHZgKMZOwKVibxZgXLRg1MnHKNMzbrgwnlEMKYSX5Eg/640?wx_fmt=png&from=appmsg'
+        };
+
+        // 替换图片链接的函数
+        function replaceImageLinks(html, useWechatLinks) {
+            const sourceMap = useWechatLinks ? githubImages : wechatImages;
+            const targetMap = useWechatLinks ? wechatImages : githubImages;
+            
+            let result = html;
+            for (const key in sourceMap) {
+                if (sourceMap[key] !== targetMap[key]) {
+                    result = result.split(sourceMap[key]).join(targetMap[key]);
+                }
+            }
+            return result;
+        }
+
+        // 固定开头图片HTML（使用 GitHub 链接）
         const headerImageHTML = `<section style="text-align: center; font-size: 14px; margin: 0; white-space: normal; visibility: visible;" nodeleaf="">
-            <img data-src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JAOBIkhshOkLAQzpHiarLm7MYSAictXPZgJNd6Yel2Bia7CyW3Id78ICibeywxPPiclllOZhGmGP4KusvQ/640?wx_fmt=png#imgIndex=0" class="rich_pages wxw-img" data-ratio="0.2" data-s="300,640" data-type="png" data-w="900" style="width: auto !important; height: auto !important; visibility: visible !important;" src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JAOBIkhshOkLAQzpHiarLm7MYSAictXPZgJNd6Yel2Bia7CyW3Id78ICibeywxPPiclllOZhGmGP4KusvQ/640?wx_fmt=png&amp;tp=webp&amp;wxfrom=5&amp;wx_lazy=1#imgIndex=0" _width="100%" alt="开头配图">
+            <img data-src="${githubImages.header}" class="rich_pages wxw-img" data-ratio="0.2" data-s="300,640" data-type="png" data-w="900" style="width: auto !important; height: auto !important; visibility: visible !important;" src="${githubImages.header}" _width="100%" alt="开头配图">
         </section>`;
 
-        // 一级标题图片数组
+        // 一级标题图片数组（使用 GitHub 链接）
         const titleImages = [
-            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0u4CHiaMhAdl8MT33E9ByxnhpYuMGja3h82BzeYpzJQ90iaTxpsibR2Qlg/640?wx_fmt=png',
-            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0xU9Fvm3ILCw745js1LmpsibFNyvia4QsicUbKwqeibUyrYvx0N4CN2trBw/640?wx_fmt=png',
-            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0WZZD2XSfTRL4qMsKuHfseqVcjBRM0E29GIiatsL7vdPItywyXqHibNEQ/640?wx_fmt=png',
-            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0f9nmMMDAvNIxXBVYXiadGiar3ovYA7wm63icczibatTnaQbZAdPrIXfeSw/640?wx_fmt=png',
-            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0EG4nnJHvoicDYERdXImgoVQB5xeeVCGm52gQJWAGrbh3aAfdKicptPaw/640?wx_fmt=png',
-            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0TNuC2icdFOz26U0cNfDfbUMA7sLd7hwbnswWMYaZc98icWZIKXNiaqF2w/640?wx_fmt=png',
-            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0IYdQyRticDTyn7QuDBchIMx33ELCBicLXGC4c4USdqL3Q0aUMuw3lhkQ/640?wx_fmt=png',
-            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JAeYJcv3OmLWcVbSVWu5HZbuuicibu0JkRbo788pnRMSiav6ZZJh9JR1kpcYuTDrweFNciaLcoF8TA7nw/640?wx_fmt=png&from=appmsg',
-            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JAeYJcv3OmLWcVbSVWu5HZbSb2hian4bSbKLpHZgKMZOwKVibxZgXLRg1MnHKNMzbrgwnlEMKYSX5Eg/640?wx_fmt=png&from=appmsg'
+            githubImages.title1, githubImages.title2, githubImages.title3,
+            githubImages.title4, githubImages.title5, githubImages.title6,
+            githubImages.title7, githubImages.title8, githubImages.title9
         ];
 
-        // 固定底部HTML
+        // 固定底部HTML（使用 GitHub 链接）
         const footerHTML = `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em;"><span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal;"><br></span></p>
         <section style="margin-top: 10px;margin-bottom: 10px;box-sizing: border-box;text-align: center;">
             <section style="padding: 10px;display: inline-block;width: 556px;border-width: 2px;border-style: none;border-color: rgb(192, 200, 209);background-color: rgb(239, 239, 239);border-radius: 11px;overflow: hidden;box-sizing: border-box;">
@@ -625,7 +666,7 @@ http://www.lizhi.shop`
         </p>
         <hr class="divider" style="border-style: solid;border-width: 1px 0 0;border-color: rgba(0,0,0,0.1);-webkit-transform-origin: 0 0;-webkit-transform: scale(1, 0.5);transform-origin: 0 0;transform: scale(1, 0.5);margin: 0 0 10px 0 !important;">
         <section class="footer-img" style="margin: 10px 0 !important;text-align: center;" nodeleaf="">
-            <img data-src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JA9PRiaUibW3XyibONLPibefw2jwwLBic4uoBlZp4WiaLQfqZr9n5tJkPyic2B8I5jUE4gRdnUMrepCiaO9Qg/640?wx_fmt=png#imgIndex=12" class="rich_pages wxw-img" data-ratio="0.4444444444444444" data-s="300,640" data-type="png" data-w="900" style="width: auto !important; height: auto !important; visibility: visible !important;" src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JA9PRiaUibW3XyibONLPibefw2jwwLBic4uoBlZp4WiaLQfqZr9n5tJkPyic2B8I5jUE4gRdnUMrepCiaO9Qg/640?wx_fmt=png&amp;tp=webp&amp;wxfrom=5&amp;wx_lazy=1#imgIndex=12" _width="100%" alt="底部配图">
+            <img data-src="${githubImages.footer}" class="rich_pages wxw-img" data-ratio="0.4444444444444444" data-s="300,640" data-type="png" data-w="900" style="width: auto !important; height: auto !important; visibility: visible !important;" src="${githubImages.footer}" _width="100%" alt="底部配图">
         </section>
         <p style="text-align: right;text-indent: 0em;white-space: normal;margin: 5px 0 0 0;">
             <span style="font-size: 12px;background-color: rgb(0, 179, 255);color: rgb(255, 255, 255);padding: 2px 6px;border-radius: 3px;">
@@ -633,7 +674,7 @@ http://www.lizhi.shop`
             </span>
         </p>
         <section style="text-align: right;white-space: normal;margin: 2px 0 10px 0;" nodeleaf="">
-            <img data-src="https://mmbiz.qpic.cn/mmbiz_gif/aFXaQ2oY6JAbmS3wc8fxt3Lemribiaz5FbJWN9K3GTB1OeJtBE3au0xdUsQTVVVyOuERx44KVcl1kDXgbEvib2TtQ/640?wx_fmt=gif#imgIndex=13" class="rich_pages wxw-img __bg_gif" data-ratio="0.20673076923076922" data-s="300,640" data-type="gif" data-w="208" style="width: 72px !important; height: auto !important; visibility: visible !important; float: right;" src="https://mmbiz.qpic.cn/mmbiz_gif/aFXaQ2oY6JAbmS3wc8fxt3Lemribiaz5FbJWN9K3GTB1OeJtBE3au0xdUsQTVVVyOuERx44KVcl1kDXgbEvib2TtQ/640?wx_fmt=gif&amp;tp=webp&amp;wxfrom=5&amp;wx_lazy=1#imgIndex=13" _width="72px" alt="底部GIF">
+            <img data-src="${githubImages.heart}" class="rich_pages wxw-img __bg_gif" data-ratio="0.20673076923076922" data-s="300,640" data-type="gif" data-w="208" style="width: 72px !important; height: auto !important; visibility: visible !important; float: right;" src="${githubImages.heart}" _width="72px" alt="底部GIF">
         </section>`;
 
         // 标准空行模板
@@ -1215,11 +1256,14 @@ http://www.lizhi.shop`
 
         /**
          * 富文本复制到剪贴板
-         * @param {string} html - 需要复制的HTML内容
-         */
+          * @param {string} html - 需要复制的HTML内容
+          */
         function copyAsRichText(html) {
+            // 复制前将 GitHub 链接替换为微信链接
+            const htmlForWeChat = replaceImageLinks(html, true);
+            
             const container = document.getElementById('copy-container');
-            container.innerHTML = html;
+            container.innerHTML = htmlForWeChat;
             
             // 创建选区
             const range = document.createRange();
@@ -1239,8 +1283,8 @@ http://www.lizhi.shop`
                 // 降级使用Clipboard API
                 navigator.clipboard.write([
                     new ClipboardItem({
-                        'text/html': new Blob([html], { type: 'text/html' }),
-                        'text/plain': new Blob([html], { type: 'text/plain' })
+                        'text/html': new Blob([htmlForWeChat], { type: 'text/html' }),
+                        'text/plain': new Blob([htmlForWeChat], { type: 'text/plain' })
                     })
                 ]).then(() => {
                     showStatus('内容已复制到剪贴板，可直接粘贴到微信公众号编辑器！', 'success');
