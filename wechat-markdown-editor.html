@@ -639,8 +639,8 @@
 小标题下的内容，巴拉巴拉
 ## 我是三号大标题 [安卓]
 我是**加粗** (快捷键：Command + U)
-我是[[标蓝]] (快捷键：Command + B)
-我是**[[加粗同时标蓝]]**
+我是==标蓝== (快捷键：Command + B)
+我是==**加粗同时标蓝**==
 下面是网址 (快捷键：Command + K)
 `我是网址：http://www.lizhi.shop`
 
@@ -1008,10 +1008,10 @@ http://www.lizhi.shop`
             
             // 加粗 **文本**
             processed = processed.replace(/\*\*(.*?)\*\*/g, '<span textstyle="" style="letter-spacing: normal; font-weight: bold;">$1</span>');
-            // 标蓝 [[文本]]
-            processed = processed.replace(/\[\[(.*?)\]\]/g, '<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255);">$1</span>');
-            // 加粗标蓝 [[**文本**]]
-            processed = processed.replace(/\[\[\*\*(.*?)\*\*\]\]/g, '<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255); font-weight: bold;">$1</span>');
+            // 标蓝 ==文本==
+            processed = processed.replace(/==([^=]+)==/g, '<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255);">$1</span>');
+            // 加粗标蓝 ==**文本**==
+            processed = processed.replace(/==\*\*([^*]+)\*\*==/g, '<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255); font-weight: bold;">$1</span>');
             
             // 基础span包装
             if (!skipWrapper && !processed.includes('textstyle=""') && processed) {
@@ -1173,7 +1173,7 @@ http://www.lizhi.shop`
                         // 处理标题格式
                         let titleContent = block.content;
                         titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
-                        titleContent = titleContent.replace(/\[\[(.*?)\]\]/g, '<span style="color: rgb(51, 173, 255);">$1</span>');
+                        titleContent = titleContent.replace(/==([^=]+)==/g, '<span style="color: rgb(51, 173, 255);">$1</span>');
                         titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #333; font-size: 15px;">[$1]</span>');
                         
                         return `<div class="level1-title">
@@ -1827,21 +1827,21 @@ http://www.lizhi.shop`
 小标题下的内容，巴拉巴拉
 ## 我是三号大标题 [安卓]
 我是**加粗** (快捷键：Command + U)
-我是[[标蓝]] (快捷键：Command + B)
-我是**[[加粗同时标蓝]]**
+我是==标蓝== (快捷键：Command + B)
+我是==**加粗同时标蓝**==
 下面是网址 (快捷键：Command + K)
 \`我是网址：http://www.lizhi.shop\`
-
+ 
 \`我是网址：
 http://www.lizhi.shop\`
-
+ 
 下面是列表：
 - 我是列表
 - 我是列表
 - 我是列表
 - 我是列表
 我是其他正文内容
-
+ 
 ## 我是大标题
 ## 我是大标题
 ## 我是大标题
@@ -1849,8 +1849,8 @@ http://www.lizhi.shop\`
 ## 我是大标题
 ## 我是大标题
 ## 我是大标题
-
-我是其他正文内容，巴拉巴拉`;
+ 
+我是其他正文内容，巴拉bara`;
             
             document.getElementById('markdown-input').value = exampleMarkdown;
             updatePreview();
@@ -1860,7 +1860,7 @@ http://www.lizhi.shop\`
         /**
          * 切换标记：添加/移除包裹符
          * @param {string} text - 目标文本
-         * @param {string} wrapper - 包裹符（如 "[[" 或 "`"）
+         * @param {string} wrapper - 包裹符（如 "==" 或 "`"）
          * @returns {string} 处理后的文本
          */
         function toggleWrapper(text, wrapper) {
@@ -1929,12 +1929,12 @@ http://www.lizhi.shop\`
                 
                 // 匹配快捷键
                 if (e.key.toLowerCase() === 'b') {
-                    // Cmd+B: 标蓝 [[文本]] / 取消标蓝
-                    if (selectedText.startsWith('[[') && selectedText.endsWith(']]')) {
+                    // Cmd+B: 标蓝 ==文本== / 取消标蓝
+                    if (selectedText.startsWith('==') && selectedText.endsWith('==')) {
                         newText = selectedText.slice(2, -2);
                         action = '取消标蓝';
                     } else {
-                        newText = '[[' + selectedText + ']]';
+                        newText = '==' + selectedText + '==';
                         action = '标蓝';
                     }
                 } else if (e.key.toLowerCase() === 'k') {
