@@ -849,6 +849,37 @@ http://www.lizhi.shop`
             reader.readAsDataURL(file);
         }
         
+        /**
+         * 更新图片预览面板显示
+         */
+        function updateImagePreview() {
+            const panel = document.getElementById('image-preview-panel');
+            const grid = document.getElementById('image-preview-grid');
+            
+            const filenames = Object.keys(uploadedImages);
+            
+            if (filenames.length === 0) {
+                panel.style.display = 'none';
+                return;
+            }
+            
+            panel.style.display = 'block';
+            grid.innerHTML = '';
+            
+            filenames.forEach(filename => {
+                const img = uploadedImages[filename];
+                const isUsed = img.useCount > 0;
+                const item = document.createElement('div');
+                item.className = `image-preview-item ${isUsed ? 'used' : 'unused'}`;
+                item.innerHTML = `
+                    <img src="${img.dataUrl}" alt="${filename}">
+                    <div class="use-count">${img.useCount}</div>
+                    <div class="filename">${filename}</div>
+                `;
+                grid.appendChild(item);
+            });
+        }
+        
         /* ==================== 图片匹配与使用计数 ==================== */
         
         /**
