@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微信公众号 Markdown 渲染编辑器</title>
+    <!-- 外部资源 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- 样式区域 - 按功能模块划分 -->
+    <style>
+        /* ========== 全局基础样式 ========== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        /* ========== 页面标题 ========== */
+        header {
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eaeaea;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 8px;
+            font-size: 24px;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        /* ========== 核心布局 - 编辑/预览区 ========== */
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .editor-container, .preview-container {
+            flex: 1;
+            min-width: 300px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            background-color: white;
+        }
+        
+        .panel-header {
+            background: linear-gradient(135deg, #3498db, #2c3e50);
+            color: white;
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        
+        .panel-header i {
+            font-size: 16px;
+        }
+        
+        .panel-content {
+            height: 500px;
+            overflow: auto;
+            padding: 0;
+        }
+        
+        #markdown-input {
+            width: 100%;
+            height: 100%;
+            border: none;
+            padding: 15px;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            font-family: 'Courier New', monospace;
+            outline: none;
+            background-color: #f9f9f9;
+        }
+        
+        #preview-content {
+            padding: 15px;
+            height: 100%;
+            overflow-y: auto;
+            background-color: white;
+            font-size: 13px;
+        }
+
+        /* ========== 微信公众号样式模拟 ========== */
+        .wx-article {
+            max-width: 677px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 10px;
+        }
+        
+        .wx-article img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        
+        .wx-article p {
+            margin: 10px 0;
+            line-height: 1.8;
+            font-size: 14px;
+        }
+        
+        /* 一级标题样式 */
+        .wx-article .level1-title {
+            white-space: normal;
+            text-align: left !important;
+            margin: 0 !important;
+            display: flex;
+            align-items: flex-end;
+            width: 100%;
+            clear: both;
+            float: none !important;
+        }
+        
+        .wx-article .level1-title img {
+            width: 50px !important;
+            height: 50px !important;
+            margin-right: 8px;
+            vertical-align: middle;
+            float: none !important;
+            flex-shrink: 0;
+        }
+        
+        .wx-article .level1-title .title-text {
+            font-size: 16px;
+            color: rgb(33, 150, 243);
+            font-weight: bold;
+            text-align: left !important;
+            display: inline-block;
+            vertical-align: middle;
+            line-height: 1.4;
+            flex: 1;
+        }
+        
+        /* 二级标题样式 */
+        .wx-article .level2-title {
+            margin: 0 !important;
+            text-align: center;
+            width: 100%;
+            clear: both;
+            float: none !important;
+        }
+        
+        .wx-article .level2-title .title-box {
+            display: inline-block;
+            background-color: rgb(51, 173, 255);
+            padding: 0;
+            border-radius: 0;
+            position: relative;
+            height: auto;
+        }
+        
+        .wx-article .level2-title .title-box-inner {
+            background-color: rgb(39, 218, 241);
+            padding: 0 10px;
+            margin: 0;
+            transform: translate(-6px, -6px);
+        }
+        
+        .wx-article .level2-title .title-text {
+            font-size: 15px;
+            color: rgb(242, 249, 255);
+            line-height: 2;
+            padding: 0;
+            margin: 0;
+            font-weight: bold;
+        }
+        
+        /* 列表样式 */
+        .wx-article ul {
+            list-style-type: disc !important;
+            class: "list-paddingleft-1" !important;
+            margin: 10px 0 !important;
+            padding-left: 20px !important;
+        }
+        
+        .wx-article li {
+            margin-bottom: 6px !important;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+        
+        .wx-article li p {
+            margin: 0px !important;
+            text-align: left !important;
+            line-height: 1.6em !important;
+        }
+        
+        .wx-article .highlight {
+            color: #33adff;
+            font-weight: bold;
+        }
+        
+        /* 灰色底框 */
+        .wx-article .link-box {
+            margin: 0 auto !important;
+            padding: 10px;
+            background-color: rgb(239, 239, 239);
+            border-radius: 11px;
+            text-align: center;
+            font-size: 12px;
+            line-height: 1.6;
+            width: 556px;
+            max-width: 100%;
+            border-width: 2px;
+            border-style: none;
+            border-color: rgb(192, 200, 209);
+            clear: both;
+            float: none !important;
+        }
+        
+        .wx-article .link-box strong {
+            color: #333;
+            font-weight: bold;
+        }
+        
+        .wx-article .link-box a {
+            color: #2196F3;
+            text-decoration: none;
+            word-break: break-all;
+        }
+        
+        /* 分隔线样式 */
+        .wx-article .divider {
+            border-style: solid;
+            border-width: 1px 0 0;
+            border-color: rgba(0,0,0,0.1);
+            -webkit-transform-origin: 0 0;
+            -webkit-transform: scale(1, 0.5);
+            transform-origin: 0 0;
+            transform: scale(1, 0.5);
+            margin: 0 0 10px 0 !important;
+        }
+        
+        /* 底部样式 */
+        .wx-article .footer-ad {
+            text-align: right;
+            text-indent: 0em;
+            margin: 0 !important;
+            padding: 0;
+            line-height: 1.4;
+        }
+        
+        .wx-article .footer-img {
+            text-align: center;
+            margin: 10px 0 !important;
+        }
+        
+        .wx-article .footer-text {
+            text-align: right;
+            margin: 5px 0;
+        }
+        
+        .wx-article .footer-text .heart-text {
+            font-size: 12px;
+            background-color: rgb(0, 179, 255);
+            color: rgb(255, 255, 255);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        
+        .wx-article .footer-gif {
+            text-align: right;
+            margin: 2px 0 10px 0;
+        }
+        
+        .wx-article .footer-gif img {
+            width: 72px !important;
+            height: auto !important;
+            display: inline-block;
+            float: right;
+        }
+
+        /* ========== 功能区样式 ========== */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+            padding: 15px;
+            padding-bottom: 40px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            position: relative;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+        }
+        
+        .btn:active {
+            transform: translateY(-1px);
+        }
+        
+        .status-message {
+            position: absolute;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            z-index: 1000;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .status-message.show {
+            opacity: 1;
+            top: -45px;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* ========== 快捷键提示 ========== */
+        .shortcut-hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+            padding: 5px 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border-left: 3px solid #3498db;
+        }
+        
+        .shortcut-hint kbd {
+            background-color: #f1f3f4;
+            border: 1px solid #dadce0;
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-family: monospace;
+            font-size: 11px;
+            margin: 0 2px;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+        }
+
+        /* ========== 工具信息+使用说明 ========== */
+        .header-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 30px;
+            margin-bottom: 20px;
+        }
+        
+        .info-panel, .instructions-panel {
+            flex: 1;
+            min-width: 300px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            background-color: white;
+        }
+        
+        .info-header, .instructions-header {
+            background: linear-gradient(135deg, #3498db, #2c3e50);
+            color: white;
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        
+        .info-content, .instructions-content {
+            padding: 15px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        
+        .info-content ul, .instructions-content ul {
+            padding-left: 18px;
+            margin: 10px 0;
+        }
+        
+        .info-content li, .instructions-content li {
+            margin-bottom: 6px;
+        }
+        
+        .info-content code, .instructions-content code {
+            background-color: #f4f4f4;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        /* ========== 隐藏的复制容器 ========== */
+        #copy-container {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+            width: 677px;
+            background-color: white;
+        }
+
+        /* ========== 响应式布局 ========== */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            .header-container {
+                flex-direction: column;
+            }
+            .panel-content {
+                height: 400px;
+            }
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            .wx-article .link-box {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 核心区域：编辑区+预览区 -->
+    <div class="container">
+        <div class="editor-container">
+            <div class="panel-header">
+                <i class="fas fa-edit"></i>
+                <h2>Markdown 编辑区</h2>
+            </div>
+            <div class="panel-content">
+                <textarea id="markdown-input" placeholder="在这里输入 Markdown 文本...">我是开头，巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉
+我是开头，巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉
+我是开头，巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉
+## 我是大标题 [Mac]
+大标题下的内容，巴拉巴拉
+### 我是小标题
+小标题下的内容，巴拉巴拉
+## 我是二号大标题 [Win]
+### 我是小标题
+小标题下的内容，巴拉巴拉
+## 我是三号大标题 [安卓]
+我是**加粗** (快捷键：Command + U)
+我是[[标蓝]] (快捷键：Command + B)
+我是**[[加粗同时标蓝]]**
+下面是网址 (快捷键：Command + K)
+`我是网址：http://www.lizhi.shop`
+
+`我是网址：
+http://www.lizhi.shop`
+
+下面是列表：
+- 我是列表
+- 我是列表
+- 我是列表
+- 我是列表
+我是其他正文内容
+
+## 我是大标题
+## 我是大标题
+## 我是大标题
+## 我是大标题
+## 我是大标题
+## 我是大标题
+## 我是大标题
+
+我是其他正文内容，巴拉巴拉</textarea>
+            </div>
+        </div>
+        
+        <div class="preview-container">
+            <div class="panel-header">
+                <i class="fas fa-eye"></i>
+                <h2>微信公众号预览</h2>
+            </div>
+            <div class="panel-content">
+                <div id="preview-content">
+                    <div class="wx-article" id="wx-preview">
+                        <!-- 预览内容动态生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 控制按钮区 -->
+    <div class="controls">
+        <div id="status-message" class="status-message"></div>
+        <button class="btn btn-primary" id="copy-btn">
+            <i class="fas fa-copy"></i> 一键复制到微信公众号编辑器
+        </button>
+        <button class="btn btn-secondary" id="clear-btn">
+            <i class="fas fa-broom"></i> 清空编辑器
+        </button>
+        <button class="btn" id="example-btn" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white;">
+            <i class="fas fa-file-alt"></i> 加载示例
+        </button>
+    </div>
+    
+    <!-- 隐藏的复制容器 -->
+    <div id="copy-container" contenteditable="true"></div>
+
+    <script>
+    
+        // ========== 新增：全局撤销栈（放在script标签开头） ==========
+        let undoStack = [];
+        let redoStack = [];
+        const textarea = document.getElementById('markdown-input');
+        
+        // 监听文本框原生输入，同步更新撤销栈
+        textarea.addEventListener('input', function() {
+            // 只记录非快捷键操作的原生输入（避免和手动记录重复）
+            if (!this.dataset.isShortcutAction) {
+                undoStack.push(this.value);
+                redoStack = []; // 新输入清空重做栈
+                // 限制撤销栈长度，避免内存占用过大
+                if (undoStack.length > 50) undoStack.shift();
+            }
+            delete this.dataset.isShortcutAction;
+        });
+        
+        // ========== 常量定义区 ==========
+        // 固定开头图片HTML
+        const headerImageHTML = `<section style="text-align: center; font-size: 14px; margin: 0; white-space: normal; visibility: visible;" nodeleaf="">
+            <img data-src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JAOBIkhshOkLAQzpHiarLm7MYSAictXPZgJNd6Yel2Bia7CyW3Id78ICibeywxPPiclllOZhGmGP4KusvQ/640?wx_fmt=png#imgIndex=0" class="rich_pages wxw-img" data-ratio="0.2" data-s="300,640" data-type="png" data-w="900" style="width: 677px !important; height: auto !important; visibility: visible !important;" src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JAOBIkhshOkLAQzpHiarLm7MYSAictXPZgJNd6Yel2Bia7CyW3Id78ICibeywxPPiclllOZhGmGP4KusvQ/640?wx_fmt=png&amp;tp=webp&amp;wxfrom=5&amp;wx_lazy=1#imgIndex=0" _width="100%" alt="开头配图">
+        </section>`;
+
+        // 一级标题图片数组
+        const titleImages = [
+            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0u4CHiaMhAdl8MT33E9ByxnhpYuMGja3h82BzeYpzJQ90iaTxpsibR2Qlg/640?wx_fmt=png',
+            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0xU9Fvm3ILCw745js1LmpsibFNyvia4QsicUbKwqeibUyrYvx0N4CN2trBw/640?wx_fmt=png',
+            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0WZZD2XSfTRL4qMsKuHfseqVcjBRM0E29GIiatsL7vdPItywyXqHibNEQ/640?wx_fmt=png',
+            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0f9nmMMDAvNIxXBVYXiadGiar3ovYA7wm63icczibatTnaQbZAdPrIXfeSw/640?wx_fmt=png',
+            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0EG4nnJHvoicDYERdXImgoVQB5xeeVCGm52gQJWAGrbh3aAfdKicptPaw/640?wx_fmt=png',
+            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0TNuC2icdFOz26U0cNfDfbUMA7sLd7hwbnswWMYaZc98icWZIKXNiaqF2w/640?wx_fmt=png',
+            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0IYdQyRticDTyn7QuDBchIMx33ELCBicLXGC4c4USdqL3Q0aUMuw3lhkQ/640?wx_fmt=png',
+            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JAeYJcv3OmLWcVbSVWu5HZbuuicibu0JkRbo788pnRMSiav6ZZJh9JR1kpcYuTDrweFNciaLcoF8TA7nw/640?wx_fmt=png&from=appmsg',
+            'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JAeYJcv3OmLWcVbSVWu5HZbSb2hian4bSbKLpHZgKMZOwKVibxZgXLRg1MnHKNMzbrgwnlEMKYSX5Eg/640?wx_fmt=png&from=appmsg'
+        ];
+
+        // 固定底部HTML
+        const footerHTML = `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em;"><span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal;"><br></span></p>
+        <section style="margin-top: 10px;margin-bottom: 10px;box-sizing: border-box;text-align: center;">
+            <section style="padding: 10px;display: inline-block;width: 556px;border-width: 2px;border-style: none;border-color: rgb(192, 200, 209);background-color: rgb(239, 239, 239);border-radius: 11px;overflow: hidden;box-sizing: border-box;">
+                <section style="box-sizing: border-box;">
+                    <section style="font-size: 14px;box-sizing: border-box;">
+                        <p style="box-sizing: border-box;margin: 0;text-align: center;">
+                            <span style="font-size: 12px;color: rgb(34, 34, 34); font-family: &quot;PingFang SC&quot;, system-ui, -apple-system, &quot;system-ui&quot;, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; letter-spacing: 0.544px; text-align: center; background-color: rgb(239, 239, 239);">
+                                <span leaf="">点击</span><strong style="color: rgb(34, 34, 34); font-weight: bold;">阅读原文</strong><span leaf="">，前往</span><strong><span leaf="">数码荔枝</span></strong><span leaf="">买买买！</span>
+                            </span>
+                        </p>
+                    </section>
+                </section>
+            </section>
+        </section>
+        <p class="footer-ad" style="text-align: right;text-indent: 0em;margin: 0;padding: 0;">
+            <span style="font-family: monospace;font-size: 12px;letter-spacing: 0.578px;color: rgb(214, 214, 214);">
+                <span leaf="">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&lt;广告&gt;</span>
+            </span>
+        </p>
+        <hr class="divider" style="border-style: solid;border-width: 1px 0 0;border-color: rgba(0,0,0,0.1);-webkit-transform-origin: 0 0;-webkit-transform: scale(1, 0.5);transform-origin: 0 0;transform: scale(1, 0.5);margin: 0 0 10px 0 !important;">
+        <section class="footer-img" style="margin: 10px 0 !important;text-align: center;" nodeleaf="">
+            <img data-src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JA9PRiaUibW3XyibONLPibefw2jwwLBic4uoBlZp4WiaLQfqZr9n5tJkPyic2B8I5jUE4gRdnUMrepCiaO9Qg/640?wx_fmt=png#imgIndex=12" class="rich_pages wxw-img" data-ratio="0.4444444444444444" data-s="300,640" data-type="png" data-w="900" style="width: 677px !important; height: auto !important; visibility: visible !important;" src="https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JA9PRiaUibW3XyibONLPibefw2jwwLBic4uoBlZp4WiaLQfqZr9n5tJkPyic2B8I5jUE4gRdnUMrepCiaO9Qg/640?wx_fmt=png&amp;tp=webp&amp;wxfrom=5&amp;wx_lazy=1#imgIndex=12" _width="100%" alt="底部配图">
+        </section>
+        <p style="text-align: right;text-indent: 0em;white-space: normal;margin: 5px 0 0 0;">
+            <span style="font-size: 12px;background-color: rgb(0, 179, 255);color: rgb(255, 255, 255);padding: 2px 6px;border-radius: 3px;">
+                <span leaf="">点「♡」，了解更多新鲜资讯！</span>
+            </span>
+        </p>
+        <section style="text-align: right;white-space: normal;margin: 2px 0 10px 0;" nodeleaf="">
+            <img data-src="https://mmbiz.qpic.cn/mmbiz_gif/aFXaQ2oY6JAbmS3wc8fxt3Lemribiaz5FbJWN9K3GTB1OeJtBE3au0xdUsQTVVVyOuERx44KVcl1kDXgbEvib2TtQ/640?wx_fmt=gif#imgIndex=13" class="rich_pages wxw-img __bg_gif" data-ratio="0.20673076923076922" data-s="300,640" data-type="gif" data-w="208" style="width: 72px !important; height: auto !important; visibility: visible !important; float: right;" src="https://mmbiz.qpic.cn/mmbiz_gif/aFXaQ2oY6JAbmS3wc8fxt3Lemribiaz5FbJWN9K3GTB1OeJtBE3au0xdUsQTVVVyOuERx44KVcl1kDXgbEvib2TtQ/640?wx_fmt=gif&amp;tp=webp&amp;wxfrom=5&amp;wx_lazy=1#imgIndex=13" _width="72px" alt="底部GIF">
+        </section>`;
+
+        // 标准空行模板
+        const singleBr = '<p style="margin: 0px 16px; text-align: left; line-height: 1.6em;"><span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal;"><br></span></p>';
+        const doubleBr = singleBr + singleBr;
+
+        // ========== 工具函数区 ==========
+        /**
+         * 处理行内格式：加粗、标蓝、加粗标蓝
+         * @param {string} text - 需要处理的文本
+         * @param {boolean} skipWrapper - 是否跳过基础span包装（用于标题等需要紧凑显示的场景）
+         * @returns {string} 处理后的HTML文本
+         */
+        function processInlineFormatting(text, skipWrapper = false) {
+            let processed = text || '';
+            // 加粗 **文本**
+            processed = processed.replace(/\*\*(.*?)\*\*/g, '<span textstyle="" style="letter-spacing: normal; font-weight: bold;">$1</span>');
+            // 标蓝 [[文本]]
+            processed = processed.replace(/\[\[(.*?)\]\]/g, '<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255);">$1</span>');
+            // 加粗标蓝 [[**文本**]]
+            processed = processed.replace(/\[\[\*\*(.*?)\*\*\]\]/g, '<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255); font-weight: bold;">$1</span>');
+            
+            // 基础span包装（可选）
+            if (!skipWrapper && !processed.includes('textstyle=""') && processed) {
+                processed = `<span textstyle="" style="letter-spacing: normal;">${processed}</span>`;
+            }
+            return processed;
+        }
+
+        /**
+          * Markdown转微信预览HTML
+          * @param {string} markdown - Markdown文本
+          * @returns {string} 微信样式的HTML
+          */
+        function markdownToWeChatHTML(markdown) {
+            let rawLines = markdown.split('\n');
+            let contentBlocks = [];
+            let inList = false;
+            let currentList = [];
+            let i = 0;
+
+            // 第一步：解析内容块（支持多行灰色底框）
+            while (i < rawLines.length) {
+                const line = rawLines[i];
+                const trimmedLine = line.trim();
+
+                // 多行灰色底框开始（以 ` 开头但不以 ` 结尾）
+                if (trimmedLine.startsWith('`') && !trimmedLine.endsWith('`')) {
+                    let boxLines = [];
+                    
+                    // 收集开始行（去掉开头的 `）
+                    boxLines.push(trimmedLine.slice(1).trim());
+                    i++;
+                    
+                    // 收集中间行，直到遇到以 ` 结尾的行
+                    while (i < rawLines.length) {
+                        const nextLine = rawLines[i].trim();
+                        if (nextLine.endsWith('`')) {
+                            boxLines.push(nextLine.slice(0, -1).trim());
+                            i++;
+                            break;
+                        } else {
+                            boxLines.push(nextLine);
+                            i++;
+                        }
+                    }
+                    
+                    contentBlocks.push({
+                        type: 'box',
+                        content: boxLines.join('\n')
+                    });
+                    continue;
+                }
+
+                // 单行灰色底框
+                if (trimmedLine.startsWith('`') && trimmedLine.endsWith('`')) {
+                    contentBlocks.push({
+                        type: 'box',
+                        content: trimmedLine.slice(1, -1).trim()
+                    });
+                    i++;
+                    continue;
+                }
+
+                // 大标题 (## )
+                if (trimmedLine.startsWith('## ') && !trimmedLine.startsWith('### ')) {
+                    contentBlocks.push({
+                        type: 'h1',
+                        content: trimmedLine.substring(3)
+                    });
+                    i++;
+                    continue;
+                }
+
+                // 小标题 (### )
+                if (trimmedLine.startsWith('### ')) {
+                    contentBlocks.push({
+                        type: 'h2',
+                        content: trimmedLine.substring(4)
+                    });
+                    i++;
+                    continue;
+                }
+
+                // 无序列表项
+                if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
+                    if (!inList) {
+                        inList = true;
+                        currentList = [];
+                    }
+                    currentList.push(trimmedLine.substring(2));
+                    i++;
+                    continue;
+                }
+
+                // 结束列表
+                if (inList) {
+                    contentBlocks.push({
+                        type: 'ul',
+                        content: currentList
+                    });
+                    inList = false;
+                    currentList = [];
+                    continue;
+                }
+
+                // 普通段落
+                if (trimmedLine) {
+                    contentBlocks.push({
+                        type: 'p',
+                        content: trimmedLine
+                    });
+                }
+                i++;
+            }
+
+            // 处理最后一个列表
+            if (inList) {
+                contentBlocks.push({
+                    type: 'ul',
+                    content: currentList
+                });
+            }
+
+            // 统计一级标题数量，用于计算图片序号
+            let h1Counter = 0;
+            
+            // 第二步：生成块HTML
+            function generateBlockHTML(block) {
+                switch (block.type) {
+                    case 'h1': {
+                        // 只根据一级标题的数量来计算图片序号
+                        h1Counter++;
+                        const imgIndex = (h1Counter - 1) % titleImages.length;
+                        const imgUrl = titleImages[imgIndex];
+                        // 大标题：使用更严格的正则顺序处理不同类型的括号
+                        let titleContent = block.content;
+                        // 第一步：处理加粗 **文本**
+                        titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
+                        // 第二步：处理标蓝 [[文本]] - 必须先处理
+                        titleContent = titleContent.replace(/\[\[(.*?)\]\]/g, '<span style="color: rgb(51, 173, 255);">$1</span>');
+                        // 第三步：处理 [] 为默认颜色和15号字体 - 只匹配单独的 [文本]
+                        titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #333; font-size: 15px;">[$1]</span>');
+                        return `<div class="level1-title">
+                            <img src="${imgUrl}" width="50" height="50" alt="标题图标" style="margin-right: 8px;float: none;">
+                            <span class="title-text">${titleContent}</span>
+                        </div>`;
+                    }
+                    case 'h2': {
+                        return `<div class="level2-title">
+                            <div class="title-box">
+                                <div class="title-box-inner">
+                                    <div class="title-text">${processInlineFormatting(block.content, true).trim()}</div>
+                                </div>
+                            </div>
+                        </div>`;
+                    }
+                    case 'box': {
+                        const innerContent = block.content;
+                        const lines = innerContent.split('\n');
+                        let boxHTML = '<div class="link-box">';
+
+                        // 查找第一行的标签和后续行的URL
+                        let label = '';
+                        let url = '';
+                        let hasUrlInFirstLine = false;
+
+                        // 检查第一行是否有标签和URL在同一行
+                        const linkReg = /^(.*?)[:：]\s*(http|https):\/\/\S+/;
+                        const readMoreReg = /阅读原文/;
+                        
+                        if (lines[0].match(linkReg)) {
+                            hasUrlInFirstLine = true;
+                            const match = lines[0].match(linkReg);
+                            label = match[1].trim();
+                            const fullUrl = match[0];
+                            url = fullUrl.replace(`${label}：`, '').replace(`${label}:`, '').trim();
+                        } else {
+                            // 检查第一行是否有标签（以 ： 或 : 结尾）
+                            const labelReg = /^(.*)[:：]$/;
+                            const labelMatch = lines[0].match(labelReg);
+                            if (labelMatch) {
+                                label = labelMatch[1].trim();
+                            }
+                        }
+
+                        // 查找URL（可能在任意一行）
+                        const urlReg = /(http|https):\/\/\S+/;
+                        for (let j = 0; j < lines.length; j++) {
+                            const urlMatch = lines[j].match(urlReg);
+                            if (urlMatch) {
+                                url = urlMatch[0];
+                                break;
+                            }
+                        }
+
+                        // 生成内容HTML
+                        lines.forEach((line, index) => {
+                            const trimmedLine = line.trim();
+                            
+                            if (index === 0) {
+                                if (hasUrlInFirstLine) {
+                                    // 第一行有完整标签+URL
+                                    const match = trimmedLine.match(linkReg);
+                                    label = match[1].trim();
+                                    url = match[0].replace(`${label}：`, '').replace(`${label}:`, '').trim();
+                                    boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}：</span><a href="${url}" target="_blank">${url}</a>`;
+                                } else if (label && trimmedLine.endsWith('：') || trimmedLine.endsWith(':')) {
+                                    // 第一行只有标签
+                                    boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${trimmedLine}</span>`;
+                                } else if (trimmedLine.match(readMoreReg)) {
+                                    const cleanContent = trimmedLine.replace(/\s+/g, '');
+                                    boxHTML += processInlineFormatting(cleanContent);
+                                } else {
+                                    boxHTML += processInlineFormatting(trimmedLine);
+                                }
+                            } else {
+                                // 后续行
+                                const lineUrlMatch = trimmedLine.match(urlReg);
+                                if (lineUrlMatch) {
+                                    // 这一行有URL
+                                    if (url && index === 1 && label) {
+                                        // 如果是第一行后续且有标签，加<br>后直接显示URL
+                                        boxHTML += `<br><a href="${lineUrlMatch[0]}" target="_blank">${lineUrlMatch[0]}</a>`;
+                                    } else {
+                                        boxHTML += '<br>' + processInlineFormatting(trimmedLine);
+                                    }
+                                } else {
+                                    boxHTML += '<br>' + processInlineFormatting(trimmedLine);
+                                }
+                            }
+                        });
+
+                        boxHTML += '</div>';
+                        return boxHTML;
+                    }
+                    case 'ul': {
+                        let listHTML = '<ul style="list-style-type: disc; padding-left: 20px !important; margin-left: 0 !important;" class="list-paddingleft-1" id="wechat-list">';
+                        block.content.forEach(item => {
+                            listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important;"><p style="margin: 0px;text-align: left;line-height: 1.6em;">
+                                <span leaf="" style="text-align: left; font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal;">
+                                    ${processInlineFormatting(item)}
+                                </span>
+                            </p></li>`;
+                        });
+                        listHTML += '</ul>';
+                        return listHTML;
+                    }
+                    case 'p': {
+                        return `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em;">
+                            <span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal;">
+                                ${processInlineFormatting(block.content)}
+                            </span>
+                        </p>`;
+                    }
+                    default:
+                        return '';
+                }
+            }
+
+            // 第三步：拼接HTML并添加空行 - 修复标题空行逻辑
+            let html = '';
+            html += headerImageHTML;
+            // 开头配图下方添加一行空行
+            html += singleBr;
+
+            contentBlocks.forEach((block, index) => {
+                const blockHTML = generateBlockHTML(block);
+                if (!blockHTML) return;
+
+                // 添加前置空行
+                if (index > 0) {
+                    // 一级/二级标题上方加2个空行，其他内容上方加1个空行
+                    if (block.type === 'h1' || block.type === 'h2') {
+                        html += doubleBr;
+                    } else {
+                        html += singleBr;
+                    }
+                }
+
+                // 添加块内容
+                html += blockHTML;
+
+                // 移除标题下方的空行
+            });
+
+            // 添加底部
+            html += footerHTML;
+
+            return html;
+        }
+
+        /**
+          * 创建微信编辑器专用HTML
+          * @param {string} markdown - Markdown文本
+          * @returns {string} 适合微信编辑器的完整HTML
+          */
+        function createWeChatFullHTML(markdown) {
+            let rawLines = markdown.split('\n');
+            let contentBlocks = [];
+            let inList = false;
+            let currentList = [];
+            let i = 0;
+
+            // 解析内容块（支持多行灰色底框）
+            while (i < rawLines.length) {
+                const line = rawLines[i];
+                const trimmedLine = line.trim();
+
+                // 多行灰色底框开始（以 ` 开头但不以 ` 结尾）
+                if (trimmedLine.startsWith('`') && !trimmedLine.endsWith('`')) {
+                    let boxLines = [];
+                    
+                    // 收集开始行（去掉开头的 `）
+                    boxLines.push(trimmedLine.slice(1).trim());
+                    i++;
+                    
+                    // 收集中间行，直到遇到以 ` 结尾的行
+                    while (i < rawLines.length) {
+                        const nextLine = rawLines[i].trim();
+                        if (nextLine.endsWith('`')) {
+                            boxLines.push(nextLine.slice(0, -1).trim());
+                            i++;
+                            break;
+                        } else {
+                            boxLines.push(nextLine);
+                            i++;
+                        }
+                    }
+                    
+                    contentBlocks.push({
+                        type: 'box',
+                        content: boxLines.join('\n')
+                    });
+                    continue;
+                }
+
+                // 单行灰色底框
+                if (trimmedLine.startsWith('`') && trimmedLine.endsWith('`')) {
+                    contentBlocks.push({
+                        type: 'box',
+                        content: trimmedLine.slice(1, -1).trim()
+                    });
+                    i++;
+                    continue;
+                }
+
+                // 大标题 (## )
+                if (trimmedLine.startsWith('## ') && !trimmedLine.startsWith('### ')) {
+                    contentBlocks.push({ type: 'h1', content: trimmedLine.substring(3) });
+                    i++;
+                    continue;
+                }
+
+                // 小标题 (### )
+                if (trimmedLine.startsWith('### ')) {
+                    contentBlocks.push({ type: 'h2', content: trimmedLine.substring(4) });
+                    i++;
+                    continue;
+                }
+
+                if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
+                    if (!inList) { inList = true; currentList = []; }
+                    currentList.push(trimmedLine.substring(2));
+                    i++;
+                    continue;
+                }
+
+                if (inList) {
+                    contentBlocks.push({ type: 'ul', content: currentList });
+                    inList = false;
+                    continue;
+                }
+
+                if (trimmedLine) {
+                    contentBlocks.push({ type: 'p', content: trimmedLine });
+                }
+                i++;
+            }
+
+            if (inList) contentBlocks.push({ type: 'ul', content: currentList });
+
+            // 统计一级标题数量
+            let h1Counter = 0;
+
+            // 生成微信专用块HTML
+            function generateWeChatBlockHTML(block) {
+                switch (block.type) {
+                    case 'h1': {
+                        h1Counter++;
+                        const imgIndex = (h1Counter - 1) % titleImages.length;
+                        const imgUrl = titleImages[imgIndex];
+                    
+                        // 大标题：使用更严格的正则顺序处理不同类型的括号
+                        let titleContent = block.content;
+                        
+                        // 第一步：处理加粗 **文本**
+                        titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
+                        
+                        // 第二步：处理标蓝 [[文本]] - 必须先处理，避免 [ 匹配到 [[ 的第一个 [
+                        titleContent = titleContent.replace(/\[\[(.*?)\]\]/g, '<span style="color: rgb(51, 173, 255);">$1</span>');
+                        
+                        // 第三步：处理 [] 为默认颜色和15号字体 - 只匹配单独的 [文本]
+                        // 使用更精确的regex: 匹配 [ 后面不是 [ 且不是 ] 的内容
+                        titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #333333 !important; font-size: 15px !important;">[$1]</span>');
+                    
+                        const titleHTML = `<p style="white-space: normal;text-align: left;margin-bottom: 0px;float: none !important;">
+                            <span leaf="">
+                                <img data-src="${imgUrl}" class="rich_pages wxw-img" data-ratio="1" data-s="300,640" data-type="png" data-w="79" style="width: 50px !important; height: auto !important; visibility: visible !important; float: none !important; margin-right: 8px;" src="${imgUrl}&amp;tp=webp&amp;wxfrom=5&amp;wx_lazy=1" _width="50px" alt="标题图标">
+                            </span>
+                            <span style="font-size: 16px;color: rgb(33, 150, 243);font-weight: bold;float: none !important;display: inline;">
+                                ${titleContent}
+                            </span>
+                            <span leaf=""><br></span>
+                        </p>`;
+                    
+                        return titleHTML;
+                    }
+                    case 'h2': {
+                        const titleHTML = `<section style="box-sizing: border-box;font-size: 16px;margin-bottom: 0px;float: none !important;">
+                            <section style="transform: rotate(0deg);box-sizing: border-box;">
+                                <section style="display: flex;flex-flow: row nowrap;margin: 6px 0% 0px;transform: translate3d(4px, 0px, 0px);text-align: center;justify-content: center;box-sizing: border-box;">
+                                    <section style="display: inline-block;width: auto;vertical-align: top;min-width: 10%;max-width: 100%;flex: 0 0 auto;height: auto;align-self: flex-start;background-color: rgb(51, 173, 255);box-sizing: border-box;">
+                                        <section style="text-align: left;justify-content: flex-start;margin: -6px 0% 6px;transform: translate3d(-6px, 0px, 0px);box-sizing: border-box;">
+                                            <section style="display: inline-block;width: 100%;vertical-align: top;background-color: rgb(39, 218, 241);box-sizing: border-box;">
+                                                <section style="font-size: 15px;color: rgb(242, 249, 255);line-height: 2;padding-right: 10px;padding-left: 10px;box-sizing: border-box;">
+                                                    <p style="box-sizing: border-box;text-align: center;margin: 0;">
+                                                        <strong style="box-sizing: border-box;"><span leaf="">${processInlineFormatting(block.content, true).trim()}</span></strong>
+                                                    </p>
+                                                </section>
+                                            </section>
+                                        </section>
+                                    </section>
+                                </section>
+                            </section>
+                        </section>`;
+                    
+                        // 不在标题内部添加空行，由外部统一控制
+                        return titleHTML;
+                    }
+                    case 'box': {
+                        const innerContent = block.content;
+                        const lines = innerContent.split('\n');
+                        const linkReg = /^(.*?)[:：]\s*(http|https):\/\/\S+/;
+                        const readMoreReg = /阅读原文/;
+
+                        let boxContentHTML = '';
+
+                        // 查找第一行的标签和后续行的URL
+                        let label = '';
+                        let hasUrlInFirstLine = false;
+
+                        if (lines[0].match(linkReg)) {
+                            hasUrlInFirstLine = true;
+                        } else {
+                            const labelReg = /^(.*)[:：]$/;
+                            const labelMatch = lines[0].match(labelReg);
+                            if (labelMatch) {
+                                label = labelMatch[1].trim();
+                            }
+                        }
+
+                        // 生成内容HTML
+                        lines.forEach((line, index) => {
+                            const trimmedLine = line.trim();
+                            
+                            if (index === 0) {
+                                if (hasUrlInFirstLine) {
+                                    const match = trimmedLine.match(linkReg);
+                                    label = match[1].trim();
+                                    const url = match[0].replace(`${label}：`, '').replace(`${label}:`, '').trim();
+                                    boxContentHTML += `<span leaf="" style="font-weight: bold !important;">${label}：</span>${url}`;
+                                } else if (trimmedLine.endsWith('：') || trimmedLine.endsWith(':')) {
+                                    boxContentHTML += `<span leaf="" style="font-weight: bold !important;">${trimmedLine}</span>`;
+                                } else if (trimmedLine.match(readMoreReg)) {
+                                    const cleanContent = trimmedLine.replace(/\s+/g, '');
+                                    boxContentHTML += processInlineFormatting(cleanContent);
+                                } else {
+                                    boxContentHTML += processInlineFormatting(trimmedLine);
+                                }
+                            } else {
+                                const lineUrlMatch = trimmedLine.match(linkReg);
+                                if (lineUrlMatch) {
+                                    boxContentHTML += `<br><span leaf="" style="font-weight: bold !important;">${lineUrlMatch[1].trim()}：</span>${lineUrlMatch[0].replace(lineUrlMatch[1], '').replace(/[:：]\s*/, '')}`;
+                                } else {
+                                    boxContentHTML += '<br>' + processInlineFormatting(trimmedLine);
+                                }
+                            }
+                        });
+
+                        return `<section style="white-space: normal;box-sizing: border-box;font-size: 16px;margin-bottom: 0px;">
+                            <section style="margin: 0 auto;box-sizing: border-box;text-align: center;">
+                                <section style="padding: 10px;display: inline-block;width: 556px;border-width: 2px;border-style: none;border-color: rgb(192, 200, 209);background-color: rgb(239, 239, 239);border-radius: 11px;overflow: hidden;box-sizing: border-box;">
+                                    <section style="box-sizing: border-box;">
+                                        <section style="font-size: 14px;box-sizing: border-box;">
+                                            <p style="box-sizing: border-box;margin: 0;">
+                                                <span style="font-size: 12px;color: rgb(34, 34, 34); font-family: &quot;PingFang SC&quot;, system-ui, -apple-system, &quot;system-ui&quot;, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; letter-spacing: 0.544px; text-align: center; background-color: rgb(239, 239, 239);">
+                                                    ${boxContentHTML}
+                                                </span>
+                                            </p>
+                                        </section>
+                                    </section>
+                                </section>
+                            </section>
+                        </section>`;
+                    }
+                    case 'ul': {
+                        let listHTML = '<ul style="list-style-type: disc; padding-left: 20px !important; margin-left: 0 !important;" class="list-paddingleft-1">';
+                        block.content.forEach(item => {
+                            listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important;"><p style="margin: 0px;text-align: left;line-height: 1.6em;">
+                                <span leaf="" style="text-align: left; font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal;">
+                                    ${processInlineFormatting(item)}
+                                </span>
+                            </p></li>`;
+                        });
+                        listHTML += '</ul>';
+                        return listHTML;
+                    }                    
+                    case 'p': {
+                        return `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em; visibility: visible;">
+                            <span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal; visibility: visible;">
+                                ${processInlineFormatting(block.content)}
+                            </span>
+                        </p>`;
+                    }
+                    default:
+                        return '';
+                }
+            }
+
+            // 拼接HTML - 修复标题空行逻辑
+            let html = '';
+            html += headerImageHTML;
+            // 开头配图下方添加一行空行
+            html += singleBr;
+
+            contentBlocks.forEach((block, index) => {
+                const blockHTML = generateWeChatBlockHTML(block);
+                if (!blockHTML) return;
+
+                if (index > 0) {
+                    // 一级/二级标题上方加2个空行，其他内容上方加1个空行
+                    if (block.type === 'h1' || block.type === 'h2') {
+                        html += doubleBr;
+                    } else {
+                        html += singleBr;
+                    }
+                }
+
+                html += blockHTML;
+
+                // 移除标题下方的空行
+            });
+
+            html += footerHTML;
+            
+            return `<div class="rich_media_content js_underline_content defaultNoSetting fix_apple_default_style" id="js_content" style="text-size-adjust: var(--content-font-scale-percent, inherit);">${html}</div>`;
+        }
+
+        /**
+         * 富文本复制到剪贴板
+         * @param {string} html - 需要复制的HTML内容
+         */
+        function copyAsRichText(html) {
+            const container = document.getElementById('copy-container');
+            container.innerHTML = html;
+            
+            // 创建选区
+            const range = document.createRange();
+            range.selectNodeContents(container);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+
+            try {
+                // 尝试execCommand复制
+                let successful = document.execCommand('copy');
+                if (!successful) {
+                    throw new Error('execCommand copy failed');
+                }
+                showStatus('内容已复制到剪贴板，可直接粘贴到微信公众号编辑器！', 'success');
+            } catch (err) {
+                // 降级使用Clipboard API
+                navigator.clipboard.write([
+                    new ClipboardItem({
+                        'text/html': new Blob([html], { type: 'text/html' }),
+                        'text/plain': new Blob([html], { type: 'text/plain' })
+                    })
+                ]).then(() => {
+                    showStatus('内容已复制到剪贴板，可直接粘贴到微信公众号编辑器！', 'success');
+                }).catch(err => {
+                    console.error('复制失败: ', err);
+                    showStatus('复制失败，请尝试手动复制右侧预览内容', 'error');
+                });
+            } finally {
+                selection.removeAllRanges();
+            }
+        }
+
+        /**
+         * 显示状态提示消息（小窗口形式）
+         * @param {string} message - 提示消息
+         * @param {string} type - 类型：success/error
+         */
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status-message');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message ${type}`;
+            statusDiv.classList.add('show');
+
+            // 5秒后隐藏
+            setTimeout(() => {
+                statusDiv.classList.remove('show');
+            }, 5000);
+        }
+
+        // ========== 核心功能函数 ==========
+        /**
+         * 更新预览区域内容
+         */
+        function updatePreview() {
+            try {
+                const markdown = document.getElementById('markdown-input').value;
+                const html = markdownToWeChatHTML(markdown);
+                document.getElementById('wx-preview').innerHTML = html;
+            } catch (e) {
+                console.error('预览更新失败:', e);
+                document.getElementById('wx-preview').innerHTML = `<div style="padding: 20px; color: red;">渲染出错：${e.message}</div>`;
+            }
+        }
+
+        /**
+         * 复制内容到剪贴板
+         */
+        function copyToClipboard() {
+            const markdown = document.getElementById('markdown-input').value;
+            const fullHTML = createWeChatFullHTML(markdown);
+            copyAsRichText(fullHTML);
+        }
+
+        /**
+         * 清空编辑器
+         */
+        function clearEditor() {
+            document.getElementById('markdown-input').value = '';
+            updatePreview();
+            showStatus('编辑器已清空', 'success');
+        }
+
+        /**
+         * 加载示例内容
+         */
+        function loadExample() {
+            const exampleMarkdown = `# Apple Creator Studio：创意工作者的超值订阅方案
+
+苹果正式推出全新的订阅服务——**Apple Creator Studio**，对创意工作者、设计师和学生来说，这无疑是个大好消息！
+
+一份订阅，你就能解锁苹果旗下多款顶级创意类 App，而高校学生和老师更可享受每月仅 **18 元**的超值优惠。
+
+## Apple Creator Studio 是什么？
+
+Apple Creator Studio 是苹果专为创意人士打造的一站式订阅服务，囊括了以下**专业级 App**：
+
+- **Final Cut Pro**：知名**视频**剪辑工具；
+- **Logic Pro**：专业**音乐**制作助手；
+- **Pixelmator Pro**：强大的**图片**编辑软件；
+- **Motion、Compressor、MainStage**：特效制作、**后期**压缩和音乐表演工具；
+- **Keynote、Pages、Numbers**：**办公**三件套，升级 AI 智能功能和高级内容；
+- **无边记 App**：创意**白板**笔记工具。
+
+这些工具覆盖了视频、音频、图片、办公等多种创作场景，是一套全能型创意工具组合。
+
+## 订阅价格是多少？
+
+Apple Creator Studio 将于 **1 月 29 日**上线，价格如下：
+
+- **普通用户**：38 元 / 月 或 **380 元** / 年
+- **高校学生与教职员工**：18 元 / 月 或 **180 元** / 年
+- **免费试用**：新用户可免费试用 1 个月；购买新 Mac 或符合条件的 iPad，可免费试用 3 个月！
+
+此外，标准订阅还支持**家庭共享**，最多 6 名家庭成员共享。若全家人分摊费用，每人每月不到 5.3 元，性价比拉满！
+
+## 这些 App 可以单独买吗？
+
+可以，但价格偏高：
+
+- **Final Cut Pro**：1,998 元；
+- **Logic Pro**：1,298 元；
+- **Pixelmator Pro**：328 元；
+- **Motion、Compressor**：各 328 元；
+- **MainStage**：198 元。
+
+在这些软件中，如果你需要使用**两款**或以上的话，那每年 380 元的 Apple Creator Studio 显然有着十足的性价比。
+
+不过对于教育用户，也依然可以选择**打包买断**其中部分软件，其实价格也还可以。
+
+## 值得注意的亮点
+
+Apple Creator Studio 将于 **1 月 29 日**，在 App Store 上线，届时记得通过免费试用的机会体验一下！
+
+\`测试：http://baidu.com\`
+\`商品下载地址：http://baidu.com\`
+\`点击**阅读原文**，前往苹果官网了解更多！\``;
+            
+            document.getElementById('markdown-input').value = exampleMarkdown;
+            updatePreview();
+            showStatus('示例内容已加载', 'success');
+        }
+
+        /**
+         * 切换标记：添加/移除包裹符
+         * @param {string} text - 目标文本
+         * @param {string} wrapper - 包裹符（如 "[[" 或 "`"）
+         * @returns {string} 处理后的文本
+         */
+        function toggleWrapper(text, wrapper) {
+            const wrapperLen = wrapper.length;
+            // 检查是否已被包裹
+            if (text.startsWith(wrapper) && text.endsWith(wrapper)) {
+                // 移除包裹符
+                return text.substring(wrapperLen, text.length - wrapperLen);
+            } else {
+                // 添加包裹符
+                return wrapper + text + wrapper;
+            }
+        }
+
+        /**
+          * 设置快捷键功能（完美支持Cmd+Z撤销/Cmd+Y重做）
+          */
+        function setupShortcuts() {
+            textarea.addEventListener('keydown', function(e) {
+                // ========== 手动处理撤销/重做 ==========
+                if (e.metaKey) {
+                    if (e.key.toLowerCase() === 'z') {
+                        e.preventDefault();
+                        // Cmd+Z：撤销
+                        if (undoStack.length > 1) {
+                            redoStack.push(this.value);
+                            this.value = undoStack.pop();
+                            this.selectionStart = this.selectionEnd = this.value.length;
+                            updatePreview();
+                            showStatus('已撤销上一步操作', 'success');
+                        } else {
+                            showStatus('没有可撤销的操作', 'error');
+                        }
+                        return;
+                    } else if (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z')) {
+                        e.preventDefault();
+                        // Cmd+Y / Cmd+Shift+Z：重做
+                        if (redoStack.length > 0) {
+                            undoStack.push(this.value);
+                            this.value = redoStack.pop();
+                            this.selectionStart = this.selectionEnd = this.value.length;
+                            updatePreview();
+                            showStatus('已重做上一步操作', 'success');
+                        } else {
+                            showStatus('没有可重做的操作', 'error');
+                        }
+                        return;
+                    }
+                }
+        
+                // 只处理Cmd+B（标蓝）、Cmd+K（反引号）、Cmd+U（加粗）
+                if (!e.metaKey || !['b', 'k', 'u'].includes(e.key.toLowerCase())) {
+                    return;
+                }
+                
+                e.preventDefault();
+                
+                const start = this.selectionStart;
+                const end = this.selectionEnd;
+                const selectedText = this.value.substring(start, end);
+                
+                if (selectedText.length === 0) return;
+        
+                let newText = '';
+                let action = '';
+                
+                // 匹配快捷键
+                if (e.key.toLowerCase() === 'b') {
+                    // Cmd+B: 标蓝 [[文本]] / 取消标蓝
+                    if (selectedText.startsWith('[[') && selectedText.endsWith(']]')) {
+                        newText = selectedText.slice(2, -2);
+                        action = '取消标蓝';
+                    } else {
+                        newText = '[[' + selectedText + ']]';
+                        action = '标蓝';
+                    }
+                } else if (e.key.toLowerCase() === 'k') {
+                    // Cmd+K: 反引号 `文本` / 移除反引号
+                    if (selectedText.startsWith('`') && selectedText.endsWith('`')) {
+                        newText = selectedText.slice(1, -1);
+                        action = '取消反引号';
+                    } else {
+                        newText = '`' + selectedText + '`';
+                        action = '添加反引号';
+                    }
+                } else if (e.key.toLowerCase() === 'u') {
+                    // Cmd+U: 加粗 **文本** / 取消加粗
+                    if (selectedText.startsWith('**') && selectedText.endsWith('**')) {
+                        newText = selectedText.slice(2, -2);
+                        action = '取消加粗';
+                    } else {
+                        newText = '**' + selectedText + '**';
+                        action = '加粗';
+                    }
+                }
+        
+                // ========== 核心修复：手动记录撤销栈 ==========
+                // 1. 记录当前状态到撤销栈
+                undoStack.push(this.value);
+                redoStack = [];
+                if (undoStack.length > 50) undoStack.shift();
+                
+                // 2. 标记为快捷键操作
+                this.dataset.isShortcutAction = 'true';
+                
+                // 3. 修改文本
+                const beforeText = this.value.substring(0, start);
+                const afterText = this.value.substring(end);
+                this.value = beforeText + newText + afterText;
+                this.selectionStart = this.selectionEnd = start + newText.length;
+                
+                // 更新预览
+                updatePreview();
+                
+                // 提示
+                showStatus(`已${action}选中文本`, 'success');
+            });
+        }
+
+        // ========== 页面初始化 ==========
+        document.addEventListener('DOMContentLoaded', function() {
+            // ========== 新增这一行 ==========
+            undoStack.push(textarea.value); // 初始值入栈
+            
+            // 初始渲染
+            updatePreview();
+            
+            // 绑定事件
+            document.getElementById('markdown-input').addEventListener('input', updatePreview);
+            document.getElementById('copy-btn').addEventListener('click', copyToClipboard);
+            document.getElementById('clear-btn').addEventListener('click', clearEditor);
+            document.getElementById('example-btn').addEventListener('click', loadExample);
+            
+            // 初始化快捷键
+            setupShortcuts();
+        });
+    </script>
+</body>
+</html>
