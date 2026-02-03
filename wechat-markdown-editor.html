@@ -1007,12 +1007,17 @@
         function processInlineFormatting(text, skipWrapper = false) {
             let processed = text || '';
             
+            // 加粗标蓝 ==**文本**==（必须最先处理）
+            processed = processed.replace(/==(\*\*[^*]+\*\*|==[^=]+==)/g, function(match, inner) {
+                if (inner.startsWith('**')) {
+                    return '<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255); font-weight: bold;">' + inner.slice(2, -2) + '</span>';
+                }
+                return '<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255);">' + inner + '</span>';
+            });
             // 加粗 **文本**
             processed = processed.replace(/\*\*(.*?)\*\*/g, '<span textstyle="" style="letter-spacing: normal; font-weight: bold;">$1</span>');
-            // 标蓝 ==文本==
+            // 标蓝 ==文本==（排除已被处理的情况）
             processed = processed.replace(/==([^=]+)==/g, '<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255);">$1</span>');
-            // 加粗标蓝 ==**文本**==
-            processed = processed.replace(/==\*\*([^*]+)\*\*==/g, '<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255); font-weight: bold;">$1</span>');
             
             // 基础span包装
             if (!skipWrapper && !processed.includes('textstyle=""') && processed) {
@@ -1831,7 +1836,7 @@
 ## 我是三号大标题 [安卓/iOS]
 我是**加粗** (快捷键：Command + U)
 我是==标蓝== (快捷键：Command + B)
-我是==**加粗同时标蓝==
+我是==**加粗同时标蓝**==
 
 下面是网址 (快捷键：Command + K)
 \`我是网址：http://www.lizhi.shop\`
