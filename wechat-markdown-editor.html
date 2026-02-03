@@ -1597,14 +1597,13 @@
                         // 大标题：使用更严格的正则顺序处理不同类型的括号
                         let titleContent = block.content;
                         
-                        // 第一步：处理加粗 **文本**
+                        // 加粗 **文本**
                         titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
                         
-                        // 第二步：处理标蓝 [[文本]] - 必须先处理，避免 [ 匹配到 [[ 的第一个 [
-                        titleContent = titleContent.replace(/\[\[(.*?)\]\]/g, '<span style="color: rgb(51, 173, 255);">$1</span>');
+                        // 标蓝 ==文本==
+                        titleContent = titleContent.replace(/==([^=]+)==/g, '<span style="color: rgb(51, 173, 255);">$1</span>');
                         
-                        // 第三步：处理 [] 为默认颜色和15号字体 - 只匹配单独的 [文本]
-                        // 使用更精确的regex: 匹配 [ 后面不是 [ 且不是 ] 的内容
+                        // [文本] 灰色括号
                         titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #333333 !important; font-size: 15px !important;">[$1]</span>');
                     
                         const titleHTML = `<p style="white-space: normal;text-align: left;margin-bottom: 0px;float: none !important;">
@@ -1868,8 +1867,9 @@
                 statusDiv.classList.remove('show');
             }, 5000);
         }
-
-        // ========== 核心功能函数 ==========
+        
+        /* ==================== 预览与复制 ==================== */
+        
         /**
          * 更新预览区域内容
          */
@@ -2021,10 +2021,10 @@ http://www.lizhi.shop\`
         /**
          * 设置快捷键（Cmd+Z 撤销，Cmd+Y 重做）
          */
-        function setupShortcuts() {
-            textarea.addEventListener('keydown', function(e) {
-                // ========== 手动处理撤销/重做 ==========
-                if (e.metaKey) {
+         function setupShortcuts() {
+             textarea.addEventListener('keydown', function(e) {
+                 // 撤销/重做
+                 if (e.metaKey) {
                     if (e.key.toLowerCase() === 'z') {
                         e.preventDefault();
                         // Cmd+Z：撤销
@@ -2100,10 +2100,9 @@ http://www.lizhi.shop\`
                     }
                 }
         
-                // ========== 核心修复：手动记录撤销栈 ==========
-                // 1. 记录当前状态到撤销栈
+                // 记录到撤销栈
                 undoStack.push(this.value);
-                redoStack.length = 0; // 清空重做栈
+                redoStack.length = 0;
                 if (undoStack.length > 50) undoStack.shift();
                 
                 // 2. 标记为快捷键操作
@@ -2123,9 +2122,8 @@ http://www.lizhi.shop\`
             });
         }
 
-        // ========== 页面初始化 ==========
+        // 页面初始化
         document.addEventListener('DOMContentLoaded', function() {
-            // ========== 新增这一行 ==========
             undoStack.push(textarea.value); // 初始值入栈
             
             // 初始渲染
