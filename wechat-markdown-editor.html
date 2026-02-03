@@ -871,13 +871,46 @@
          * 增加图片使用计数
          * @param {string} dataUrl - 图片的 data URL
          */
-        function incrementImageUseCount(dataUrl) {
+         function incrementImageUseCount(dataUrl) {
             for (const filename of Object.keys(uploadedImages)) {
                 if (uploadedImages[filename].dataUrl === dataUrl) {
                     uploadedImages[filename].useCount++;
                     break;
                 }
             }
+        }
+        
+        /**
+         * 根据引用文本查找匹配的图片
+         * 匹配优先级：精确匹配 > 包含匹配 > 模糊匹配
+         * @param {string} refText - 引用文本（如「图1」、「动图演示」）
+         * @returns {{ filename: string, dataUrl: string } | null}
+         */
+        function findImageByReference(refText) {
+            const refLower = refText.toLowerCase();
+            
+            // 1. 精确匹配文件名
+            for (const filename of Object.keys(uploadedImages)) {
+                if (filename.toLowerCase() === refLower) {
+                    return { filename, dataUrl: uploadedImages[filename].dataUrl };
+                }
+            }
+            
+            // 2. 文件名包含引用文本
+            for (const filename of Object.keys(uploadedImages)) {
+                if (filename.toLowerCase().includes(refLower)) {
+                    return { filename, dataUrl: uploadedImages[filename].dataUrl };
+                }
+            }
+            
+            // 3. 引用文本包含文件名（文件名较短的情况）
+            for (const filename of Object.keys(uploadedImages)) {
+                if (refLower.includes(filename.toLowerCase()) && filename.length >= 2) {
+                    return { filename, dataUrl: uploadedImages[filename].dataUrl };
+                }
+            }
+            
+            return null;
         }
         
         /* ==================== 图片资源常量定义 ==================== */
@@ -1144,6 +1177,28 @@
                         continue;
                     }
                     
+                    // 检测【图1】、【动图演示】等图片引用
+                    const imageRefMatch = trimmedLine.match(/^【([^【】]+)】$/);
+                    if (imageRefMatch) {
+                        const refText = imageRefMatch[1].trim();
+                        const matchedImg = findImageByReference(refText);
+                        if (matchedImg) {
+                            contentBlocks.push({
+                                type: 'referenced-image',
+                                filename: matchedImg.filename,
+                                dataUrl: matchedImg.dataUrl,
+                                alt: refText
+                            });
+                        } else {
+                            contentBlocks.push({
+                                type: 'image-placeholder',
+                                text: refText
+                            });
+                        }
+                        i++;
+                        continue;
+                    }
+                    
                     contentBlocks.push({
                         type: 'p',
                         content: trimmedLine
@@ -1225,6 +1280,23 @@
                                 </section>
                             </section>
                         </section>`;
+                    }
+                    case 'referenced-image': {
+                        const isGif = block.filename.toLowerCase().endsWith('.gif') || 
+                                     uploadedImages[block.filename]?.dataUrl?.includes('data:image/gif');
+                        return `<section style="text-align: center; margin: 10px 0;">
+                            <img data-src="${block.dataUrl}" 
+                                 class="rich_pages wxw-img ${isGif ? '__bg_gif' : ''}" 
+                                 ${isGif ? `data-ratio="${0.2}" data-s="300,640" data-type="gif" data-w="208"` : ''}
+                                 style="max-width: 100%; height: auto; ${isGif ? 'width: 72px !important; float: right;' : ''}"
+                                 src="${block.dataUrl}" 
+                                 alt="${block.alt}">
+                        </section>`;
+                    }
+                    case 'image-placeholder': {
+                        return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed #ddd; margin: 10px 0; color: #999; font-size: 14px;">
+                            【${block.text}】<span style="color: #e74c3c;">（未找到匹配图片，请上传对应图片后刷新）</span>
+                        </div>`;
                     }
                     case 'box': {
                         const innerContent = block.content;
@@ -1562,6 +1634,23 @@
                                 </section>
                             </section>
                         </section>`;
+                    }
+                    case 'referenced-image': {
+                        const isGif = block.filename.toLowerCase().endsWith('.gif') || 
+                                     uploadedImages[block.filename]?.dataUrl?.includes('data:image/gif');
+                        return `<section style="text-align: center; margin: 10px 0;">
+                            <img data-src="${block.dataUrl}" 
+                                 class="rich_pages wxw-img ${isGif ? '__bg_gif' : ''}" 
+                                 ${isGif ? `data-ratio="${0.2}" data-s="300,640" data-type="gif" data-w="208"` : ''}
+                                 style="max-width: 100%; height: auto; ${isGif ? 'width: 72px !important; float: right;' : ''}"
+                                 src="${block.dataUrl}" 
+                                 alt="${block.alt}">
+                        </section>`;
+                    }
+                    case 'image-placeholder': {
+                        return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed #ddd; margin: 10px 0; color: #999; font-size: 14px;">
+                            【${block.text}】<span style="color: #e74c3c;">（未找到匹配图片，请上传对应图片后刷新）</span>
+                        </div>`;
                     }
                     case 'box': {
                         const innerContent = block.content;
