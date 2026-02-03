@@ -730,8 +730,8 @@
         });
         
         /**
-         * 生成今日日期戳（用于追踪参数）
-         * @returns {string} 格式: pYYMMDD
+         * 生成日期戳（格式: pYYMMDD，用于追踪参数）
+         * @returns {string}
          */
         function getTodayStamp() {
             const d = new Date();
@@ -742,7 +742,7 @@
         }
         
         /**
-         * 更新二维码 URL 参数
+         * 更新商品二维码 URL 参数
          * @param {string} originalUrl - 原始二维码 URL
          * @returns {string} 更新后的 URL
          */
@@ -750,11 +750,12 @@
             const todayStamp = getTodayStamp();
             const targetCid = "53qvofdc";
             
+            // Search List 模板：更新 hmpl 参数
             if (originalUrl.includes('search_list')) {
-                // Search List 模板：更新 hmpl 参数
                 return originalUrl.replace(/hmpl=p\d+/, `hmpl=${todayStamp}`);
-            } else if (originalUrl.includes('products')) {
-                // Products 模板：添加cid和hmpl参数
+            }
+            // Products 模板：添加cid和hmpl参数
+            if (originalUrl.includes('products')) {
                 const baseUrl = originalUrl.split('?')[0];
                 return `${baseUrl}?cid=${targetCid}&hmsr=wechat&hmpl=${todayStamp}`;
             }
@@ -848,13 +849,12 @@
             });
         }
         
-        /* ==================== 图片匹配与使用计数 ==================== */
+        /* ==================== 图片匹配工具 ==================== */
         
         /**
-         * 根据商品名称查找匹配的图片
-         * 匹配逻辑：比较商品名前10个字符与文件名
+         * 根据商品名称查找匹配的图片（前10字符匹配）
          * @param {string} productName - 商品名称
-         * @returns {{ filename: string, dataUrl: string } | null}
+         * @returns {{ filename, dataUrl } | null}
          */
         function findMatchingImage(productName) {
             const prefix = productName.substring(0, 10).toLowerCase();
@@ -881,10 +881,9 @@
         }
         
         /**
-         * 根据引用文本查找匹配的图片
-         * 匹配优先级：精确匹配 > 包含匹配 > 模糊匹配
+         * 根据引用文本查找匹配的图片（优先级：精确 > 包含 > 模糊）
          * @param {string} refText - 引用文本（如「图1」、「动图演示」）
-         * @returns {{ filename: string, dataUrl: string } | null}
+         * @returns {{ filename, dataUrl } | null}
          */
         function findImageByReference(refText) {
             const refLower = refText.toLowerCase();
@@ -1057,7 +1056,7 @@
          * 处理行内格式：加粗、标蓝、加粗标蓝
          * @param {string} text - 需要处理的文本
          * @param {boolean} skipWrapper - 是否跳过基础span包装
-         * @returns {string} 处理后的HTML文本
+         * @returns {string} 处理后的HTML
          */
         function processInlineFormatting(text, skipWrapper = false) {
             let processed = text || '';
@@ -1454,10 +1453,10 @@
         }
 
         /**
-          * 创建微信编辑器专用HTML
-          * @param {string} markdown - Markdown文本
-          * @returns {string} 适合微信编辑器的完整HTML
-          */
+         * 生成微信编辑器专用完整HTML
+         * @param {string} markdown - Markdown文本
+         * @returns {string} 适合微信编辑器的完整HTML
+         */
         function createWeChatFullHTML(markdown) {
             let rawLines = markdown.split('\n');
             let contentBlocks = [];
@@ -1812,8 +1811,8 @@
 
         /**
          * 富文本复制到剪贴板
-          * @param {string} html - 需要复制的HTML内容
-          */
+         * @param {string} html - 需要复制的HTML内容
+         */
         function copyAsRichText(html) {
             // 复制前将 GitHub 链接替换为微信链接
             const htmlForWeChat = replaceImageLinks(html, true);
@@ -2002,7 +2001,7 @@ http://www.lizhi.shop\`
         }
 
         /**
-         * 切换标记：添加/移除包裹符
+         * 切换标记（添加/移除包裹符）
          * @param {string} text - 目标文本
          * @param {string} wrapper - 包裹符（如 "==" 或 "`"）
          * @returns {string} 处理后的文本
@@ -2020,8 +2019,8 @@ http://www.lizhi.shop\`
         }
 
         /**
-          * 设置快捷键功能（完美支持Cmd+Z撤销/Cmd+Y重做）
-          */
+         * 设置快捷键（Cmd+Z 撤销，Cmd+Y 重做）
+         */
         function setupShortcuts() {
             textarea.addEventListener('keydown', function(e) {
                 // ========== 手动处理撤销/重做 ==========
