@@ -671,7 +671,7 @@
     
     <!-- ==================== 图片预览面板 ==================== -->
     <div id="image-preview-panel" class="image-preview-panel" style="display: none;">
-        <h4>已上传图片 <span style="font-size: 12px; color: #999; font-weight: normal;">(自动添加了日期参数)</span></h4>
+        <h4>已上传图片 <span style="font-size: 12px; color: #999; font-weight: normal;">(会自动添加日期参数)</span></h4>
         <div id="image-preview-grid" class="image-preview-grid"></div>
     </div>
     
@@ -969,13 +969,24 @@
             // 复制到微信时，替换上传图片的 GitHub 链接为实际 dataURL
             if (useWechatLinks) {
                 for (const filename of Object.keys(uploadedImages)) {
-                    const githubUrl = `${githubBase}/${filename}.png`;
-                    if (result.includes(githubUrl)) {
-                        result = result.split(githubUrl).join(uploadedImages[filename].dataUrl);
+                    const dataUrl = uploadedImages[filename].dataUrl;
+                    // 替换 GitHub 链接为实际 dataURL
+                    const githubUrlPng = `${githubBase}/${filename}.png`;
+                    const githubUrlJpg = `${githubBase}/${filename}.jpg`;
+                    const githubUrlJpeg = `${githubBase}/${filename}.jpeg`;
+                    const githubUrlGif = `${githubBase}/${filename}.gif`;
+                    
+                    if (result.includes(githubUrlPng)) {
+                        result = result.split(githubUrlPng).join(dataUrl);
                     }
-                    const jpgUrl = `${githubBase}/${filename}.jpg`;
-                    if (result.includes(jpgUrl)) {
-                        result = result.split(jpgUrl).join(uploadedImages[filename].dataUrl);
+                    if (result.includes(githubUrlJpg)) {
+                        result = result.split(githubUrlJpg).join(dataUrl);
+                    }
+                    if (result.includes(githubUrlJpeg)) {
+                        result = result.split(githubUrlJpeg).join(dataUrl);
+                    }
+                    if (result.includes(githubUrlGif)) {
+                        result = result.split(githubUrlGif).join(dataUrl);
                     }
                 }
                 
@@ -1200,6 +1211,7 @@
                                 dataUrl: matchedImg.dataUrl,
                                 alt: refText
                             });
+                            incrementImageUseCount(matchedImg.dataUrl);
                         } else {
                             contentBlocks.push({
                                 type: 'image-placeholder',
@@ -1293,7 +1305,7 @@
                         </section>`;
                     }
                     case 'referenced-image': {
-                        return `<section style="text-align: center; margin: 10px 0;">
+                        return `<section style="text-align: center; margin: 0; padding: 10px 0;">
                             <img data-src="${block.dataUrl}" 
                                  class="rich_pages wxw-img"
                                  style="max-width: 100%; height: auto;"
@@ -1543,6 +1555,28 @@
                         continue;
                     }
                     
+                    // 检测【图1】、【动图演示】等图片引用
+                    const imageRefMatch = trimmedLine.match(/^【([^【】]+)】$/);
+                    if (imageRefMatch) {
+                        const refText = imageRefMatch[1].trim();
+                        const matchedImg = findImageByReference(refText);
+                        if (matchedImg) {
+                            contentBlocks.push({
+                                type: 'referenced-image',
+                                filename: matchedImg.filename,
+                                dataUrl: matchedImg.dataUrl,
+                                alt: refText
+                            });
+                        } else {
+                            contentBlocks.push({
+                                type: 'image-placeholder',
+                                text: refText
+                            });
+                        }
+                        i++;
+                        continue;
+                    }
+                    
                     contentBlocks.push({ type: 'p', content: trimmedLine });
                 }
                 i++;
@@ -1644,7 +1678,7 @@
                         </section>`;
                     }
                     case 'referenced-image': {
-                        return `<section style="text-align: center; margin: 10px 0;">
+                        return `<section style="text-align: center; margin: 0; padding: 10px 0;">
                             <img data-src="${block.dataUrl}" 
                                  class="rich_pages wxw-img"
                                  style="max-width: 100%; height: auto;"
@@ -1908,21 +1942,29 @@
           * 加载示例内容
           */
         function loadExample() {
-            const exampleMarkdown = `我是开头，巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉
-我是开头，巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉
-我是开头，巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉巴拉
+            const exampleMarkdown = `欢迎使用我的 Markdown 编辑器，这个工具能够把 ==Markdown 标记文本==，**按照规范**渲染成公众号图文内容。
+编辑完成后，点击左下角的「==复制预览内容==」按钮，然后直接粘贴到微信公众编辑器内即可。
+这是示例内容，也是教程说明。
 ## 我是大标题 [Mac]
-大标题下的内容，巴拉巴拉
+两个井号 + 文本，生成大标题。
+三个井号 + 文本，生成小标题。
 ### 我是小标题
-小标题下的内容，巴拉巴拉
+上传图片，把文件名填写在「商品卡片：」后面，即可==自动修改==二维码，并添加商品卡片组件。
 
 商品卡片：Downie 4 - Mac在线视频下载软件 支持主流视频网站_推广二维码_2026-02-02-16-52-00.png
-▲ 上传图片，把文件名填写在冒号后面，即可自动修改二维码并替换
 
-## 我是二号大标题 [Win]
+
+## 插入文章配图 [Win]
+
+【图 1】
+【图 2】
+【图 3】
+▲ 这里是插入配图的语法，跟==外推==是一样的；
+▲ 记得在「==文章流==」保留存档！然后上传到这里，会自动按文件名匹配！
+
 ### 我是小标题
 小标题下的内容，巴拉巴拉
-## 我是三号大标题 [安卓/iOS]
+## 其他标记语法 [安卓/iOS]
 我是**加粗** (快捷键：Command + U)
 我是==标蓝== (快捷键：Command + B)
 我是==**加粗同时标蓝**==
@@ -1935,13 +1977,16 @@
 http://www.lizhi.shop\`
 
 下面是列表：
-- 我是列表
-- 我是列表
-- 我是列表
-- 我是列表
+- 我是列表 1
+- 我是列表 2
+- 我是列表 3
+- 我是列表 4
 我是其他正文内容
 
 ## 我是大标题
+
+大标题会自动引用对应的序号图片。
+
 ## 我是大标题
 ## 我是大标题
 ## 我是大标题
@@ -1949,8 +1994,8 @@ http://www.lizhi.shop\`
 ## 我是大标题
 ## 我是大标题
 
-我是其他正文内容，巴拉bara`;
-            
+大标题数量超过 9 个，会从 1 号重新累计——应该没什么机会会超过 9 的吧……`;
+
             document.getElementById('markdown-input').value = exampleMarkdown;
             updatePreview();
             showStatus('示例内容已加载', 'success');
