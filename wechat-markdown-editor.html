@@ -864,15 +864,15 @@
         /* ==================== 图片匹配工具 ==================== */
         
         /**
-         * 根据商品名称查找匹配的图片（前10字符匹配）
+         * 根据商品名称精确匹配图片（商品名与文件名匹配）
          * @param {string} productName - 商品名称
          * @returns {{ filename, dataUrl } | null}
          */
         function findMatchingImage(productName) {
-            const prefix = productName.substring(0, 10).toLowerCase();
-            
+            // 完全匹配文件名
+            const exactName = productName.toLowerCase();
             for (const filename of Object.keys(uploadedImages)) {
-                if (filename.toLowerCase().startsWith(prefix)) {
+                if (filename.toLowerCase() === exactName) {
                     return { filename, dataUrl: uploadedImages[filename].dataUrl };
                 }
             }
@@ -1078,6 +1078,16 @@
             // 数字和中文之间加空格
             text = text.replace(/([\u4e00-\u9fa5])(\d)/g, '$1 $2');
             text = text.replace(/(\d)([\u4e00-\u9fa5])/g, '$1 $2');
+            
+            // 中文括号转换（中文和括号之间加空格，再转换为英文括号）
+            // 中文左括号前加空格
+            text = text.replace(/([\u4e00-\u9fa5])（/g, '$1 （');
+            // 中文右括号后加空格
+            text = text.replace(/）([\u4e00-\u9fa5])/g, '） $1');
+            // 转换为英文括号
+            text = text.replace(/（/g, '(').replace(/）/g, ')');
+            // 修复可能的连续空格
+            text = text.replace(/\s+/g, ' ');
             
             // 中文引号转换（支持英文直引号和中文弯引号）
             const chars = text.split('');
