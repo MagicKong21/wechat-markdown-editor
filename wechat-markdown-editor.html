@@ -116,9 +116,59 @@
         
         /* 面板内容区 */
         .panel-content {
-            height: 500px;
+            flex: 1;
+            overflow: hidden;
+            border-top: 1px solid #e0e0e0;
+            position: relative;
+        }
+        
+        /* Markdown 输入框容器 */
+        .markdown-editor-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Markdown 输入框 */
+        #markdown-input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            padding: 15px;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            font-family: 'Courier New', monospace;
+            outline: none;
+            background-color: transparent;
+            color: transparent;
+            caret-color: #333;
             overflow: auto;
-            padding: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        /* Markdown 输入框 overlay */
+        #markdown-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            padding: 15px;
+            font-size: 14px;
+            line-height: 1.6;
+            font-family: 'Courier New', monospace;
+            background-color: #f9f9f9;
+            color: #333;
+            overflow: hidden;
+            pointer-events: none;
+            white-space: pre-wrap;
+            word-wrap: break-word;
         }
         
         /* Markdown 输入框 */
@@ -630,7 +680,10 @@
                 </button>
             </div>
             <div class="panel-content">
-                <textarea id="markdown-input" placeholder="在这里输入 Markdown 文本...（点击右上角「加载示例」查看示例）"></textarea>
+                <div class="markdown-editor-container">
+                    <div id="markdown-overlay"></div>
+                    <textarea id="markdown-input" placeholder="在这里输入 Markdown 文本...（点击右上角「加载示例」查看示例）"></textarea>
+                </div>
             </div>
         </div>
         
@@ -700,18 +753,25 @@
         
         /**
          * 监听文本输入，同步更新撤销栈
-         */
-        textarea.addEventListener('input', function() {
-            // 只记录非快捷键操作的原生输入
-            if (!this.dataset.isShortcutAction) {
-                undoStack.push(this.value);
-                redoStack.length = 0; // 清空重做栈
-                // 限制撤销栈长度
-                if (undoStack.length > 50) undoStack.shift();
-            }
-            delete this.dataset.isShortcutAction;
-        });
-        
+          */
+         textarea.addEventListener('input', function() {
+             // 只记录非快捷键操作的原生输入
+             if (!this.dataset.isShortcutAction) {
+                 undoStack.push(this.value);
+                 redoStack.length = 0; // 清空重做栈
+                 // 限制撤销栈长度
+                 if (undoStack.length > 50) undoStack.shift();
+             }
+             delete this.dataset.isShortcutAction;
+         });
+         
+         // 滚动同步
+         textarea.addEventListener('scroll', function() {
+             const overlay = document.getElementById('markdown-overlay');
+             overlay.scrollTop = this.scrollTop;
+             overlay.scrollLeft = this.scrollLeft;
+         });
+         
         /* ==================== 图片上传与处理 ==================== */
         
         /**
@@ -1056,10 +1116,25 @@
          * 处理行内格式：加粗、标蓝、加粗标蓝
          * @param {string} text - 需要处理的文本
          * @param {boolean} skipWrapper - 是否跳过基础span包装
-         * @returns {string} 处理后的HTML
-         */
+          * @returns {string} 处理后的HTML
+          */
+        function processTextSpacing(text) {
+            // 中英文混排加空格
+            text = text.replace(/([\u4e00-\u9fa5])([a-zA-Z])/g, '$1 $2');
+            text = text.replace(/([a-zA-Z])([\u4e00-\u9fa5])/g, '$1 $2');
+            
+            // 引号转换
+            text = text.replace(/"/g, '「').replace(/"/g, '」');
+            text = text.replace(/'/g, '『').replace(/'/g, '』');
+            
+            return text;
+        }
+        
         function processInlineFormatting(text, skipWrapper = false) {
             let processed = text || '';
+            
+            // 中英文混排加空格、引号转换
+            processed = processTextSpacing(processed);
             
             // 加粗标蓝 ==**文本**==
             processed = processed.replace(/==\*\*([^*]+)\*\*==/g, '<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255); font-weight: bold;">$1</span>');
@@ -1873,21 +1948,31 @@
         /**
          * 更新预览区域内容
          */
-         function updatePreview() {
-            try {
-                // 先清零所有图片的使用计数
-                for (const filename of Object.keys(uploadedImages)) {
-                    uploadedImages[filename].useCount = 0;
-                }
-                const markdown = document.getElementById('markdown-input').value;
-                const html = markdownToWeChatHTML(markdown);
-                document.getElementById('wx-preview').innerHTML = html;
-                updateImagePreview();
-            } catch (e) {
-                console.error('预览更新失败:', e);
-                document.getElementById('wx-preview').innerHTML = `<div style="padding: 20px; color: red;">渲染出错：${e.message}</div>`;
-            }
-        }
+          function updatePreview() {
+             try {
+                 // 先清零所有图片的使用计数
+                 for (const filename of Object.keys(uploadedImages)) {
+                     uploadedImages[filename].useCount = 0;
+                 }
+                 const markdown = document.getElementById('markdown-input').value;
+                 
+                 // 更新编辑器 overlay（实时显示中英文混排和引号转换）
+                 const overlay = document.getElementById('markdown-overlay');
+                 overlay.textContent = processTextSpacing(markdown);
+                 
+                 // 同步滚动
+                 const textarea = document.getElementById('markdown-input');
+                 overlay.scrollTop = textarea.scrollTop;
+                 overlay.scrollLeft = textarea.scrollLeft;
+                 
+                 const html = markdownToWeChatHTML(markdown);
+                 document.getElementById('wx-preview').innerHTML = html;
+                 updateImagePreview();
+             } catch (e) {
+                 console.error('预览更新失败:', e);
+                 document.getElementById('wx-preview').innerHTML = `<div style="padding: 20px; color: red;">渲染出错：${e.message}</div>`;
+             }
+         }
 
         /**
          * 复制内容到剪贴板
