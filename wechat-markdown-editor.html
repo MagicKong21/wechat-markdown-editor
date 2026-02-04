@@ -1073,32 +1073,18 @@
         function processTextSpacing(text) {
             // 中英文混排加空格
             text = text.replace(/([\u4e00-\u9fa5])([a-zA-Z])/g, '$1 $2');
-            text = text.replace(/([a-zA-Z])([\u4e00-\u9fa5])/g, '$1 $2');
+             text = text.replace(/([a-zA-Z])([\u4e00-\u9fa5])/g, '$1 $2');
+             
+            // 中文引号转换
+            text = text.replace(/"/g, '「').replace(/"/g, '」');
             
-                        // 引号转换（正确配对）
-            const quotePairs = (str) => {
-                let result = '';
-                let inQuote = false;
-                for (let char of str) {
-                    if (char === '"') {
-                        result += inQuote ? '」' : '「';
-                        inQuote = !inQuote;
-                    } else if (char === "'") {
-                        result += inQuote ? '』' : '『';
-                        inQuote = !inQuote;
-                    } else {
-                        result += char;
-                    }
-                }
-                return result;
-            };
-            text = quotePairs(text);
+            return text;
         }
         
         function processInlineFormatting(text, skipWrapper = false) {
             let processed = text || '';
             
-            // 中英文混排加空格、引号转换
+            // 中英文混排加空格、中文引号转换
             processed = processTextSpacing(processed);
             
             // 加粗标蓝 ==**文本**==
