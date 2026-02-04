@@ -1073,8 +1073,12 @@
         function processTextSpacing(text) {
             // 中英文混排加空格
             text = text.replace(/([\u4e00-\u9fa5])([a-zA-Z])/g, '$1 $2');
-             text = text.replace(/([a-zA-Z])([\u4e00-\u9fa5])/g, '$1 $2');
-             
+            text = text.replace(/([a-zA-Z])([\u4e00-\u9fa5])/g, '$1 $2');
+            
+            // 数字和中文之间加空格
+            text = text.replace(/([\u4e00-\u9fa5])(\d)/g, '$1 $2');
+            text = text.replace(/(\d)([\u4e00-\u9fa5])/g, '$1 $2');
+            
             // 中文引号转换
             text = text.replace(/"/g, '「').replace(/"/g, '」');
             
