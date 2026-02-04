@@ -1079,8 +1079,19 @@
             text = text.replace(/([\u4e00-\u9fa5])(\d)/g, '$1 $2');
             text = text.replace(/(\d)([\u4e00-\u9fa5])/g, '$1 $2');
             
-            // 中文引号转换
-            text = text.replace(/"/g, '「').replace(/"/g, '」');
+            // 中文引号转换（配对替换）
+            const chars = text.split('');
+            let result = '';
+            let inQuote = false;
+            for (const char of chars) {
+                if (char === '"') {
+                    result += inQuote ? '」' : '「';
+                    inQuote = !inQuote;
+                } else {
+                    result += char;
+                }
+            }
+            text = result;
             
             return text;
         }
