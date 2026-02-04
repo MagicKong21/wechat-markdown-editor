@@ -140,7 +140,7 @@
             font-size: 14px;
             line-height: 1.6;
             resize: none;
-            font-family: 'Courier New', monospace;
+            font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
             outline: none;
             background-color: #f9f9f9;
         }
@@ -1079,12 +1079,12 @@
             text = text.replace(/([\u4e00-\u9fa5])(\d)/g, '$1 $2');
             text = text.replace(/(\d)([\u4e00-\u9fa5])/g, '$1 $2');
             
-            // 中文引号转换（配对替换）
+            // 中文引号转换（支持英文直引号和中文弯引号）
             const chars = text.split('');
             let result = '';
             let inQuote = false;
             for (const char of chars) {
-                if (char === '"') {
+                if (char === '"' || char === '"' || char === '"') {
                     result += inQuote ? '」' : '「';
                     inQuote = !inQuote;
                 } else {
