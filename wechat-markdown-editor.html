@@ -1084,7 +1084,7 @@
             let result = '';
             let inQuote = false;
             for (const char of chars) {
-                if (char === '"' || char === '"' || char === '"') {
+                if (char === '"' || char === '\u201C' || char === '\u201D') {
                     result += inQuote ? '」' : '「';
                     inQuote = !inQuote;
                 } else {
