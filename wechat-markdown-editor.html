@@ -380,8 +380,8 @@
             position: fixed;
             bottom: 20px;
             right: 20px;
-            width: 200px;
-            max-height: 300px;
+            width: 320px;
+            max-height: 150px;
             background: white;
             border-radius: 8px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
@@ -393,23 +393,24 @@
         .image-preview-panel h4 {
             font-size: 12px;
             color: #666;
-            margin: 0 0 8px 0;
-            padding-bottom: 8px;
+            margin: 0 0 6px 0;
+            padding-bottom: 6px;
             border-bottom: 1px solid #eee;
         }
         
         .image-preview-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 6px;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
         }
         
         .image-preview-item {
             position: relative;
             aspect-ratio: 1;
-            border-radius: 4px;
+            border-radius: 3px;
             overflow: hidden;
             cursor: pointer;
+            font-size: 8px;
         }
         
         .image-preview-item img {
@@ -419,24 +420,24 @@
         }
         
         .image-preview-item.used {
-            box-shadow: 0 0 0 2px #28a745;
+            box-shadow: 0 0 0 1px #28a745;
         }
         
         .image-preview-item.unused {
-            box-shadow: 0 0 0 2px #dc3545;
+            box-shadow: 0 0 0 1px #dc3545;
         }
         
         .image-preview-item .use-count {
             position: absolute;
-            top: 2px;
-            right: 2px;
-            width: 20px;
-            height: 20px;
+            top: 1px;
+            right: 1px;
+            width: 14px;
+            height: 14px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 11px;
+            font-size: 9px;
             font-weight: bold;
             color: white;
             background: rgba(0,0,0,0.6);
@@ -449,8 +450,8 @@
             right: 0;
             background: rgba(0,0,0,0.7);
             color: white;
-            font-size: 8px;
-            padding: 2px;
+            font-size: 7px;
+            padding: 1px;
             text-overflow: ellipsis;
             overflow: hidden;
             white-space: nowrap;
@@ -683,7 +684,7 @@
     
     <!-- ==================== 图片预览面板 ==================== -->
     <div id="image-preview-panel" class="image-preview-panel" style="display: none;">
-        <h4>已上传图片 <span style="font-size: 12px; color: #999; font-weight: normal;">(会自动添加日期参数)</span></h4>
+        <h4>已上传图片 <span style="font-size: 12px; color: #999; font-weight: normal;">(自动为商品卡片添加日期参数)</span></h4>
         <div id="image-preview-grid" class="image-preview-grid"></div>
     </div>
     
@@ -708,6 +709,21 @@
         // 获取编辑器元素
         const textarea = document.getElementById('markdown-input');
         
+        /* ==================== 预编译正则表达式（性能优化） ==================== */
+        
+        // 文本格式化正则（预编译避免重复创建）
+        const REGEX_PATTERNS = {
+            cnEnBefore: /([\u4e00-\u9fa5])([a-zA-Z])/g,
+            enCnBefore: /([a-zA-Z])([\u4e00-\u9fa5])/g,
+            cnDigitBefore: /([\u4e00-\u9fa5])(\d)/g,
+            digitCnBefore: /(\d)([\u4e00-\u9fa5])/g,
+            cnLParenBefore: /([\u4e00-\u9fa5])（/g,
+            cnRParenAfter: /）([\u4e00-\u9fa5])/g,
+            cnLParen: /（/g,
+            cnRParen: /）/g,
+            multiSpace: /\s+/g
+        };
+        
         /* ==================== 撤销/重做功能 ==================== */
         
         /**
@@ -727,19 +743,43 @@
         /* ==================== 图片上传与处理 ==================== */
         
         /**
-         * 图片上传事件监听
-         */
+          * 图片上传事件监听
+           */
+        let pendingImageCount = 0;
+        
         document.getElementById('image-upload').addEventListener('change', function(e) {
-            const files = Array.from(e.target.files);
+            const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+            
+            if (files.length === 0) return;
+            
+            // 渐进式显示：立即显示浮窗（准备中状态）
+            pendingImageCount = files.length;
+            showUploadingStatus(files.length);
             
             files.forEach(file => {
-                if (file.type.startsWith('image/')) {
-                    processImageWithQR(file);
-                }
+                processImageWithQR(file);
             });
             
             this.value = ''; // 清空 input 允许重复上传
         });
+        
+        /**
+         * 显示上传中状态
+         * @param {number} total - 总图片数
+         */
+        function showUploadingStatus(total) {
+            const panel = document.getElementById('image-preview-panel');
+            const grid = document.getElementById('image-preview-grid');
+            
+            panel.style.display = 'block';
+            grid.innerHTML = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: #666;">
+                    <div style="font-size: 24px; margin-bottom: 8px;">⏳</div>
+                    <div style="font-size: 12px;">正在处理 ${total} 张图片...</div>
+                    <div style="font-size: 11px; color: #999; margin-top: 4px;">请稍候</div>
+                </div>
+            `;
+        }
         
         /**
          * 生成日期戳（格式: pYYMMDD，用于追踪参数）
@@ -777,7 +817,7 @@
         /**
          * 处理上传的图片（识别并替换二维码）
          * @param {File} file - 上传的文件对象
-         */
+          */
         function processImageWithQR(file) {
             const reader = new FileReader();
             reader.onload = async function(event) {
@@ -822,8 +862,13 @@
                         qrReplaced: qrReplaced
                     };
                     
+                    // 渐进式显示：每处理完一张就刷新
+                    pendingImageCount--;
                     updateImagePreview();
-                    updatePreview();
+                    if (pendingImageCount <= 0) {
+                        pendingImageCount = 0;
+                        updatePreview();
+                    }
                 };
                 img.src = event.target.result;
             };
@@ -832,12 +877,12 @@
         
         /**
          * 更新图片预览面板显示
-         */
+          */
         function updateImagePreview() {
             const panel = document.getElementById('image-preview-panel');
             const grid = document.getElementById('image-preview-grid');
             
-            const filenames = Object.keys(uploadedImages);
+            const filenames = Object.keys(uploadedImages).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
             
             if (filenames.length === 0) {
                 panel.style.display = 'none';
@@ -852,11 +897,23 @@
                 const isUsed = img.useCount > 0;
                 const item = document.createElement('div');
                 item.className = `image-preview-item ${isUsed ? 'used' : 'unused'}`;
+                item.title = '点击复制文件名';
                 item.innerHTML = `
                     <img src="${img.dataUrl}" alt="${filename}">
                     <div class="use-count">${img.useCount}</div>
                     <div class="filename">${filename}</div>
                 `;
+                
+                // 点击复制文件名（不含后缀）
+                item.addEventListener('click', () => {
+                    const nameWithoutExt = filename.replace(/\.[^.]+$/, '');
+                    navigator.clipboard.writeText(nameWithoutExt).then(() => {
+                        showStatus(`已复制: ${nameWithoutExt}`, 'success');
+                    }).catch(() => {
+                        showStatus('复制失败', 'error');
+                    });
+                });
+                
                 grid.appendChild(item);
             });
         }
@@ -1071,37 +1128,27 @@
           * @returns {string} 处理后的HTML
           */
         function processTextSpacing(text) {
-            // 中英文混排加空格
-            text = text.replace(/([\u4e00-\u9fa5])([a-zA-Z])/g, '$1 $2');
-            text = text.replace(/([a-zA-Z])([\u4e00-\u9fa5])/g, '$1 $2');
+            // 中英文混排加空格（使用预编译正则）
+            text = text.replace(REGEX_PATTERNS.cnEnBefore, '$1 $2');
+            text = text.replace(REGEX_PATTERNS.enCnBefore, '$1 $2');
             
             // 数字和中文之间加空格
-            text = text.replace(/([\u4e00-\u9fa5])(\d)/g, '$1 $2');
-            text = text.replace(/(\d)([\u4e00-\u9fa5])/g, '$1 $2');
+            text = text.replace(REGEX_PATTERNS.cnDigitBefore, '$1 $2');
+            text = text.replace(REGEX_PATTERNS.digitCnBefore, '$1 $2');
             
             // 中文括号转换（中文和括号之间加空格，再转换为英文括号）
-            // 中文左括号前加空格
-            text = text.replace(/([\u4e00-\u9fa5])（/g, '$1 （');
-            // 中文右括号后加空格
-            text = text.replace(/）([\u4e00-\u9fa5])/g, '） $1');
-            // 转换为英文括号
-            text = text.replace(/（/g, '(').replace(/）/g, ')');
-            // 修复可能的连续空格
-            text = text.replace(/\s+/g, ' ');
+            text = text.replace(REGEX_PATTERNS.cnLParenBefore, '$1 （');
+            text = text.replace(REGEX_PATTERNS.cnRParenAfter, '） $1');
+            text = text.replace(REGEX_PATTERNS.cnLParen, '(');
+            text = text.replace(REGEX_PATTERNS.cnRParen, ')');
+            text = text.replace(REGEX_PATTERNS.multiSpace, ' ');
             
-            // 中文引号转换（支持英文直引号和中文弯引号）
-            const chars = text.split('');
-            let result = '';
+            // 中文弯引号转换（只转换中文弯引号，不转换英文直引号）
             let inQuote = false;
-            for (const char of chars) {
-                if (char === '"' || char === '\u201C' || char === '\u201D') {
-                    result += inQuote ? '」' : '「';
-                    inQuote = !inQuote;
-                } else {
-                    result += char;
-                }
-            }
-            text = result;
+            text = text.replace(/(\u201C|\u201D)/g, () => {
+                inQuote = !inQuote;
+                return inQuote ? '「' : '」';
+            });
             
             return text;
         }
