@@ -651,6 +651,9 @@
             <div class="panel-header">
                 <i class="fas fa-eye"></i>
                 <h2>微信公众号预览</h2>
+                <button class="btn btn-sm" id="personal-mode-btn" style="background: linear-gradient(135deg, #f39c12, #e67e22); color: white; margin-left: auto;">
+                    <i class="fas fa-star"></i> 个人模式
+                </button>
             </div>
             <div class="panel-content">
                 <div id="preview-content">
@@ -705,6 +708,9 @@
         
         // 当前淘口令（用于商品卡片展示）
         let currentTaoKouLing = '77《Dnd3UYMQhCh✔ https://s.tb.cn/h.77yL1DE &nbsp;CZ001';
+        
+        // 个人模式开关
+        let isPersonalMode = false;
         
         // 获取编辑器元素
         const textarea = document.getElementById('markdown-input');
@@ -897,18 +903,19 @@
                 const isUsed = img.useCount > 0;
                 const item = document.createElement('div');
                 item.className = `image-preview-item ${isUsed ? 'used' : 'unused'}`;
-                item.title = '点击复制文件名';
+                item.title = '点击复制图片引用（带【】符号）';
                 item.innerHTML = `
                     <img src="${img.dataUrl}" alt="${filename}">
                     <div class="use-count">${img.useCount}</div>
                     <div class="filename">${filename}</div>
                 `;
                 
-                // 点击复制文件名（不含后缀）
+                // 点击复制图片引用（带【】符号）
                 item.addEventListener('click', () => {
                     const nameWithoutExt = filename.replace(/\.[^.]+$/, '');
-                    navigator.clipboard.writeText(nameWithoutExt).then(() => {
-                        showStatus(`已复制: ${nameWithoutExt}`, 'success');
+                    const refWithBrackets = `【${nameWithoutExt}】`;
+                    navigator.clipboard.writeText(refWithBrackets).then(() => {
+                        showStatus(`已复制: ${refWithBrackets}`, 'success');
                     }).catch(() => {
                         showStatus('复制失败', 'error');
                     });
@@ -957,23 +964,18 @@
         function findImageByReference(refText) {
             const refLower = refText.toLowerCase();
             
-            // 1. 精确匹配文件名
+            // 1. 精确匹配文件名（不含扩展名）
             for (const filename of Object.keys(uploadedImages)) {
-                if (filename.toLowerCase() === refLower) {
+                const nameWithoutExt = filename.replace(/\.[^.]+$/, '').toLowerCase();
+                if (nameWithoutExt === refLower) {
                     return { filename, dataUrl: uploadedImages[filename].dataUrl };
                 }
             }
             
-            // 2. 文件名包含引用文本
+            // 2. 文件名（不含扩展名）以引用文本开头
             for (const filename of Object.keys(uploadedImages)) {
-                if (filename.toLowerCase().includes(refLower)) {
-                    return { filename, dataUrl: uploadedImages[filename].dataUrl };
-                }
-            }
-            
-            // 3. 引用文本包含文件名（文件名较短的情况）
-            for (const filename of Object.keys(uploadedImages)) {
-                if (refLower.includes(filename.toLowerCase()) && filename.length >= 2) {
+                const nameWithoutExt = filename.replace(/\.[^.]+$/, '').toLowerCase();
+                if (nameWithoutExt.startsWith(refLower)) {
                     return { filename, dataUrl: uploadedImages[filename].dataUrl };
                 }
             }
@@ -1075,6 +1077,9 @@
             <img data-src="${githubImages.header}" class="rich_pages wxw-img" data-ratio="0.2" data-s="300,640" data-type="png" data-w="900" style="width: 100% !important; height: auto !important; visibility: visible !important;" src="${githubImages.header}" alt="开头配图">
         </section>`;
 
+        // 个人模式：开头虚线（用 p 元素包裹，带 padding）
+        const personalHeaderHTML = '<p style="border-top: 2px dashed rgb(34, 34, 34); margin: 0; padding: 8px 0;"></p>';
+
         // 一级标题图片数组（使用 GitHub 链接）
         const titleImages = [
             githubImages.title1, githubImages.title2, githubImages.title3,
@@ -1114,6 +1119,9 @@
         <section style="text-align: right;white-space: normal;margin: 2px 0 10px 0;" nodeleaf="">
             <img data-src="${githubImages.heart}" class="rich_pages wxw-img __bg_gif" data-ratio="0.20673076923076922" data-s="300,640" data-type="gif" data-w="208" style="width: 72px !important; height: auto !important; visibility: visible !important; float: right;" src="${githubImages.heart}" _width="72px" alt="底部GIF">
         </section>`;
+
+        // 个人模式底部：末尾虚线（用 p 元素包裹，带 padding）
+        const personalFooterHTML = '<p style="border-bottom: 2px dashed rgb(34, 34, 34); margin: 0; padding: 8px 0;"></p>';
 
         // 标准空行模板（用于段落间距）
         const singleBr = '<p style="margin: 0px 16px; text-align: left; line-height: 1.6em;"><span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal;"><br></span></p>';
@@ -1343,6 +1351,23 @@
                 switch (block.type) {
                     case 'h1': {
                         h1Counter++;
+                        
+                        // 个人模式：使用虚线样式
+                        if (isPersonalMode) {
+                            let titleContent = block.content;
+                            titleContent = processTextSpacing(titleContent);
+                            titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
+                            titleContent = titleContent.replace(/==([^=]+)==/g, '<span style="color: #00d4ff;">$1</span>');
+                            titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #666; font-size: 14px;">[$1]</span>');
+                            
+                            return `<section class="level1-title-dashed personal-mode" style="box-sizing: border-box;font-size: 16px;margin: 20px 0px 20px;float: none !important;padding: 12px 0px;background: transparent;text-align: center;">
+                                <section style="display: inline-block;font-weight: 900;color: rgb(43, 43, 43);letter-spacing: 2px;border: none;visibility: visible;text-align: center;box-sizing: border-box;font-size: 20px;border-top: 2px dashed rgb(34, 34, 34);border-bottom: 2px dashed rgb(34, 34, 34);padding: 8px 20px;min-width: 100px;">
+                                    <span leaf="" style="visibility: visible;">${titleContent}</span>
+                                </section>
+                            </section>`;
+                        }
+                        
+                        // 数码荔枝模式：使用图片
                         const imgIndex = (h1Counter - 1) % titleImages.length;
                         const imgUrl = titleImages[imgIndex];
                         
@@ -1518,9 +1543,9 @@
                 }
             }
 
-            // 第三步：拼接HTML并添加空行 - 修复标题空行逻辑
+            // 第三步：拼接HTML并添加空行 - 根据模式选择不同的 header
             let html = '';
-            html += headerImageHTML;
+            html += isPersonalMode ? personalHeaderHTML : headerImageHTML;
             // 开头配图下方添加一行空行
             html += singleBr;
 
@@ -1530,8 +1555,8 @@
 
                 // 添加前置空行
                 if (index > 0) {
-                    // 一级/二级标题上方加2个空行，其他内容上方加1个空行
-                    if (block.type === 'h1' || block.type === 'h2') {
+                    // 个人模式：标题上方1个空行；数码荔枝模式：标题上方2个空行
+                    if ((block.type === 'h1' || block.type === 'h2') && !isPersonalMode) {
                         html += doubleBr;
                     } else {
                         html += singleBr;
@@ -1544,8 +1569,13 @@
                 // 移除标题下方的空行
             });
 
-            // 添加底部
-            html += footerHTML;
+            // 添加底部（根据模式选择）
+            if (isPersonalMode) {
+                html += singleBr;
+                html += personalFooterHTML;
+            } else {
+                html += footerHTML;
+            }
 
             return html;
         }
@@ -1689,6 +1719,26 @@
                 switch (block.type) {
                     case 'h1': {
                         h1Counter++;
+                        
+                        // 个人模式：使用虚线样式
+                        if (isPersonalMode) {
+                            let titleContent = block.content;
+                            titleContent = processTextSpacing(titleContent);
+                            // 加粗 **文本**
+                            titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
+                            // 标蓝 ==文本==
+                            titleContent = titleContent.replace(/==([^=]+)==/g, '<span style="color: #00d4ff;">$1</span>');
+                            // [文本] 灰色括号
+                            titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #666666;font-size: 14px;">[$1]</span>');
+
+                            return `<section class="level1-title-dashed personal-mode" style="box-sizing: border-box;font-size: 16px;margin: 20px 0px 20px;float: none !important;padding: 12px 0px;background: transparent;text-align: center;">
+                                <section style="display: inline-block;font-weight: 900;color: rgb(43, 43, 43);letter-spacing: 2px;border: none;visibility: visible;text-align: center;box-sizing: border-box;font-size: 20px;border-top: 2px dashed rgb(34, 34, 34);border-bottom: 2px dashed rgb(34, 34, 34);padding: 8px 20px;min-width: 100px;">
+                                    <span leaf="" style="visibility: visible;">${titleContent}</span>
+                                </section>
+                            </section>`;
+                        }
+                        
+                        // 数码荔枝模式：使用图片
                         const imgIndex = (h1Counter - 1) % titleImages.length;
                         const imgUrl = titleImages[imgIndex];
                     
@@ -1877,9 +1927,9 @@
                 }
             }
 
-            // 拼接HTML - 修复标题空行逻辑
+            // 拼接HTML - 根据模式选择不同的 header
             let html = '';
-            html += headerImageHTML;
+            html += isPersonalMode ? personalHeaderHTML : headerImageHTML;
             // 开头配图下方添加一行空行
             html += singleBr;
 
@@ -1888,8 +1938,8 @@
                 if (!blockHTML) return;
 
                 if (index > 0) {
-                    // 一级/二级标题上方加2个空行，其他内容上方加1个空行
-                    if (block.type === 'h1' || block.type === 'h2') {
+                    // 个人模式：标题上方1个空行；数码荔枝模式：标题上方2个空行
+                    if ((block.type === 'h1' || block.type === 'h2') && !isPersonalMode) {
                         html += doubleBr;
                     } else {
                         html += singleBr;
@@ -1901,7 +1951,13 @@
                 // 移除标题下方的空行
             });
 
-            html += footerHTML;
+            // 添加底部（根据模式选择）
+            if (isPersonalMode) {
+                html += singleBr;
+                html += personalFooterHTML;
+            } else {
+                html += footerHTML;
+            }
             
             return `<div class="rich_media_content js_underline_content defaultNoSetting fix_apple_default_style" id="js_content" style="text-size-adjust: var(--content-font-scale-percent, inherit);">${html}</div>`;
         }
@@ -2233,6 +2289,12 @@ http://www.lizhi.shop\`
             document.getElementById('clear-btn').addEventListener('click', clearEditor);
             document.getElementById('example-btn').addEventListener('click', loadExample);
             document.getElementById('update-taokouling-btn').addEventListener('click', updateTaokouling);
+            document.getElementById('personal-mode-btn').addEventListener('click', function() {
+                isPersonalMode = !isPersonalMode;
+                this.style.background = isPersonalMode ? 'linear-gradient(135deg, #27ae60, #2ecc71)' : 'linear-gradient(135deg, #f39c12, #e67e22)';
+                this.innerHTML = isPersonalMode ? '<i class="fas fa-star"></i> 回到默认' : '<i class="far fa-star"></i> 个人模式';
+                updatePreview();
+            });
             
             // 初始化快捷键
             setupShortcuts();
