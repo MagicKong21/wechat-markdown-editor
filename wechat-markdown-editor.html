@@ -1077,8 +1077,11 @@
             <img data-src="${githubImages.header}" class="rich_pages wxw-img" data-ratio="0.2" data-s="300,640" data-type="png" data-w="900" style="width: 100% !important; height: auto !important; visibility: visible !important;" src="${githubImages.header}" alt="开头配图">
         </section>`;
 
-        // 个人模式：开头虚线（用 p 元素包裹，带 padding）
-        const personalHeaderHTML = '<p style="border-top: 2px dashed rgb(34, 34, 34); margin: 0; padding: 8px 0;"></p>';
+        // 个人模式：开头虚线（模仿大标题的虚线实现方式）
+        const personalHeaderHTML = '<section style="border-top: 2px dashed #222222; margin: 2px 10px; padding: 0; text-align: center;">&nbsp;</section>';
+
+        // 个人模式：文章背景网格底纹
+        const personalBackgroundStyle = 'background-color: #fafafa;';
 
         // 一级标题图片数组（使用 GitHub 链接）
         const titleImages = [
@@ -1120,8 +1123,8 @@
             <img data-src="${githubImages.heart}" class="rich_pages wxw-img __bg_gif" data-ratio="0.20673076923076922" data-s="300,640" data-type="gif" data-w="208" style="width: 72px !important; height: auto !important; visibility: visible !important; float: right;" src="${githubImages.heart}" _width="72px" alt="底部GIF">
         </section>`;
 
-        // 个人模式底部：末尾虚线（用 p 元素包裹，带 padding）
-        const personalFooterHTML = '<p style="border-bottom: 2px dashed rgb(34, 34, 34); margin: 0; padding: 8px 0;"></p>';
+        // 个人模式底部：末尾虚线（模仿大标题的虚线实现方式）
+        const personalFooterHTML = '<section style="border-bottom: 2px dashed #222222; margin: 2px 10px; padding: 0; text-align: center;">&nbsp;</section>';
 
         // 标准空行模板（用于段落间距）
         const singleBr = '<p style="margin: 0px 16px; text-align: left; line-height: 1.6em;"><span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal;"><br></span></p>';
@@ -1310,11 +1313,22 @@
                         const refText = imageRefMatch[1].trim();
                         const matchedImg = findImageByReference(refText);
                         if (matchedImg) {
+                            // 检查下一行是否是图片标注
+                            let caption = null;
+                            if (i + 1 < rawLines.length) {
+                                const nextLine = rawLines[i + 1].trim();
+                                const captionMatch = nextLine.match(/^｜｜(.+)｜｜$/);
+                                if (captionMatch) {
+                                    caption = captionMatch[1].trim();
+                                    i++; // 跳过标注行
+                                }
+                            }
                             contentBlocks.push({
                                 type: 'referenced-image',
                                 filename: matchedImg.filename,
                                 dataUrl: matchedImg.dataUrl,
-                                alt: refText
+                                alt: refText,
+                                caption: caption
                             });
                             incrementImageUseCount(matchedImg.dataUrl);
                         } else {
@@ -1323,6 +1337,17 @@
                                 text: refText
                             });
                         }
+                        i++;
+                        continue;
+                    }
+                    
+                    // 检测图片标注语法：｜｜文字｜｜（独立一行，作为前一个图片的标注）
+                    const imageCaptionMatch = trimmedLine.match(/^｜｜(.+)｜｜$/);
+                    if (imageCaptionMatch) {
+                        contentBlocks.push({
+                            type: 'image-caption',
+                            caption: imageCaptionMatch[1].trim()
+                        });
                         i++;
                         continue;
                     }
@@ -1352,7 +1377,7 @@
                     case 'h1': {
                         h1Counter++;
                         
-                        // 个人模式：使用虚线样式
+                        // 个人模式：使用虚线样式（只有上下边框）
                         if (isPersonalMode) {
                             let titleContent = block.content;
                             titleContent = processTextSpacing(titleContent);
@@ -1361,7 +1386,7 @@
                             titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #666; font-size: 14px;">[$1]</span>');
                             
                             return `<section class="level1-title-dashed personal-mode" style="box-sizing: border-box;font-size: 16px;margin: 20px 0px 20px;float: none !important;padding: 12px 0px;background: transparent;text-align: center;">
-                                <section style="display: inline-block;font-weight: 900;color: rgb(43, 43, 43);letter-spacing: 2px;border: none;visibility: visible;text-align: center;box-sizing: border-box;font-size: 20px;border-top: 2px dashed rgb(34, 34, 34);border-bottom: 2px dashed rgb(34, 34, 34);padding: 8px 20px;min-width: 100px;">
+                                <section style="display: inline-block;font-weight: 900;color: rgb(43, 43, 43);letter-spacing: 2px;border: none;visibility: visible;text-align: center;box-sizing: border-box;font-size: 20px;border-top: 2px dashed #222222;border-bottom: 2px dashed #222222;padding: 8px 20px;min-width: 100px;">
                                     <span leaf="" style="visibility: visible;">${titleContent}</span>
                                 </section>
                             </section>`;
@@ -1383,6 +1408,14 @@
                         </div>`;
                     }
                     case 'h2': {
+                        // 个人模式小标题：带底色的小标题
+                        if (isPersonalMode) {
+                            return `<div class="level2-title" style="text-align: center; margin: 20px 0 15px 0;">
+                                <span style="display: inline-block; padding: 8px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 15px; font-weight: bold; border-radius: 4px; letter-spacing: 2px;">
+                                    ${processInlineFormatting(block.content, true).trim()}
+                                </span>
+                            </div>`;
+                        }
                         return `<div class="level2-title">
                             <div class="title-box">
                                 <div class="title-box-inner">
@@ -1427,12 +1460,15 @@
                         </section>`;
                     }
                     case 'referenced-image': {
+                        const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center; font-size: 12px; color: #666666;">${block.caption}</p>` : '';
+                        const imageStyle = isPersonalMode ? 'max-width: 100%; height: auto; border: 2px dashed #222222; padding: 8px; background: #ffffff;' : 'max-width: 100%; height: auto;';
                         return `<section style="text-align: center; margin: 0; padding: 10px 0;">
                             <img data-src="${block.dataUrl}" 
                                  class="rich_pages wxw-img"
-                                 style="max-width: 100%; height: auto;"
+                                 style="${imageStyle}"
                                  src="${block.dataUrl}" 
                                  alt="${block.alt}">
+                            ${captionHTML}
                         </section>`;
                     }
                     case 'image-placeholder': {
@@ -1546,8 +1582,10 @@
             // 第三步：拼接HTML并添加空行 - 根据模式选择不同的 header
             let html = '';
             html += isPersonalMode ? personalHeaderHTML : headerImageHTML;
-            // 开头配图下方添加一行空行
-            html += singleBr;
+            // 开头配图下方添加空行（个人模式不需要）
+            if (!isPersonalMode) {
+                html += singleBr;
+            }
 
             contentBlocks.forEach((block, index) => {
                 const blockHTML = generateBlockHTML(block);
@@ -1571,7 +1609,6 @@
 
             // 添加底部（根据模式选择）
             if (isPersonalMode) {
-                html += singleBr;
                 html += personalFooterHTML;
             } else {
                 html += footerHTML;
@@ -1688,11 +1725,22 @@
                         const refText = imageRefMatch[1].trim();
                         const matchedImg = findImageByReference(refText);
                         if (matchedImg) {
+                            // 检查下一行是否是图片标注
+                            let caption = null;
+                            if (i + 1 < rawLines.length) {
+                                const nextLine = rawLines[i + 1].trim();
+                                const captionMatch = nextLine.match(/^｜｜(.+)｜｜$/);
+                                if (captionMatch) {
+                                    caption = captionMatch[1].trim();
+                                    i++; // 跳过标注行
+                                }
+                            }
                             contentBlocks.push({
                                 type: 'referenced-image',
                                 filename: matchedImg.filename,
                                 dataUrl: matchedImg.dataUrl,
-                                alt: refText
+                                alt: refText,
+                                caption: caption
                             });
                         } else {
                             contentBlocks.push({
@@ -1720,7 +1768,7 @@
                     case 'h1': {
                         h1Counter++;
                         
-                        // 个人模式：使用虚线样式
+                        // 个人模式：使用虚线样式（只有上下边框）
                         if (isPersonalMode) {
                             let titleContent = block.content;
                             titleContent = processTextSpacing(titleContent);
@@ -1732,7 +1780,7 @@
                             titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #666666;font-size: 14px;">[$1]</span>');
 
                             return `<section class="level1-title-dashed personal-mode" style="box-sizing: border-box;font-size: 16px;margin: 20px 0px 20px;float: none !important;padding: 12px 0px;background: transparent;text-align: center;">
-                                <section style="display: inline-block;font-weight: 900;color: rgb(43, 43, 43);letter-spacing: 2px;border: none;visibility: visible;text-align: center;box-sizing: border-box;font-size: 20px;border-top: 2px dashed rgb(34, 34, 34);border-bottom: 2px dashed rgb(34, 34, 34);padding: 8px 20px;min-width: 100px;">
+                                <section style="display: inline-block;font-weight: 900;color: rgb(43, 43, 43);letter-spacing: 2px;border: none;visibility: visible;text-align: center;box-sizing: border-box;font-size: 20px;border-top: 2px dashed #222222;border-bottom: 2px dashed #222222;padding: 8px 20px;min-width: 100px;">
                                     <span leaf="" style="visibility: visible;">${titleContent}</span>
                                 </section>
                             </section>`;
@@ -1767,6 +1815,14 @@
                         return titleHTML;
                     }
                     case 'h2': {
+                        // 个人模式小标题：带底色的小标题
+                        if (isPersonalMode) {
+                            return `<section style="text-align: center; margin: 20px 0 15px 0;">
+                                <span style="display: inline-block; padding: 8px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 15px; font-weight: bold; border-radius: 4px; letter-spacing: 2px;">
+                                    ${processInlineFormatting(block.content, true).trim()}
+                                </span>
+                            </section>`;
+                        }
                         const titleHTML = `<section style="box-sizing: border-box;font-size: 16px;margin-bottom: 0px;float: none !important;">
                             <section style="transform: rotate(0deg);box-sizing: border-box;">
                                 <section style="display: flex;flex-flow: row nowrap;margin: 6px 0% 0px;transform: translate3d(4px, 0px, 0px);text-align: center;justify-content: center;box-sizing: border-box;">
@@ -1824,12 +1880,15 @@
                         </section>`;
                     }
                     case 'referenced-image': {
+                        const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center; font-size: 12px; color: #666666;">${block.caption}</p>` : '';
+                        const imageStyle = isPersonalMode ? 'max-width: 100%; height: auto; border: 2px dashed #222222; padding: 8px; background: #ffffff;' : 'max-width: 100%; height: auto;';
                         return `<section style="text-align: center; margin: 0; padding: 10px 0;">
                             <img data-src="${block.dataUrl}" 
                                  class="rich_pages wxw-img"
-                                 style="max-width: 100%; height: auto;"
+                                 style="${imageStyle}"
                                  src="${block.dataUrl}" 
                                  alt="${block.alt}">
+                            ${captionHTML}
                         </section>`;
                     }
                     case 'image-placeholder': {
@@ -1930,8 +1989,10 @@
             // 拼接HTML - 根据模式选择不同的 header
             let html = '';
             html += isPersonalMode ? personalHeaderHTML : headerImageHTML;
-            // 开头配图下方添加一行空行
-            html += singleBr;
+            // 开头配图下方添加空行（个人模式不需要）
+            if (!isPersonalMode) {
+                html += singleBr;
+            }
 
             contentBlocks.forEach((block, index) => {
                 const blockHTML = generateWeChatBlockHTML(block);
@@ -1953,13 +2014,17 @@
 
             // 添加底部（根据模式选择）
             if (isPersonalMode) {
-                html += singleBr;
                 html += personalFooterHTML;
             } else {
                 html += footerHTML;
             }
             
-            return `<div class="rich_media_content js_underline_content defaultNoSetting fix_apple_default_style" id="js_content" style="text-size-adjust: var(--content-font-scale-percent, inherit);">${html}</div>`;
+            // 个人模式：添加背景网格样式
+            let containerStyle = 'text-size-adjust: var(--content-font-scale-percent, inherit);';
+            if (isPersonalMode) {
+                containerStyle += ' background-color: #fafafa; background-image: url("data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' viewBox=\'0 0 40 40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h20v20H0zM20 20h20v20H20z\' fill=\'%23000000\' fill-opacity=\'0.03\' fill-rule=\'evenodd\'/%3E%3C/svg%3E");';
+            }
+            return `<div class="rich_media_content js_underline_content defaultNoSetting fix_apple_default_style" id="js_content" style="${containerStyle}">${html}</div>`;
         }
 
         /**
@@ -2036,12 +2101,33 @@
                  const markdown = document.getElementById('markdown-input').value;
                  const html = markdownToWeChatHTML(markdown);
                  document.getElementById('wx-preview').innerHTML = html;
+                 
+                 // 个人模式：添加背景网格样式到预览区域
+                 const previewContent = document.getElementById('preview-content');
+                 const wxArticle = document.querySelector('.wx-article');
+                 
+                 if (isPersonalMode) {
+                     previewContent.style.backgroundImage = 'linear-gradient(90deg, rgba(50, 0, 0, 0.04) 3%, rgba(0, 0, 0, 0) 3%), linear-gradient(360deg, rgba(50, 0, 0, 0.04) 3%, rgba(0, 0, 0, 0) 3%)';
+                     previewContent.style.backgroundSize = '20px 20px';
+                     previewContent.style.backgroundPosition = 'center center';
+                     previewContent.style.backgroundColor = '#fafafa';
+                     if (wxArticle) {
+                         wxArticle.style.backgroundColor = 'transparent';
+                     }
+                 } else {
+                     previewContent.style.backgroundImage = '';
+                     previewContent.style.backgroundColor = 'white';
+                     if (wxArticle) {
+                         wxArticle.style.backgroundColor = 'white';
+                     }
+                 }
+                 
                  updateImagePreview();
              } catch (e) {
                  console.error('预览更新失败:', e);
                  document.getElementById('wx-preview').innerHTML = `<div style="padding: 20px; color: red;">渲染出错：${e.message}</div>`;
              }
-         }
+          }
 
         /**
          * 复制内容到剪贴板
