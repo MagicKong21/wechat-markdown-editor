@@ -665,12 +665,6 @@
         </div>
     </div>
 
-    <!-- ==================== 调试区域 ==================== -->
-    <div id="debug-area" style="display: none; margin: 10px; padding: 10px; background: #f0f0f0; border: 1px solid #ccc;">
-        <p style="margin: 0 0 5px 0; font-weight: bold;">调试 - 复制的内容（选中下面内容后 Ctrl+C 复制）:</p>
-        <textarea id="debug-output" style="width: 100%; height: 150px; font-family: monospace; font-size: 12px;"></textarea>
-    </div>
-
     <!-- ==================== 控制按钮区 ==================== -->
     <div class="controls">
         <div id="status-message" class="status-message"></div>
@@ -2005,14 +1999,9 @@
 
             // 拼接HTML - 根据模式选择不同的 header
             let html = '';
-            
-            if (isPersonalMode) {
-                // 个人模式：用带背景的 section 包裹所有内容，添加 data-tool 属性可能帮助微信编辑器保留样式
-                html += `<section data-tool="mdnice编辑器" data-website="https://www.mdnice.com" style="background-color: #fafafa; background-image: linear-gradient(90deg, rgba(50, 0, 0, 0.04) 3%, rgba(0, 0, 0, 0) 3%), linear-gradient(360deg, rgba(50, 0, 0, 0.04) 3%, rgba(0, 0, 0, 0) 3%); background-size: 20px 20px; background-position: center center;">`;
-                // 头部虚线
-                html += personalHeaderHTML;
-            } else {
-                html += headerImageHTML;
+            html += isPersonalMode ? personalHeaderHTML : headerImageHTML;
+            // 开头配图下方添加空行（个人模式不需要）
+            if (!isPersonalMode) {
                 html += singleBr;
             }
 
@@ -2021,6 +2010,7 @@
                 if (!blockHTML) return;
 
                 if (index > 0) {
+                    // 个人模式：标题上方1个空行；数码荔枝模式：标题上方2个空行
                     if ((block.type === 'h1' || block.type === 'h2') && !isPersonalMode) {
                         html += doubleBr;
                     } else {
@@ -2031,10 +2021,9 @@
                 html += blockHTML;
             });
 
-            // 添加底部
+            // 添加底部（根据模式选择）
             if (isPersonalMode) {
                 html += personalFooterHTML;
-                html += '</section>'; // 闭合包裹的 section
             } else {
                 html += footerHTML;
             }
@@ -2050,16 +2039,12 @@
             // 复制前将 GitHub 链接替换为微信链接
             const htmlForWeChat = replaceImageLinks(html, true);
             
-            // 调试用：把HTML写入调试区域
-            document.getElementById('debug-output').value = htmlForWeChat;
-            document.getElementById('debug-area').style.display = 'block';
-            
             const container = document.getElementById('copy-container');
             container.innerHTML = htmlForWeChat;
             
-            // 创建选区 - 选中第一个子元素，确保外层元素样式也被复制
+            // 创建选区
             const range = document.createRange();
-            range.selectNode(container.firstElementChild);
+            range.selectNodeContents(container);
             const selection = window.getSelection();
             selection.removeAllRanges();
             selection.addRange(range);
@@ -2118,30 +2103,26 @@
                      uploadedImages[filename].useCount = 0;
                  }
                  const markdown = document.getElementById('markdown-input').value;
-                 const html = markdownToWeChatHTML(markdown);
-                 document.getElementById('wx-preview').innerHTML = html;
-                 
-                 // 个人模式：添加背景网格样式到预览区域
-                 const previewContent = document.getElementById('preview-content');
-                 const wxArticle = document.querySelector('.wx-article');
-                 
-                 if (isPersonalMode) {
-                     previewContent.style.backgroundImage = 'linear-gradient(90deg, rgba(50, 0, 0, 0.04) 3%, rgba(0, 0, 0, 0) 3%), linear-gradient(360deg, rgba(50, 0, 0, 0.04) 3%, rgba(0, 0, 0, 0) 3%)';
-                     previewContent.style.backgroundSize = '20px 20px';
-                     previewContent.style.backgroundPosition = 'center center';
-                     previewContent.style.backgroundColor = '#fafafa';
-                     if (wxArticle) {
-                         wxArticle.style.backgroundColor = 'transparent';
-                     }
-                 } else {
-                     previewContent.style.backgroundImage = '';
-                     previewContent.style.backgroundColor = 'white';
-                     if (wxArticle) {
-                         wxArticle.style.backgroundColor = 'white';
-                     }
-                 }
-                 
-                 updateImagePreview();
+                  const html = markdownToWeChatHTML(markdown);
+                  document.getElementById('wx-preview').innerHTML = html;
+                  
+                  // 个人模式：设置背景色
+                  const previewContent = document.getElementById('preview-content');
+                  const wxArticle = document.querySelector('.wx-article');
+                  
+                  if (isPersonalMode) {
+                      previewContent.style.backgroundColor = '#fafafa';
+                      if (wxArticle) {
+                          wxArticle.style.backgroundColor = 'transparent';
+                      }
+                  } else {
+                      previewContent.style.backgroundColor = 'white';
+                      if (wxArticle) {
+                          wxArticle.style.backgroundColor = 'white';
+                      }
+                  }
+                  
+                  updateImagePreview();
              } catch (e) {
                  console.error('预览更新失败:', e);
                  document.getElementById('wx-preview').innerHTML = `<div style="padding: 20px; color: red;">渲染出错：${e.message}</div>`;
