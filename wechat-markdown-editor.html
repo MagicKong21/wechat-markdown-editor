@@ -665,6 +665,12 @@
         </div>
     </div>
 
+    <!-- ==================== 调试区域 ==================== -->
+    <div id="debug-area" style="display: none; margin: 10px; padding: 10px; background: #f0f0f0; border: 1px solid #ccc;">
+        <p style="margin: 0 0 5px 0; font-weight: bold;">调试 - 复制的内容（选中下面内容后 Ctrl+C 复制）:</p>
+        <textarea id="debug-output" style="width: 100%; height: 150px; font-family: monospace; font-size: 12px;"></textarea>
+    </div>
+
     <!-- ==================== 控制按钮区 ==================== -->
     <div class="controls">
         <div id="status-message" class="status-message"></div>
@@ -1126,9 +1132,12 @@
         // 个人模式底部：末尾虚线（模仿大标题的虚线实现方式）
         const personalFooterHTML = '<section style="border-bottom: 2px dashed #222222; margin: 2px 10px; padding: 0; text-align: center;">&nbsp;</section>';
 
-        // 标准空行模板（用于段落间距）
-        const singleBr = '<p style="margin: 0px 16px; text-align: left; line-height: 1.6em;"><span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal;"><br></span></p>';
-        const doubleBr = singleBr + singleBr;
+        // 标准空行模板（用于段落间距）- 根据模式动态生成
+        function getBrHtml(isPersonal) {
+            const fontSize = isPersonal ? '15px' : '14px';
+            const br = `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em;"><span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: ${fontSize}; letter-spacing: normal;"><br></span></p>`;
+            return { singleBr: br, doubleBr: br + br };
+        }
 
         /* ==================== 文本格式化工具 ==================== */
         
@@ -1197,6 +1206,9 @@
             let inList = false;
             let currentList = [];
             let i = 0;
+            
+            // 获取当前模式对应的空行HTML
+            const { singleBr, doubleBr } = getBrHtml(isPersonalMode);
             
             // 第一步：解析内容块
             while (i < rawLines.length) {
@@ -1411,7 +1423,7 @@
                         // 个人模式小标题：带底色的小标题
                         if (isPersonalMode) {
                             return `<div class="level2-title" style="text-align: center; margin: 20px 0 15px 0;">
-                                <span style="display: inline-block; padding: 8px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 15px; font-weight: bold; border-radius: 4px; letter-spacing: 2px;">
+                                <span style="display: inline-block; padding: 8px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 17px; font-weight: bold; border-radius: 4px; letter-spacing: 2px;">
                                     ${processInlineFormatting(block.content, true).trim()}
                                 </span>
                             </div>`;
@@ -1460,7 +1472,7 @@
                         </section>`;
                     }
                     case 'referenced-image': {
-                        const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center; font-size: 12px; color: #666666;">${block.caption}</p>` : '';
+                        const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center; font-size: 13px; color: #666666;">${block.caption}</p>` : '';
                         const imageStyle = isPersonalMode ? 'max-width: 100%; height: auto; border: 2px dashed #222222; padding: 8px; background: #ffffff;' : 'max-width: 100%; height: auto;';
                         return `<section style="text-align: center; margin: 0; padding: 10px 0;">
                             <img data-src="${block.dataUrl}" 
@@ -1568,8 +1580,9 @@
                         return listHTML;
                     }
                     case 'p': {
+                        const pFontSize = isPersonalMode ? '15px' : '14px';
                         return `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em;">
-                            <span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal;">
+                            <span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: ${pFontSize}; letter-spacing: normal;">
                                 ${processInlineFormatting(block.content)}
                             </span>
                         </p>`;
@@ -1628,6 +1641,9 @@
             let inList = false;
             let currentList = [];
             let i = 0;
+            
+            // 获取当前模式对应的空行HTML
+            const { singleBr, doubleBr } = getBrHtml(isPersonalMode);
             
             // 解析内容块（支持多行灰色底框）
             while (i < rawLines.length) {
@@ -1818,7 +1834,7 @@
                         // 个人模式小标题：带底色的小标题
                         if (isPersonalMode) {
                             return `<section style="text-align: center; margin: 20px 0 15px 0;">
-                                <span style="display: inline-block; padding: 8px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 15px; font-weight: bold; border-radius: 4px; letter-spacing: 2px;">
+                                <span style="display: inline-block; padding: 8px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 17px; font-weight: bold; border-radius: 4px; letter-spacing: 2px;">
                                     ${processInlineFormatting(block.content, true).trim()}
                                 </span>
                             </section>`;
@@ -1880,7 +1896,7 @@
                         </section>`;
                     }
                     case 'referenced-image': {
-                        const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center; font-size: 12px; color: #666666;">${block.caption}</p>` : '';
+                        const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center; font-size: 13px; color: #666666;">${block.caption}</p>` : '';
                         const imageStyle = isPersonalMode ? 'max-width: 100%; height: auto; border: 2px dashed #222222; padding: 8px; background: #ffffff;' : 'max-width: 100%; height: auto;';
                         return `<section style="text-align: center; margin: 0; padding: 10px 0;">
                             <img data-src="${block.dataUrl}" 
@@ -1975,8 +1991,9 @@
                         return listHTML;
                     }                    
                     case 'p': {
+                        const pFontSize = isPersonalMode ? '15px' : '14px';
                         return `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em; visibility: visible;">
-                            <span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal; visibility: visible;">
+                            <span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: ${pFontSize}; letter-spacing: normal; visibility: visible;">
                                 ${processInlineFormatting(block.content)}
                             </span>
                         </p>`;
@@ -1988,9 +2005,14 @@
 
             // 拼接HTML - 根据模式选择不同的 header
             let html = '';
-            html += isPersonalMode ? personalHeaderHTML : headerImageHTML;
-            // 开头配图下方添加空行（个人模式不需要）
-            if (!isPersonalMode) {
+            
+            if (isPersonalMode) {
+                // 个人模式：用带背景的 section 包裹所有内容，添加 data-tool 属性可能帮助微信编辑器保留样式
+                html += `<section data-tool="mdnice编辑器" data-website="https://www.mdnice.com" style="background-color: #fafafa; background-image: linear-gradient(90deg, rgba(50, 0, 0, 0.04) 3%, rgba(0, 0, 0, 0) 3%), linear-gradient(360deg, rgba(50, 0, 0, 0.04) 3%, rgba(0, 0, 0, 0) 3%); background-size: 20px 20px; background-position: center center;">`;
+                // 头部虚线
+                html += personalHeaderHTML;
+            } else {
+                html += headerImageHTML;
                 html += singleBr;
             }
 
@@ -1999,7 +2021,6 @@
                 if (!blockHTML) return;
 
                 if (index > 0) {
-                    // 个人模式：标题上方1个空行；数码荔枝模式：标题上方2个空行
                     if ((block.type === 'h1' || block.type === 'h2') && !isPersonalMode) {
                         html += doubleBr;
                     } else {
@@ -2008,23 +2029,17 @@
                 }
 
                 html += blockHTML;
-
-                // 移除标题下方的空行
             });
 
-            // 添加底部（根据模式选择）
+            // 添加底部
             if (isPersonalMode) {
                 html += personalFooterHTML;
+                html += '</section>'; // 闭合包裹的 section
             } else {
                 html += footerHTML;
             }
             
-            // 个人模式：添加背景网格样式
-            let containerStyle = 'text-size-adjust: var(--content-font-scale-percent, inherit);';
-            if (isPersonalMode) {
-                containerStyle += ' background-color: #fafafa; background-image: url("data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' viewBox=\'0 0 40 40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h20v20H0zM20 20h20v20H20z\' fill=\'%23000000\' fill-opacity=\'0.03\' fill-rule=\'evenodd\'/%3E%3C/svg%3E");';
-            }
-            return `<div class="rich_media_content js_underline_content defaultNoSetting fix_apple_default_style" id="js_content" style="${containerStyle}">${html}</div>`;
+            return `<div class="rich_media_content js_underline_content defaultNoSetting fix_apple_default_style" id="js_content" style="text-size-adjust: var(--content-font-scale-percent, inherit);">${html}</div>`;
         }
 
         /**
@@ -2035,12 +2050,16 @@
             // 复制前将 GitHub 链接替换为微信链接
             const htmlForWeChat = replaceImageLinks(html, true);
             
+            // 调试用：把HTML写入调试区域
+            document.getElementById('debug-output').value = htmlForWeChat;
+            document.getElementById('debug-area').style.display = 'block';
+            
             const container = document.getElementById('copy-container');
             container.innerHTML = htmlForWeChat;
             
-            // 创建选区
+            // 创建选区 - 选中第一个子元素，确保外层元素样式也被复制
             const range = document.createRange();
-            range.selectNodeContents(container);
+            range.selectNode(container.firstElementChild);
             const selection = window.getSelection();
             selection.removeAllRanges();
             selection.addRange(range);
