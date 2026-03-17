@@ -1150,11 +1150,9 @@
             text = text.replace(REGEX_PATTERNS.cnDigitBefore, '$1 $2');
             text = text.replace(REGEX_PATTERNS.digitCnBefore, '$1 $2');
             
-            // 中文括号转换（中文和括号之间加空格，再转换为英文括号）
-            text = text.replace(REGEX_PATTERNS.cnLParenBefore, '$1 （');
-            text = text.replace(REGEX_PATTERNS.cnRParenAfter, '） $1');
-            text = text.replace(REGEX_PATTERNS.cnLParen, '(');
-            text = text.replace(REGEX_PATTERNS.cnRParen, ')');
+            // 中文括号转换：「（」改为「 (」，「）」改为「) 」
+            text = text.replace(/（/g, ' (');
+            text = text.replace(/）/g, ') ');
             text = text.replace(REGEX_PATTERNS.multiSpace, ' ');
             
             // 中文弯引号转换（只转换中文弯引号，不转换英文直引号）
@@ -1173,12 +1171,50 @@
             // 中英文混排加空格、中文引号转换
             processed = processTextSpacing(processed);
             
-            // 加粗标蓝 ==**文本**==
-            processed = processed.replace(/==\*\*([^*]+)\*\*==/g, '<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255); font-weight: bold;">$1</span>');
-            // 标蓝 ==文本==
-            processed = processed.replace(/==([^=]+)==/g, '<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255);">$1</span>');
-            // 加粗 **文本**
-            processed = processed.replace(/\*\*(.*?)\*\*/g, '<span textstyle="" style="letter-spacing: normal; font-weight: bold;">$1</span>');
+            // 先处理组合格式 ==**...**== 和 **==...==**（避免被后面的空格处理破坏）
+            processed = processed.replace(/==\*\*(.+?)\*\*==/g, (match, content) => {
+                return `<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255); font-weight: bold;">${content}</span>`;
+            });
+            processed = processed.replace(/\*\*==(.+?)==\*\*/g, (match, content) => {
+                return `<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255); font-weight: bold;">${content}</span>`;
+            });
+            
+            // 处理 ==：如果一边是中文，另一边是数字/英文，就在==右侧加空格
+            processed = processed.replace(/([\u4e00-\u9fa5\d_a-zA-Z]?)==([\u4e00-\u9fa5\d_a-zA-Z]?)/g, (match, left, right) => {
+                const isLeftCN = /[\u4e00-\u9fa5]/.test(left);
+                const isLeftEN = /[\d_a-zA-Z]/.test(left);
+                const isRightCN = /[\u4e00-\u9fa5]/.test(right);
+                const isRightEN = /[\d_a-zA-Z]/.test(right);
+                
+                // 一边是中文，另一边是数字/英文 → 加空格
+                if ((isLeftEN && isRightCN) || (isLeftCN && isRightEN)) {
+                    return left + '== ' + right;
+                }
+                return match;
+            });
+            
+            // 处理 **：同样的逻辑
+            processed = processed.replace(/([\u4e00-\u9fa5\d_a-zA-Z]?)\*\*([\u4e00-\u9fa5\d_a-zA-Z]?)/g, (match, left, right) => {
+                const isLeftCN = /[\u4e00-\u9fa5]/.test(left);
+                const isLeftEN = /[\d_a-zA-Z]/.test(left);
+                const isRightCN = /[\u4e00-\u9fa5]/.test(right);
+                const isRightEN = /[\d_a-zA-Z]/.test(right);
+                
+                if ((isLeftEN && isRightCN) || (isLeftCN && isRightEN)) {
+                    return left + '** ' + right;
+                }
+                return match;
+            });
+            
+            // 处理 ==文本== - 标蓝
+            processed = processed.replace(/==([^=]+)==/g, (match, content) => {
+                return `<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255);">${content}</span>`;
+            });
+            
+            // 处理 **文本** - 加粗
+            processed = processed.replace(/\*\*(.+?)\*\*/g, (match, content) => {
+                return `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${content}</span>`;
+            });
             
             // 基础span包装
             if (!skipWrapper && !processed.includes('textstyle=""') && processed) {
@@ -1273,7 +1309,9 @@
                         inList = true;
                         currentList = [];
                     }
-                    currentList.push(trimmedLine.substring(2));
+                    // 清理末尾标点后再存入
+                    const cleanItem = trimmedLine.substring(2).replace(/[。；，,\.！!？?]+$/, '').trim();
+                    currentList.push(cleanItem);
                     i++;
                     continue;
                 }
@@ -1302,8 +1340,8 @@
                             currentTaoKouLing = taoMatch[1].trim();
                         }
                         
-                        // 去掉图片扩展名用于匹配
-                        productName = productName.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '');
+                        // 去掉图片扩展名和【】用于匹配
+                        productName = productName.replace(/^【|】$/g, '').replace(/\.(png|jpg|jpeg|gif|webp)$/i, '');
                         
                         contentBlocks.push({
                             type: 'product-card',
@@ -1563,10 +1601,13 @@
                     }
                     case 'ul': {
                         let listHTML = '<ul style="list-style-type: disc; padding-left: 20px !important; margin-left: 0 !important;" class="list-paddingleft-1" id="wechat-list">';
-                        block.content.forEach(item => {
+                        const itemCount = block.content.length;
+                        block.content.forEach((item, index) => {
+                            // 解析时已清理标点，这里直接添加
+                            const punct = (index === itemCount - 1) ? '。' : '；';
                             listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important;"><p style="margin: 0px;text-align: left;line-height: 1.6em;">
                                 <span leaf="" style="text-align: left; font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal;">
-                                    ${processInlineFormatting(item)}
+                                    ${processInlineFormatting(item)}${punct}
                                 </span>
                             </p></li>`;
                         });
@@ -1698,7 +1739,9 @@
 
                 if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
                     if (!inList) { inList = true; currentList = []; }
-                    currentList.push(trimmedLine.substring(2));
+                    // 清理末尾标点后再存入
+                    const cleanItem = trimmedLine.substring(2).replace(/[。；，,\.！!？?]+$/, '').trim();
+                    currentList.push(cleanItem);
                     i++;
                     continue;
                 }
@@ -1719,8 +1762,8 @@
                         if (taoMatch && taoMatch[1]) {
                             currentTaoKouLing = taoMatch[1].trim();
                         }
-                        // 去掉图片扩展名（用于和上传的图片文件名匹配）
-                        productName = productName.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '');
+                        // 去掉图片扩展名和【】（用于和上传的图片文件名匹配）
+                        productName = productName.replace(/^【|】$/g, '').replace(/\.(png|jpg|jpeg|gif|webp)$/i, '');
                         contentBlocks.push({
                             type: 'product-card',
                             productName: productName
@@ -1974,10 +2017,13 @@
                     }
                     case 'ul': {
                         let listHTML = '<ul style="list-style-type: disc; padding-left: 20px !important; margin-left: 0 !important;" class="list-paddingleft-1">';
-                        block.content.forEach(item => {
+                        const itemCount = block.content.length;
+                        block.content.forEach((item, index) => {
+                            // 解析时已清理标点，这里直接添加
+                            const punct = (index === itemCount - 1) ? '。' : '；';
                             listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important;"><p style="margin: 0px;text-align: left;line-height: 1.6em;">
                                 <span leaf="" style="text-align: left; font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal;">
-                                    ${processInlineFormatting(item)}
+                                    ${processInlineFormatting(item)}${punct}
                                 </span>
                             </p></li>`;
                         });
