@@ -707,7 +707,7 @@
         const uploadedImages = {};
         
         // 当前淘口令（用于商品卡片展示）
-        let currentTaoKouLing = '77《Dnd3UYMQhCh✔ https://s.tb.cn/h.77yL1DE &nbsp;CZ001';
+        let currentTaoKouLing = localStorage.getItem('currentTaoKouLing') || '77《Dnd3UYMQhCh✔ https://s.tb.cn/h.77yL1DE &nbsp;CZ001';
         
         // 个人模式开关
         let isPersonalMode = false;
@@ -2195,7 +2195,6 @@
          */
          function clearEditor() {
             document.getElementById('markdown-input').value = '';
-            currentTaoKouLing = '77《Dnd3UYMQhCh✔ https://s.tb.cn/h.77yL1DE &nbsp;CZ001';
             updatePreview();
             showStatus('编辑器已清空', 'success');
         }
@@ -2207,6 +2206,7 @@
             const newTaoKouLing = prompt('请输入新的淘口令：');
             if (newTaoKouLing && newTaoKouLing.trim()) {
                 currentTaoKouLing = newTaoKouLing.trim();
+                localStorage.setItem('currentTaoKouLing', currentTaoKouLing);
                 const textarea = document.getElementById('markdown-input');
                 const lines = textarea.value.split('\n');
                 const updatedLines = lines.map(line => {
