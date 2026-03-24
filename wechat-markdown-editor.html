@@ -846,17 +846,23 @@
                     if (code) {
                         const newUrl = getNewQRUrl(code.data);
                         if (newUrl !== code.data) {
+                            // 根据图片尺寸判断使用新版或旧版卡片配置
+                            const isNewCard = img.width <= 1000 && img.height <= 420;
+                            const qrSize = isNewCard ? 203 : 216;
+                            const qrX = isNewCard ? 738 : 760;
+                            const qrY = isNewCard ? 148 : 140;
+                            
                             // 生成新二维码并绘制到图片上
                             const qrCanvas = document.createElement('canvas');
                             await QRCode.toCanvas(qrCanvas, newUrl, { 
                                 margin: 0, 
-                                width: 216, 
+                                width: qrSize, 
                                 errorCorrectionLevel: 'H' 
                             });
-                            ctx.drawImage(qrCanvas, 760, 140, 216, 216);
+                            ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
                             finalDataUrl = canvas.toDataURL('image/png');
                             qrReplaced = true;
-                            console.log(`二维码已替换: ${file.name}`);
+                            console.log(`二维码已替换: ${file.name} (${isNewCard ? '新版' : '旧版'}卡片)`);
                         }
                     }
                     
