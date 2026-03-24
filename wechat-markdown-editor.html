@@ -652,7 +652,7 @@
                 <i class="fas fa-eye"></i>
                 <h2>微信公众号预览</h2>
                 <button class="btn btn-sm" id="personal-mode-btn" style="background: linear-gradient(135deg, #f39c12, #e67e22); color: white; margin-left: auto;">
-                    <i class="fas fa-star"></i> 个人模式
+                    <i class="far fa-star"></i> 个人模式
                 </button>
             </div>
             <div class="panel-content">
@@ -2442,7 +2442,7 @@ http://www.lizhi.shop\`
             document.getElementById('personal-mode-btn').addEventListener('click', function() {
                 isPersonalMode = !isPersonalMode;
                 this.style.background = isPersonalMode ? 'linear-gradient(135deg, #27ae60, #2ecc71)' : 'linear-gradient(135deg, #f39c12, #e67e22)';
-                this.innerHTML = isPersonalMode ? '<i class="fas fa-star"></i> 回到默认' : '<i class="far fa-star"></i> 个人模式';
+                this.innerHTML = isPersonalMode ? '<i class="fas fa-star"></i> 默认模式' : '<i class="far fa-star"></i> 个人模式';
                 updatePreview();
             });
             
