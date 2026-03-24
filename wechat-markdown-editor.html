@@ -1168,6 +1168,9 @@
                 return inQuote ? '「' : '」';
             });
             
+            // 破折号两侧加空格
+            text = text.replace(/\s*——\s*/g, ' —— ');
+            
             return text;
         }
         
