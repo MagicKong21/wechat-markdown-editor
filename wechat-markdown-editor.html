@@ -2346,8 +2346,8 @@ http://www.lizhi.shop\`
                     }
                 }
         
-                // 只处理Cmd+B（标蓝）、Cmd+K（反引号）、Cmd+U（加粗）
-                if (!e.metaKey || !['b', 'k', 'u'].includes(e.key.toLowerCase())) {
+                // 只处理Cmd+B（标蓝）、Cmd+K（反引号）、Cmd+U（加粗）、Cmd+E（加粗+标蓝）
+                if (!e.metaKey || !['b', 'k', 'u', 'e'].includes(e.key.toLowerCase())) {
                     return;
                 }
                 
@@ -2389,6 +2389,15 @@ http://www.lizhi.shop\`
                     } else {
                         newText = '**' + selectedText + '**';
                         action = '加粗';
+                    }
+                } else if (e.key.toLowerCase() === 'e') {
+                    // Cmd+E: 加粗+标蓝 **==文本==** / 取消
+                    if (selectedText.startsWith('**==') && selectedText.endsWith('==**')) {
+                        newText = selectedText.slice(4, -4);
+                        action = '取消加粗标蓝';
+                    } else {
+                        newText = '**==' + selectedText + '==**';
+                        action = '加粗标蓝';
                     }
                 }
         
