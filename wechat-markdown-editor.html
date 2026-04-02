@@ -1312,6 +1312,15 @@
                     continue;
                 }
 
+                // 分隔线（>=3个连续短横线）
+                if (/^-{3,}$/.test(trimmedLine)) {
+                    contentBlocks.push({
+                        type: 'divider'
+                    });
+                    i++;
+                    continue;
+                }
+
                 // 无序列表项
                 if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
                     if (!inList) {
@@ -1632,6 +1641,9 @@
                             </span>
                         </p>`;
                     }
+                    case 'divider': {
+                        return `<hr style="border-style: solid; border-width: 1px 0 0; border-color: rgba(0,0,0,0.1); margin: 10px 0;">`;
+                    }
                     default:
                         return '';
                 }
@@ -1743,6 +1755,13 @@
                 // 小标题 (### )
                 if (trimmedLine.startsWith('### ')) {
                     contentBlocks.push({ type: 'h2', content: trimmedLine.substring(4) });
+                    i++;
+                    continue;
+                }
+
+                // 分隔线（>=3个连续短横线）
+                if (/^-{3,}$/.test(trimmedLine)) {
+                    contentBlocks.push({ type: 'divider' });
                     i++;
                     continue;
                 }
@@ -2048,6 +2067,9 @@
                             </span>
                         </p>`;
                     }
+                    case 'divider': {
+                        return `<hr class="divider" style="border-style: solid; border-width: 1px 0 0; border-color: rgba(0,0,0,0.1); -webkit-transform-origin: 0 0; -webkit-transform: scale(1, 0.5); transform-origin: 0 0; transform: scale(1, 0.5); margin: 10px 0 !important;">`;
+                    }
                     default:
                         return '';
                 }
@@ -2204,8 +2226,8 @@
             text = text.replace(/\*\*(.*?)\*\*/g, '$1');
             // 清空高亮标记 ==
             text = text.replace(/==([^=]+)==/g, '$1');
-            // 清空分割线 ---
-            text = text.replace(/^---$/gm, '');
+            // 清空分割线（>=3个连续短横线）
+            text = text.replace(/^-{3,}$/gm, '');
             textarea.value = text;
             updatePreview();
             showStatus('已清空加粗、高亮、分割线标记符', 'success');
