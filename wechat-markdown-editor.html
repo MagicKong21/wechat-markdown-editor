@@ -672,7 +672,7 @@
             <i class="fas fa-copy"></i> 复制预览内容
         </button>
         <button class="btn btn-secondary" id="clear-btn">
-            <i class="fas fa-broom"></i> 清空编辑器
+            <i class="fas fa-broom"></i> 清空标记符
         </button>
         <button class="btn" id="update-taokouling-btn" style="background: linear-gradient(135deg, #34a853, #2e9549); color: white;">
             <i class="fas fa-key"></i> 更新淘口令
@@ -1451,6 +1451,7 @@
                         
                         // 处理标题格式
                         let titleContent = block.content;
+                        titleContent = processTextSpacing(titleContent);
                         titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
                         titleContent = titleContent.replace(/==([^=]+)==/g, '<span style="color: rgb(51, 173, 255);">$1</span>');
                         titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #333; font-size: 15px;">[$1]</span>');
@@ -2194,12 +2195,20 @@
         }
 
         /**
-         * 清空编辑器
+         * 清空标记符（加粗、高亮、分割线）
          */
          function clearEditor() {
-            document.getElementById('markdown-input').value = '';
+            const textarea = document.getElementById('markdown-input');
+            let text = textarea.value;
+            // 清空加粗标记 **
+            text = text.replace(/\*\*(.*?)\*\*/g, '$1');
+            // 清空高亮标记 ==
+            text = text.replace(/==([^=]+)==/g, '$1');
+            // 清空分割线 ---
+            text = text.replace(/^---$/gm, '');
+            textarea.value = text;
             updatePreview();
-            showStatus('编辑器已清空', 'success');
+            showStatus('已清空加粗、高亮、分割线标记符', 'success');
         }
 
         /**
