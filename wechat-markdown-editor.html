@@ -1084,7 +1084,7 @@
         </section>`;
 
         // 个人模式：开头虚线（模仿大标题的虚线实现方式）
-        const personalHeaderHTML = '<section style="border-top: 2px dashed #222222; margin: 2px 10px; padding: 0; text-align: center;">&nbsp;</section>';
+        const personalHeaderHTML = '<section style="border-top: 1.5px dashed rgb(192, 204, 92); margin: 2px 10px; padding: 0; text-align: center;">&nbsp;</section>';
 
         // 个人模式：文章背景网格底纹
         const personalBackgroundStyle = 'background-color: #fafafa;';
@@ -1130,7 +1130,7 @@
         </section>`;
 
         // 个人模式底部：末尾虚线（模仿大标题的虚线实现方式）
-        const personalFooterHTML = '<section style="border-bottom: 2px dashed #222222; margin: 2px 10px; padding: 0; text-align: center;">&nbsp;</section>';
+        const personalFooterHTML = '<section style="border-bottom: 1.5px dashed rgb(192, 204, 92); margin: 2px 10px; padding: 0; text-align: center;">&nbsp;</section>';
 
         // 标准空行模板（用于段落间距）- 根据模式动态生成
         function getBrHtml(isPersonal) {
@@ -1454,7 +1454,7 @@
                             titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #666; font-size: 14px;">[$1]</span>');
                             
                             return `<section class="level1-title-dashed personal-mode" style="box-sizing: border-box;font-size: 16px;margin: 20px 0px 20px;float: none !important;padding: 12px 0px;background: transparent;text-align: center;">
-                                <section style="display: inline-block;font-weight: 900;color: rgb(43, 43, 43);letter-spacing: 2px;border: none;visibility: visible;text-align: center;box-sizing: border-box;font-size: 20px;border-top: 2px dashed #222222;border-bottom: 2px dashed #222222;padding: 8px 20px;min-width: 100px;">
+                                <section style="display: inline-block;font-weight: 900;color: rgb(43, 43, 43);letter-spacing: 2px;border: none;visibility: visible;text-align: center;box-sizing: border-box;font-size: 20px;border-top: 1.5px dashed rgb(192, 204, 92);border-bottom: 1.5px dashed rgb(192, 204, 92);padding: 8px 20px;min-width: 100px;">
                                     <span leaf="" style="visibility: visible;">${titleContent}</span>
                                 </section>
                             </section>`;
@@ -1530,7 +1530,7 @@
                     }
                     case 'referenced-image': {
                         const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center; font-size: 13px; color: #666666;">${block.caption}</p>` : '';
-                        const imageStyle = isPersonalMode ? 'max-width: 100%; height: auto; border: 2px dashed #222222; padding: 8px; background: #ffffff;' : 'max-width: 100%; height: auto;';
+                        const imageStyle = isPersonalMode ? 'max-width: 100%; height: auto; border: 1.5px dashed rgb(192, 204, 92); padding: 8px; background: #ffffff;' : 'max-width: 100%; height: auto;';
                         return `<section style="text-align: center; margin: 0; padding: 10px 0;">
                             <img data-src="${block.dataUrl}" 
                                  class="rich_pages wxw-img"
@@ -1541,7 +1541,7 @@
                         </section>`;
                     }
                     case 'image-placeholder': {
-                        return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed #ddd; margin: 10px 0; color: #999; font-size: 14px;">
+                        return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed rgb(192, 204, 92); margin: 10px 0; color: #999; font-size: 14px;">
                             【${block.text}】<span style="color: #e74c3c;">（未找到匹配图片，请上传对应图片后刷新）</span>
                         </div>`;
                     }
@@ -1869,7 +1869,7 @@
                             titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #666666;font-size: 14px;">[$1]</span>');
 
                             return `<section class="level1-title-dashed personal-mode" style="box-sizing: border-box;font-size: 16px;margin: 20px 0px 20px;float: none !important;padding: 12px 0px;background: transparent;text-align: center;">
-                                <section style="display: inline-block;font-weight: 900;color: rgb(43, 43, 43);letter-spacing: 2px;border: none;visibility: visible;text-align: center;box-sizing: border-box;font-size: 20px;border-top: 2px dashed #222222;border-bottom: 2px dashed #222222;padding: 8px 20px;min-width: 100px;">
+                                <section style="display: inline-block;font-weight: 900;color: rgb(43, 43, 43);letter-spacing: 2px;border: none;visibility: visible;text-align: center;box-sizing: border-box;font-size: 20px;border-top: 1.5px dashed rgb(192, 204, 92);border-bottom: 1.5px dashed rgb(192, 204, 92);padding: 8px 20px;min-width: 100px;">
                                     <span leaf="" style="visibility: visible;">${titleContent}</span>
                                 </section>
                             </section>`;
@@ -1970,7 +1970,7 @@
                     }
                     case 'referenced-image': {
                         const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center; font-size: 13px; color: #666666;">${block.caption}</p>` : '';
-                        const imageStyle = isPersonalMode ? 'max-width: 100%; height: auto; border: 2px dashed #222222; padding: 8px; background: #ffffff;' : 'max-width: 100%; height: auto;';
+                        const imageStyle = isPersonalMode ? 'max-width: 100%; height: auto; border: 1.5px dashed rgb(192, 204, 92); padding: 8px; background: #ffffff;' : 'max-width: 100%; height: auto;';
                         return `<section style="text-align: center; margin: 0; padding: 10px 0;">
                             <img data-src="${block.dataUrl}" 
                                  class="rich_pages wxw-img"
@@ -1981,7 +1981,7 @@
                         </section>`;
                     }
                     case 'image-placeholder': {
-                        return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed #ddd; margin: 10px 0; color: #999; font-size: 14px;">
+                        return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed rgb(192, 204, 92); margin: 10px 0; color: #999; font-size: 14px;">
                             【${block.text}】<span style="color: #e74c3c;">（未找到匹配图片，请上传对应图片后刷新）</span>
                         </div>`;
                     }
