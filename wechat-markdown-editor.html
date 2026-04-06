@@ -1205,19 +1205,6 @@
                 return match;
             });
             
-            // 处理 **：同样的逻辑
-            processed = processed.replace(/([\u4e00-\u9fa5\d_a-zA-Z]?)\*\*([\u4e00-\u9fa5\d_a-zA-Z]?)/g, (match, left, right) => {
-                const isLeftCN = /[\u4e00-\u9fa5]/.test(left);
-                const isLeftEN = /[\d_a-zA-Z]/.test(left);
-                const isRightCN = /[\u4e00-\u9fa5]/.test(right);
-                const isRightEN = /[\d_a-zA-Z]/.test(right);
-                
-                if ((isLeftEN && isRightCN) || (isLeftCN && isRightEN)) {
-                    return left + '** ' + right;
-                }
-                return match;
-            });
-            
             // 处理 ==文本== - 标蓝
             processed = processed.replace(/==([^=]+)==/g, (match, content) => {
                 return `<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255);">${content}</span>`;
