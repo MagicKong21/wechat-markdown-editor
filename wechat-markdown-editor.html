@@ -1450,7 +1450,7 @@
                             let titleContent = block.content;
                             titleContent = processTextSpacing(titleContent);
                             titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
-                            titleContent = titleContent.replace(/==([^=]+)==/g, '<span style="color: #00d4ff;">$1</span>');
+                            titleContent = titleContent.replace(/==([^=]+)==/g, '<span style="color: #0080ff;">$1</span>');
                             titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #666; font-size: 14px;">[$1]</span>');
                             
                             return `<section class="level1-title-dashed personal-mode" style="box-sizing: border-box;font-size: 16px;margin: 20px 0px 20px;float: none !important;padding: 12px 0px;background: transparent;text-align: center;">
@@ -1864,7 +1864,7 @@
                             // 加粗 **文本**
                             titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
                             // 标蓝 ==文本==
-                            titleContent = titleContent.replace(/==([^=]+)==/g, '<span style="color: #00d4ff;">$1</span>');
+                            titleContent = titleContent.replace(/==([^=]+)==/g, '<span style="color: #0080ff;">$1</span>');
                             // [文本] 灰色括号
                             titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #666666;font-size: 14px;">[$1]</span>');
 
