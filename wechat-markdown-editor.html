@@ -17,7 +17,7 @@
         - 商品卡片组件支持（自动匹配二维码图片）
         - 图片上传与 QR 码自动替换
         - 淘口令批量更新
-        - 快捷键支持 (Cmd+B 加粗、Cmd+U 下划线、Cmd+K 链接)
+        - 快捷键支持 (Cmd+B 加粗、Cmd+E 高亮、Cmd+U 加粗高亮、Cmd+K 链接)
         - 撤销/重做功能
         
         技术栈：
@@ -1182,12 +1182,23 @@
             
             // 中英文混排加空格、中文引号转换
             processed = processTextSpacing(processed);
+
+            // 处理行内代码 `文本`
+            processed = processed.replace(/`([^`\n]+)`/g, (match, content) => {
+                return `<code style="font-family: Menlo, &quot;Operator Mono&quot;, monospace; background-color: rgb(243, 243, 243); padding: 2px 5px; border-radius: 3px; font-size: 0.85em; color: rgb(232, 62, 140); visibility: visible;"><span leaf="" style="visibility: visible;">${content}</span></code>`;
+            });
             
             // 先处理组合格式 ==**...**== 和 **==...==**（避免被后面的空格处理破坏）
             processed = processed.replace(/==\*\*(.+?)\*\*==/g, (match, content) => {
+                if (isPersonalMode) {
+                    return `<em style="letter-spacing: normal; background: linear-gradient(transparent 50%, rgb(255, 242, 168) 0px); padding: 0px 2px; color: rgb(51, 51, 51); font-style: normal !important;"><span leaf="" style="font-weight: bold; color: rgb(0, 0, 0);">${content}</span></em>`;
+                }
                 return `<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255); font-weight: bold;">${content}</span>`;
             });
             processed = processed.replace(/\*\*==(.+?)==\*\*/g, (match, content) => {
+                if (isPersonalMode) {
+                    return `<em style="letter-spacing: normal; background: linear-gradient(transparent 50%, rgb(255, 242, 168) 0px); padding: 0px 2px; color: rgb(51, 51, 51); font-style: normal !important;"><span leaf="" style="font-weight: bold; color: rgb(0, 0, 0);">${content}</span></em>`;
+                }
                 return `<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255); font-weight: bold;">${content}</span>`;
             });
             
@@ -1205,16 +1216,19 @@
                 return match;
             });
             
-            // 处理 ==文本== - 标蓝
+            // 处理 ==文本== - 高亮/标蓝
             processed = processed.replace(/==([^=]+)==/g, (match, content) => {
+                if (isPersonalMode) {
+                    return `<em style="letter-spacing: normal; background: linear-gradient(transparent 50%, rgb(255, 242, 168) 0px); padding: 0px 2px; color: rgb(51, 51, 51); font-style: normal !important;"><span leaf="" style="color: rgb(0, 0, 0);">${content}</span></em>`;
+                }
                 return `<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255);">${content}</span>`;
             });
             
             // 处理 **文本** - 加粗
             if (isPersonalMode) {
-                // 个人模式：黄色背景高亮
+                // 个人模式：仅加粗
                 processed = processed.replace(/\*\*(.+?)\*\*/g, (match, content) => {
-                    return `<em style="letter-spacing: normal; background: linear-gradient(transparent 50%, rgb(255, 242, 168) 0px); padding: 0px 2px; color: rgb(51, 51, 51); font-style: normal !important;"><strong style="color: rgb(0, 0, 0);">${content}</strong></em>`;
+                    return `<span textstyle="" style="letter-spacing: normal; font-weight: bold; color: rgb(0, 0, 0);">${content}</span>`;
                 });
             } else {
                 // 默认模式：仅加粗
@@ -1328,6 +1342,12 @@
                     // 清理末尾标点后再存入
                     const cleanItem = trimmedLine.substring(2).replace(/[。；，,\.！!？?]+$/, '').trim();
                     currentList.push(cleanItem);
+                    i++;
+                    continue;
+                }
+
+                // 列表中的空行：跳过，但不结束当前列表
+                if (inList && !trimmedLine) {
                     i++;
                     continue;
                 }
@@ -1619,25 +1639,22 @@
                     case 'ul': {
                         let listHTML = '<ul style="list-style-type: disc; padding-left: 20px !important; margin-left: 0 !important;" class="list-paddingleft-1" id="wechat-list">';
                         const itemCount = block.content.length;
+                        const listFontFamily = "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
                         block.content.forEach((item, index) => {
                             // 解析时已清理标点，这里直接添加
                             const punct = (index === itemCount - 1) ? '。' : '；';
-                            listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important;"><p style="margin: 0px;text-align: left;line-height: 1.6em;">
-                                <span leaf="" style="text-align: left; font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal;">
-                                    ${processInlineFormatting(item)}${punct}
-                                </span>
+                            listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important;"><p style="margin: 0px; text-align: left; line-height: 1.6em; font-family: ${listFontFamily}; font-size: 14px; letter-spacing: normal;">
+                                    ${processInlineFormatting(item, true)}${punct}
                             </p></li>`;
                         });
                         listHTML += '</ul>';
                         return listHTML;
                     }
                     case 'p': {
-                        const pFontSize = isPersonalMode ? '16px' : '14px';
-                        const pFontFamily = isPersonalMode ? 'Optima, PingFangSC-light, "PingFang SC", Georgia, serif' : 'mp-quote, "PingFang SC", -apple-system-font, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif';
-                        return `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em;">
-                            <span leaf="" style="font-family: ${pFontFamily}; font-size: ${pFontSize}; letter-spacing: normal;">
-                                ${processInlineFormatting(block.content)}
-                            </span>
+                        const pFontSize = isPersonalMode ? '15px' : '14px';
+                        const pFontFamily = isPersonalMode ? "Optima, PingFangSC-light, 'PingFang SC', Georgia, serif" : "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
+                        return `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em; font-family: ${pFontFamily}; font-size: ${pFontSize}; letter-spacing: normal;">
+                            ${processInlineFormatting(block.content, true)}
                         </p>`;
                     }
                     case 'divider': {
@@ -1770,6 +1787,12 @@
                     // 清理末尾标点后再存入
                     const cleanItem = trimmedLine.substring(2).replace(/[。；，,\.！!？?]+$/, '').trim();
                     currentList.push(cleanItem);
+                    i++;
+                    continue;
+                }
+
+                // 列表中的空行：跳过，但不结束当前列表
+                if (inList && !trimmedLine) {
                     i++;
                     continue;
                 }
@@ -2046,25 +2069,22 @@
                     case 'ul': {
                         let listHTML = '<ul style="list-style-type: disc; padding-left: 20px !important; margin-left: 0 !important;" class="list-paddingleft-1">';
                         const itemCount = block.content.length;
+                        const listFontFamily = "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
                         block.content.forEach((item, index) => {
                             // 解析时已清理标点，这里直接添加
                             const punct = (index === itemCount - 1) ? '。' : '；';
-                            listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important;"><p style="margin: 0px;text-align: left;line-height: 1.6em;">
-                                <span leaf="" style="text-align: left; font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal;">
-                                    ${processInlineFormatting(item)}${punct}
-                                </span>
+                            listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important;"><p style="margin: 0px; text-align: left; line-height: 1.6em; font-family: ${listFontFamily}; font-size: 14px; letter-spacing: normal;">
+                                    ${processInlineFormatting(item, true)}${punct}
                             </p></li>`;
                         });
                         listHTML += '</ul>';
                         return listHTML;
                     }                    
                     case 'p': {
-                        const pFontSize = isPersonalMode ? '16px' : '14px';
-                        const pFontFamily = isPersonalMode ? 'Optima, PingFangSC-light, "PingFang SC", Georgia, serif' : 'mp-quote, "PingFang SC", -apple-system-font, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif';
-                        return `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em; visibility: visible;">
-                            <span leaf="" style="font-family: ${pFontFamily}; font-size: ${pFontSize}; letter-spacing: normal; visibility: visible;">
-                                ${processInlineFormatting(block.content)}
-                            </span>
+                        const pFontSize = isPersonalMode ? '15px' : '14px';
+                        const pFontFamily = isPersonalMode ? "Optima, PingFangSC-light, 'PingFang SC', Georgia, serif" : "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
+                        return `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em; visibility: visible; font-family: ${pFontFamily}; font-size: ${pFontSize}; letter-spacing: normal;">
+                            ${processInlineFormatting(block.content, true)}
                         </p>`;
                     }
                     case 'divider': {
@@ -2290,9 +2310,9 @@
 ### 我是小标题
 小标题下的内容，巴拉巴拉
 ## 其他标记语法 [安卓/iOS]
-我是**加粗** (快捷键：Command + U)
-我是==标蓝== (快捷键：Command + B)
-我是**==加粗同时标蓝==** (快捷键：Command + E)
+我是**加粗** (快捷键：Command + B)
+我是==高亮== (快捷键：Command + E)
+我是**==加粗同时高亮==** (快捷键：Command + U)
 我也是==**加粗同时标蓝**==
 
 下面是网址 (快捷键：Command + K)
@@ -2380,7 +2400,7 @@ http://www.lizhi.shop\`
                     }
                 }
         
-                // 只处理Cmd+B（标蓝）、Cmd+K（反引号）、Cmd+U（加粗）、Cmd+E（加粗+标蓝）
+                // 只处理Cmd+B（加粗）、Cmd+K（反引号）、Cmd+E（高亮）、Cmd+U（加粗+高亮）
                 if (!e.metaKey || !['b', 'k', 'u', 'e'].includes(e.key.toLowerCase())) {
                     return;
                 }
@@ -2398,13 +2418,13 @@ http://www.lizhi.shop\`
                 
                 // 匹配快捷键
                 if (e.key.toLowerCase() === 'b') {
-                    // Cmd+B: 标蓝 ==文本== / 取消标蓝
-                    if (selectedText.startsWith('==') && selectedText.endsWith('==')) {
+                    // Cmd+B: 加粗 **文本** / 取消加粗
+                    if (selectedText.startsWith('**') && selectedText.endsWith('**')) {
                         newText = selectedText.slice(2, -2);
-                        action = '取消标蓝';
+                        action = '取消加粗';
                     } else {
-                        newText = '==' + selectedText + '==';
-                        action = '标蓝';
+                        newText = '**' + selectedText + '**';
+                        action = '加粗';
                     }
                 } else if (e.key.toLowerCase() === 'k') {
                     // Cmd+K: 反引号 `文本` / 移除反引号
@@ -2416,22 +2436,22 @@ http://www.lizhi.shop\`
                         action = '添加反引号';
                     }
                 } else if (e.key.toLowerCase() === 'u') {
-                    // Cmd+U: 加粗 **文本** / 取消加粗
-                    if (selectedText.startsWith('**') && selectedText.endsWith('**')) {
-                        newText = selectedText.slice(2, -2);
-                        action = '取消加粗';
-                    } else {
-                        newText = '**' + selectedText + '**';
-                        action = '加粗';
-                    }
-                } else if (e.key.toLowerCase() === 'e') {
-                    // Cmd+E: 加粗+标蓝 **==文本==** / 取消
+                    // Cmd+U: 加粗+高亮 **==文本==** / 取消
                     if (selectedText.startsWith('**==') && selectedText.endsWith('==**')) {
                         newText = selectedText.slice(4, -4);
-                        action = '取消加粗标蓝';
+                        action = '取消加粗高亮';
                     } else {
                         newText = '**==' + selectedText + '==**';
-                        action = '加粗标蓝';
+                        action = '加粗高亮';
+                    }
+                } else if (e.key.toLowerCase() === 'e') {
+                    // Cmd+E: 高亮 ==文本== / 取消高亮
+                    if (selectedText.startsWith('==') && selectedText.endsWith('==')) {
+                        newText = selectedText.slice(2, -2);
+                        action = '取消高亮';
+                    } else {
+                        newText = '==' + selectedText + '==';
+                        action = '高亮';
                     }
                 }
         
