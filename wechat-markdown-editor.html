@@ -1,0 +1,2539 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微信公众号 Markdown 渲染编辑器</title>
+    <!-- Favicon -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/wechat-markdown-editor/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/wechat-markdown-editor/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/wechat-markdown-editor/favicon-16x16.png">
+    <link rel="manifest" href="/wechat-markdown-editor/site.webmanifest">
+    <!-- 
+        微信公众号 Markdown 渲染编辑器
+        
+        功能特性：
+        - Markdown 到微信公众号 HTML 的转换
+        - 商品卡片组件支持（自动匹配二维码图片）
+        - 图片上传与 QR 码自动替换
+        - 淘口令批量更新
+        - 快捷键支持 (Cmd+B 加粗、Cmd+E 高亮、Cmd+U 加粗高亮、Cmd+K 链接)
+        - 撤销/重做功能
+        
+        技术栈：
+        - 原生 HTML/CSS/JavaScript
+        - Font Awesome 图标库
+        - jsQR 二维码识别
+        - QRCode.js 二维码生成
+    -->
+    
+    <!-- 外部资源 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    
+    <!-- ==================== 样式区域 ==================== -->
+    <style>
+        /* 全局基础样式 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif;
+        }
+        
+        /* 页面主体 */
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            padding: 15px;
+            max-width: 1600px;
+            margin: 0 auto;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 页面标题区域 */
+        header {
+            flex-shrink: 0;
+            text-align: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eaeaea;
+            margin-bottom: 10px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 4px;
+            font-size: 20px;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        /* ==================== 布局样式 ==================== */
+        /* 编辑区与预览区容器 */
+        .container {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 15px;
+            flex: 1;
+            min-height: 0;
+        }
+        
+        /* 编辑器/预览容器通用样式 */
+        .editor-container, .preview-container {
+            flex: 1;
+            min-width: 300px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            background-color: white;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 面板头部 */
+        .panel-header {
+            flex-shrink: 0;
+            background: linear-gradient(135deg, #3498db, #2c3e50);
+            color: white;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        
+        /* 头部内的小按钮 */
+        .panel-header .btn-sm {
+            padding: 4px 10px;
+            font-size: 12px;
+            border-radius: 4px;
+        }
+        
+        .panel-header i {
+            font-size: 16px;
+        }
+        
+        /* 面板内容区 */
+        .panel-content {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        /* Markdown 输入框 */
+        #markdown-input {
+            width: 100%;
+            height: 100%;
+            border: none;
+            padding: 15px;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+            outline: none;
+            background-color: #f9f9f9;
+        }
+        
+        #preview-content {
+            padding: 15px;
+            height: 100%;
+            overflow-y: auto;
+            background-color: white;
+            font-size: 13px;
+        }
+
+        /* ========== 微信公众号样式模拟 ========== */
+        .wx-article {
+            max-width: 677px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 10px;
+        }
+        
+        .wx-article img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        
+        .wx-article p {
+            margin: 10px 0;
+            line-height: 1.8;
+            font-size: 14px;
+        }
+        
+        .wx-article .product-card-section p {
+            margin: 4px 0;
+            line-height: 1.5;
+        }
+        
+        /* 一级标题样式 */
+        .wx-article .level1-title {
+            white-space: normal;
+            text-align: left !important;
+            margin: 0 !important;
+            display: flex;
+            align-items: flex-end;
+            width: 100%;
+            clear: both;
+            float: none !important;
+        }
+        
+        .wx-article .level1-title img {
+            width: 50px !important;
+            height: 50px !important;
+            margin-right: 8px;
+            vertical-align: middle;
+            float: none !important;
+            flex-shrink: 0;
+        }
+        
+        .wx-article .level1-title .title-text {
+            font-size: 16px;
+            color: rgb(33, 150, 243);
+            font-weight: bold;
+            text-align: left !important;
+            display: inline-block;
+            vertical-align: middle;
+            line-height: 1.4;
+            flex: 1;
+        }
+        
+        /* 二级标题样式 */
+        .wx-article .level2-title {
+            margin: 0 !important;
+            text-align: center;
+            width: 100%;
+            clear: both;
+            float: none !important;
+        }
+        
+        .wx-article .level2-title .title-box {
+            display: inline-block;
+            background-color: rgb(51, 173, 255);
+            padding: 0;
+            border-radius: 0;
+            position: relative;
+            height: auto;
+        }
+        
+        .wx-article .level2-title .title-box-inner {
+            background-color: rgb(39, 218, 241);
+            padding: 0 10px;
+            margin: 0;
+            transform: translate(-6px, -6px);
+        }
+        
+        .wx-article .level2-title .title-text {
+            font-size: 15px;
+            color: rgb(242, 249, 255);
+            line-height: 2;
+            padding: 0;
+            margin: 0;
+            font-weight: bold;
+        }
+        
+        /* 列表样式 */
+        .wx-article ul {
+            list-style-type: disc !important;
+            class: "list-paddingleft-1" !important;
+            margin: 10px 0 !important;
+            padding-left: 20px !important;
+        }
+        
+        .wx-article li {
+            margin-bottom: 6px !important;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+        
+        .wx-article li p {
+            margin: 0px !important;
+            text-align: left !important;
+            line-height: 1.6em !important;
+        }
+        
+        .wx-article .highlight {
+            color: #33adff;
+            font-weight: bold;
+        }
+        
+        /* 灰色底框 */
+        .wx-article .link-box {
+            margin: 0 auto !important;
+            padding: 10px;
+            background-color: rgb(239, 239, 239);
+            border-radius: 11px;
+            text-align: center;
+            font-size: 12px;
+            line-height: 1.6;
+            width: 556px;
+            max-width: 100%;
+            border-width: 2px;
+            border-style: none;
+            border-color: rgb(192, 200, 209);
+            clear: both;
+            float: none !important;
+        }
+        
+        .wx-article .link-box strong {
+            color: #333;
+            font-weight: bold;
+        }
+        
+        .wx-article .link-box a {
+            color: #2196F3;
+            text-decoration: none;
+            word-break: break-all;
+        }
+        
+        /* 分隔线样式 */
+        .wx-article .divider {
+            border-style: solid;
+            border-width: 1px 0 0;
+            border-color: rgba(0,0,0,0.1);
+            -webkit-transform-origin: 0 0;
+            -webkit-transform: scale(1, 0.5);
+            transform-origin: 0 0;
+            transform: scale(1, 0.5);
+            margin: 0 0 10px 0 !important;
+        }
+        
+        /* 底部样式 */
+        .wx-article .footer-ad {
+            text-align: right;
+            text-indent: 0em;
+            margin: 0 !important;
+            padding: 0;
+            line-height: 1.4;
+        }
+        
+        .wx-article .footer-img {
+            text-align: center;
+            margin: 10px 0 !important;
+        }
+        
+        .wx-article .footer-text {
+            text-align: right;
+            margin: 5px 0;
+        }
+        
+        .wx-article .footer-text .heart-text {
+            font-size: 12px;
+            background-color: rgb(0, 179, 255);
+            color: rgb(255, 255, 255);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        
+        .wx-article .footer-gif {
+            text-align: right;
+            margin: 2px 0 10px 0;
+        }
+        
+        .wx-article .footer-gif img {
+            width: 72px !important;
+            height: auto !important;
+            display: inline-block;
+            float: right;
+        }
+
+        /* ========== 功能区样式 ========== */
+        .controls {
+            flex-shrink: 0;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            padding: 10px 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            position: relative;
+            margin-top: 10px;
+        }
+        
+        /* 图片上传区域 */
+        .image-upload-area {
+            position: relative;
+        }
+        
+        .image-upload-input {
+            display: none;
+        }
+        
+        /* 图片预览面板 */
+        .image-preview-panel {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 320px;
+            max-height: 150px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            padding: 10px;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .image-preview-panel h4 {
+            font-size: 12px;
+            color: #666;
+            margin: 0 0 6px 0;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .image-preview-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
+        }
+        
+        .image-preview-item {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 3px;
+            overflow: hidden;
+            cursor: pointer;
+            font-size: 8px;
+        }
+        
+        .image-preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .image-preview-item.used {
+            box-shadow: 0 0 0 1px #28a745;
+        }
+        
+        .image-preview-item.unused {
+            box-shadow: 0 0 0 1px #dc3545;
+        }
+        
+        .image-preview-item .use-count {
+            position: absolute;
+            top: 1px;
+            right: 1px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: bold;
+            color: white;
+            background: rgba(0,0,0,0.6);
+        }
+        
+        .image-preview-item .filename {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            font-size: 7px;
+            padding: 1px;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #4285f4, #3367d6);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #ea4335, #d33426);
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+        }
+        
+        .btn:active {
+            transform: translateY(-1px);
+        }
+        
+        .status-message {
+            position: absolute;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            z-index: 1000;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .status-message.show {
+            opacity: 1;
+            top: -45px;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* ========== 快捷键提示 ========== */
+        .shortcut-hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+            padding: 5px 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border-left: 3px solid #3498db;
+        }
+        
+        .shortcut-hint kbd {
+            background-color: #f1f3f4;
+            border: 1px solid #dadce0;
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-family: monospace;
+            font-size: 11px;
+            margin: 0 2px;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+        }
+
+        /* ========== 工具信息+使用说明 ========== */
+        .header-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 30px;
+            margin-bottom: 20px;
+        }
+        
+        .info-panel, .instructions-panel {
+            flex: 1;
+            min-width: 300px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            background-color: white;
+        }
+        
+        .info-header, .instructions-header {
+            background: linear-gradient(135deg, #3498db, #2c3e50);
+            color: white;
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        
+        .info-content, .instructions-content {
+            padding: 15px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        
+        .info-content ul, .instructions-content ul {
+            padding-left: 18px;
+            margin: 10px 0;
+        }
+        
+        .info-content li, .instructions-content li {
+            margin-bottom: 6px;
+        }
+        
+        .info-content code, .instructions-content code {
+            background-color: #f4f4f4;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        /* ========== 隐藏的复制容器 ========== */
+        #copy-container {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+            width: 677px;
+            background-color: white;
+        }
+
+        /* ========== 响应式布局 ========== */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            .header-container {
+                flex-direction: column;
+            }
+            .panel-content {
+                height: 400px;
+                min-height: 400px;
+            }
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            .wx-article .link-box {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 核心区域：编辑区+预览区 -->
+    <div class="container">
+        <div class="editor-container">
+            <div class="panel-header">
+                <i class="fas fa-edit"></i>
+                <h2>Markdown 编辑区</h2>
+                <button class="btn btn-sm" id="example-btn" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; margin-left: auto;">
+                    <i class="fas fa-file-alt"></i> 加载示例
+                </button>
+            </div>
+            <div class="panel-content">
+                <textarea id="markdown-input" placeholder="在这里输入 Markdown 文本...（点击右上角「加载示例」查看示例）"></textarea>
+            </div>
+        </div>
+        
+        <div class="preview-container">
+            <div class="panel-header">
+                <i class="fas fa-eye"></i>
+                <h2>微信公众号预览</h2>
+                <button class="btn btn-sm" id="personal-mode-btn" style="background: linear-gradient(135deg, #f39c12, #e67e22); color: white; margin-left: auto;">
+                    <i class="far fa-star"></i> 个人模式
+                </button>
+            </div>
+            <div class="panel-content">
+                <div id="preview-content">
+                    <div class="wx-article" id="wx-preview">
+                        <!-- 预览内容动态生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 控制按钮区 ==================== -->
+    <div class="controls">
+        <div id="status-message" class="status-message"></div>
+        <button class="btn btn-primary" id="copy-btn">
+            <i class="fas fa-copy"></i> 复制预览内容
+        </button>
+        <button class="btn btn-secondary" id="clear-btn">
+            <i class="fas fa-broom"></i> 清空标记符
+        </button>
+        <button class="btn" id="update-taokouling-btn" style="background: linear-gradient(135deg, #34a853, #2e9549); color: white;">
+            <i class="fas fa-key"></i> 更新淘口令
+        </button>
+        <div class="image-upload-area">
+            <input type="file" id="image-upload" class="image-upload-input" multiple accept="image/*">
+            <button class="btn" style="background: linear-gradient(135deg, #fbbc05, #e5a804); color: white;" onclick="document.getElementById('image-upload').click()">
+                <i class="fas fa-image"></i> 上传图片
+            </button>
+        </div>
+    </div>
+    
+    <!-- ==================== 图片预览面板 ==================== -->
+    <div id="image-preview-panel" class="image-preview-panel" style="display: none;">
+        <h4>已上传图片 <span style="font-size: 12px; color: #999; font-weight: normal;">(自动为商品卡片添加日期参数)</span></h4>
+        <div id="image-preview-grid" class="image-preview-grid"></div>
+    </div>
+    
+    <!-- 隐藏的复制容器（用于富文本复制） -->
+    <div id="copy-container" contenteditable="true"></div>
+
+    <!-- ==================== JavaScript 逻辑 ==================== -->
+    <script>
+    
+        /* ==================== 全局状态管理 ==================== */
+        
+        // 撤销/重做栈
+        const undoStack = [];
+        const redoStack = [];
+        
+        // 上传的图片管理 { filename: { dataUrl, useCount, qrReplaced } }
+        const uploadedImages = {};
+        
+        // 当前淘口令（用于商品卡片展示）
+        let currentTaoKouLing = localStorage.getItem('currentTaoKouLing') || '77《Dnd3UYMQhCh✔ https://s.tb.cn/h.77yL1DE &nbsp;CZ001';
+        
+        // 个人模式开关
+        let isPersonalMode = false;
+        
+        // 获取编辑器元素
+        const textarea = document.getElementById('markdown-input');
+        
+        /* ==================== 预编译正则表达式（性能优化） ==================== */
+        
+        // 文本格式化正则（预编译避免重复创建）
+        const REGEX_PATTERNS = {
+            cnEnBefore: /([\u4e00-\u9fa5])([a-zA-Z])/g,
+            enCnBefore: /([a-zA-Z])([\u4e00-\u9fa5])/g,
+            cnDigitBefore: /([\u4e00-\u9fa5])(\d)/g,
+            digitCnBefore: /(\d)([\u4e00-\u9fa5])/g,
+            cnLParenBefore: /([\u4e00-\u9fa5])（/g,
+            cnRParenAfter: /）([\u4e00-\u9fa5])/g,
+            cnLParen: /（/g,
+            cnRParen: /）/g,
+            multiSpace: /\s+/g
+        };
+        
+        /* ==================== 撤销/重做功能 ==================== */
+        
+        /**
+         * 监听文本输入，同步更新撤销栈
+          */
+         textarea.addEventListener('input', function() {
+             // 只记录非快捷键操作的原生输入
+             if (!this.dataset.isShortcutAction) {
+                 undoStack.push(this.value);
+                 redoStack.length = 0; // 清空重做栈
+                 // 限制撤销栈长度
+                 if (undoStack.length > 50) undoStack.shift();
+             }
+             delete this.dataset.isShortcutAction;
+         });
+         
+        /* ==================== 图片上传与处理 ==================== */
+        
+        /**
+          * 图片上传事件监听
+           */
+        let pendingImageCount = 0;
+        
+        document.getElementById('image-upload').addEventListener('change', function(e) {
+            const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+            
+            if (files.length === 0) return;
+            
+            // 渐进式显示：立即显示浮窗（准备中状态）
+            pendingImageCount = files.length;
+            showUploadingStatus(files.length);
+            
+            files.forEach(file => {
+                processImageWithQR(file);
+            });
+            
+            this.value = ''; // 清空 input 允许重复上传
+        });
+        
+        /**
+         * 显示上传中状态
+         * @param {number} total - 总图片数
+         */
+        function showUploadingStatus(total) {
+            const panel = document.getElementById('image-preview-panel');
+            const grid = document.getElementById('image-preview-grid');
+            
+            panel.style.display = 'block';
+            grid.innerHTML = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: #666;">
+                    <div style="font-size: 24px; margin-bottom: 8px;">⏳</div>
+                    <div style="font-size: 12px;">正在处理 ${total} 张图片...</div>
+                    <div style="font-size: 11px; color: #999; margin-top: 4px;">请稍候</div>
+                </div>
+            `;
+        }
+        
+        /**
+         * 生成日期戳（格式: pYYMMDD，用于追踪参数）
+         * @returns {string}
+         */
+        function getTodayStamp() {
+            const d = new Date();
+            const yy = String(d.getFullYear()).slice(-2);
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `p${yy}${mm}${dd}`;
+        }
+        
+        /**
+         * 更新商品二维码 URL 参数
+         * @param {string} originalUrl - 原始二维码 URL
+         * @returns {string} 更新后的 URL
+         */
+        function getNewQRUrl(originalUrl) {
+            const todayStamp = getTodayStamp();
+            const targetCid = "53qvofdc";
+            
+            // Search List 模板：更新 hmpl 参数
+            if (originalUrl.includes('search_list')) {
+                return originalUrl.replace(/hmpl=p\d+/, `hmpl=${todayStamp}`);
+            }
+            // Products 模板：添加cid和hmpl参数
+            if (originalUrl.includes('products')) {
+                const baseUrl = originalUrl.split('?')[0];
+                return `${baseUrl}?cid=${targetCid}&hmsr=wechat&hmpl=${todayStamp}`;
+            }
+            return originalUrl;
+        }
+        
+        /**
+         * 处理上传的图片（识别并替换二维码）
+         * @param {File} file - 上传的文件对象
+          */
+        function processImageWithQR(file) {
+            const reader = new FileReader();
+            reader.onload = async function(event) {
+                const img = new Image();
+                img.onload = async () => {
+                    // 创建画布处理图片
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    
+                    // 识别二维码
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+                    
+                    let finalDataUrl = event.target.result;
+                    let qrReplaced = false;
+                    
+                    if (code) {
+                        const newUrl = getNewQRUrl(code.data);
+                        if (newUrl !== code.data) {
+                            // 根据图片尺寸判断使用新版或旧版卡片配置
+                            const isNewCard = img.width <= 1000 && img.height <= 420;
+                            const qrSize = isNewCard ? 203 : 216;
+                            const qrX = isNewCard ? 738 : 760;
+                            const qrY = isNewCard ? 148 : 140;
+                            
+                            // 生成新二维码并绘制到图片上
+                            const qrCanvas = document.createElement('canvas');
+                            await QRCode.toCanvas(qrCanvas, newUrl, { 
+                                margin: 0, 
+                                width: qrSize, 
+                                errorCorrectionLevel: 'H' 
+                            });
+                            ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
+                            finalDataUrl = canvas.toDataURL('image/png');
+                            qrReplaced = true;
+                            console.log(`二维码已替换: ${file.name} (${isNewCard ? '新版' : '旧版'}卡片)`);
+                        }
+                    }
+                    
+                    // 保存处理后的图片
+                    const filename = file.name.replace(/\.[^.]+$/, '');
+                    uploadedImages[filename] = {
+                        dataUrl: finalDataUrl,
+                        useCount: 0,
+                        qrReplaced: qrReplaced
+                    };
+                    
+                    // 渐进式显示：每处理完一张就刷新
+                    pendingImageCount--;
+                    updateImagePreview();
+                    if (pendingImageCount <= 0) {
+                        pendingImageCount = 0;
+                        updatePreview();
+                    }
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        /**
+         * 更新图片预览面板显示
+          */
+        function updateImagePreview() {
+            const panel = document.getElementById('image-preview-panel');
+            const grid = document.getElementById('image-preview-grid');
+            
+            const filenames = Object.keys(uploadedImages).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+            
+            if (filenames.length === 0) {
+                panel.style.display = 'none';
+                return;
+            }
+            
+            panel.style.display = 'block';
+            grid.innerHTML = '';
+            
+            filenames.forEach(filename => {
+                const img = uploadedImages[filename];
+                const isUsed = img.useCount > 0;
+                const item = document.createElement('div');
+                item.className = `image-preview-item ${isUsed ? 'used' : 'unused'}`;
+                item.title = '点击复制图片引用（带【】符号）';
+                item.innerHTML = `
+                    <img src="${img.dataUrl}" alt="${filename}">
+                    <div class="use-count">${img.useCount}</div>
+                    <div class="filename">${filename}</div>
+                `;
+                
+                // 点击复制图片引用（带【】符号）
+                item.addEventListener('click', () => {
+                    const nameWithoutExt = filename.replace(/\.[^.]+$/, '');
+                    const refWithBrackets = `【${nameWithoutExt}】`;
+                    navigator.clipboard.writeText(refWithBrackets).then(() => {
+                        showStatus(`已复制: ${refWithBrackets}`, 'success');
+                    }).catch(() => {
+                        showStatus('复制失败', 'error');
+                    });
+                });
+                
+                grid.appendChild(item);
+            });
+        }
+        
+        /* ==================== 图片匹配工具 ==================== */
+        
+        /**
+         * 根据商品名称精确匹配图片（商品名与文件名匹配）
+         * @param {string} productName - 商品名称
+         * @returns {{ filename, dataUrl } | null}
+         */
+        function findMatchingImage(productName) {
+            // 完全匹配文件名
+            const exactName = productName.toLowerCase();
+            for (const filename of Object.keys(uploadedImages)) {
+                if (filename.toLowerCase() === exactName) {
+                    return { filename, dataUrl: uploadedImages[filename].dataUrl };
+                }
+            }
+            return null;
+        }
+        
+        /**
+         * 增加图片使用计数
+         * @param {string} dataUrl - 图片的 data URL
+         */
+         function incrementImageUseCount(dataUrl) {
+            for (const filename of Object.keys(uploadedImages)) {
+                if (uploadedImages[filename].dataUrl === dataUrl) {
+                    uploadedImages[filename].useCount++;
+                    break;
+                }
+            }
+        }
+        
+        /**
+         * 根据引用文本查找匹配的图片（优先级：精确 > 包含 > 模糊）
+         * @param {string} refText - 引用文本（如「图1」、「动图演示」）
+         * @returns {{ filename, dataUrl } | null}
+         */
+        function findImageByReference(refText) {
+            const refLower = refText.toLowerCase();
+            
+            // 1. 精确匹配文件名（不含扩展名）
+            for (const filename of Object.keys(uploadedImages)) {
+                const nameWithoutExt = filename.replace(/\.[^.]+$/, '').toLowerCase();
+                if (nameWithoutExt === refLower) {
+                    return { filename, dataUrl: uploadedImages[filename].dataUrl };
+                }
+            }
+            
+            // 2. 文件名（不含扩展名）以引用文本开头
+            for (const filename of Object.keys(uploadedImages)) {
+                const nameWithoutExt = filename.replace(/\.[^.]+$/, '').toLowerCase();
+                if (nameWithoutExt.startsWith(refLower)) {
+                    return { filename, dataUrl: uploadedImages[filename].dataUrl };
+                }
+            }
+            
+            return null;
+        }
+        
+        /* ==================== 图片资源常量定义 ==================== */
+        
+        // GitHub 资源基础 URL（用于预览显示）
+        const githubBase = 'https://raw.githubusercontent.com/MagicKong21/wechat-markdown-editor/main/images';
+        
+        // GitHub 图片资源映射
+        const githubImages = {
+            header: `${githubBase}/header.png`,
+            footer: `${githubBase}/footer.png`,
+            heart: `${githubBase}/heart.gif`,
+            title1: `${githubBase}/title1.png`,
+            title2: `${githubBase}/title2.png`,
+            title3: `${githubBase}/title3.png`,
+            title4: `${githubBase}/title4.png`,
+            title5: `${githubBase}/title5.png`,
+            title6: `${githubBase}/title6.png`,
+            title7: `${githubBase}/title7.png`,
+            title8: `${githubBase}/title8.png`,
+            title9: `${githubBase}/title9.png`,
+            productCardQr: `${githubBase}/product-card-qr.png`,
+            productCardBanner: `${githubBase}/product-card-banner.png`
+        };
+
+        // 微信原始链接（用于复制到微信编辑器）
+        const wechatImages = {
+            header: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JAOBIkhshOkLAQzpHiarLm7MYSAictXPZgJNd6Yel2Bia7CyW3Id78ICibeywxPPiclllOZhGmGP4KusvQ/640?wx_fmt=png',
+            footer: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JA9PRiaUibW3XyibONLPibefw2jwwLBic4uoBlZp4WiaLQfqZr9n5tJkPyic2B8I5jUE4gRdnUMrepCiaO9Qg/640?wx_fmt=png',
+            heart: 'https://mmbiz.qpic.cn/mmbiz_gif/aFXaQ2oY6JAbmS3wc8fxt3Lemribiaz5FbJWN9K3GTB1OeJtBE3au0xdUsQTVVVyOuERx44KVcl1kDXgbEvib2TtQ/640?wx_fmt=gif',
+            title1: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0u4CHiaMhAdl8MT33E9ByxnhpYuMGja3h82BzeYpzJQ90iaTxpsibR2Qlg/640?wx_fmt=png',
+            title2: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0xU9Fvm3ILCw745js1LmpsibFNyvia4QsicUbKwqeibUyrYvx0N4CN2trBw/640?wx_fmt=png',
+            title3: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0WZZD2XSfTRL4qMsKuHfseqVcjBRM0E29GIiatsL7vdPItywyXqHibNEQ/640?wx_fmt=png',
+            title4: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0f9nmMMDAvNIxXBVYXiadGiar3ovYA7wm63icczibatTnaQbZAdPrIXfeSw/640?wx_fmt=png',
+            title5: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0EG4nnJHvoicDYERdXImgoVQB5xeeVCGm52gQJWAGrbh3aAfdKicptPaw/640?wx_fmt=png',
+            title6: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0TNuC2icdFOz26U0cNfDfbUMA7sLd7hwbnswWMYaZc98icWZIKXNiaqF2w/640?wx_fmt=png',
+            title7: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0IYdQyRticDTyn7QuDBchIMx33ELCBicLXGC4c4USdqL3Q0aUMuw3lhkQ/640?wx_fmt=png',
+            title8: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JAeYJcv3OmLWcVbSVWu5HZbuuicibu0JkRbo788pnRMSiav6ZZJh9JR1kpcYuTDrweFNciaLcoF8TA7nw/640?wx_fmt=png&from=appmsg',
+            title9: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JAeYJcv3OmLWcVbSVWu5HZbSb2hian4bSbKLpHZgKMZOwKVibxZgXLRg1MnHKNMzbrgwnlEMKYSX5Eg/640?wx_fmt=png&from=appmsg',
+            productCardQr: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JDLG2ASQGKbzL7oic13nv5BqDTyr8QD1RUfxC3xKABWBqJiaHWsJ4qxZCetAvFjKHeOF5tBKIibqeO1w/640?wx_fmt=png&from=appmsg',
+            productCardBanner: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JCsIq0DsbGmkcwL1OdAzHGJcHBUdGMposOdVnpibC9MVLHEpHEG4kNyUnrcYk0Q9nTWTzmiaAwY3zjA/640?wx_fmt=png&from=appmsg'
+        };
+
+        // 替换图片链接的函数
+        function replaceImageLinks(html, useWechatLinks) {
+            const sourceMap = useWechatLinks ? githubImages : wechatImages;
+            const targetMap = useWechatLinks ? wechatImages : githubImages;
+            
+            let result = html;
+            for (const key in sourceMap) {
+                if (sourceMap[key] !== targetMap[key]) {
+                    result = result.split(sourceMap[key]).join(targetMap[key]);
+                }
+            }
+            
+            // 复制到微信时，替换上传图片的 GitHub 链接为实际 dataURL
+            if (useWechatLinks) {
+                for (const filename of Object.keys(uploadedImages)) {
+                    const dataUrl = uploadedImages[filename].dataUrl;
+                    // 替换 GitHub 链接为实际 dataURL
+                    const githubUrlPng = `${githubBase}/${filename}.png`;
+                    const githubUrlJpg = `${githubBase}/${filename}.jpg`;
+                    const githubUrlJpeg = `${githubBase}/${filename}.jpeg`;
+                    const githubUrlGif = `${githubBase}/${filename}.gif`;
+                    
+                    if (result.includes(githubUrlPng)) {
+                        result = result.split(githubUrlPng).join(dataUrl);
+                    }
+                    if (result.includes(githubUrlJpg)) {
+                        result = result.split(githubUrlJpg).join(dataUrl);
+                    }
+                    if (result.includes(githubUrlJpeg)) {
+                        result = result.split(githubUrlJpeg).join(dataUrl);
+                    }
+                    if (result.includes(githubUrlGif)) {
+                        result = result.split(githubUrlGif).join(dataUrl);
+                    }
+                }
+                
+                // 添加 data-original-style 属性实现自适应
+                result = result.replace(/<img([^>]*)src="([^"]*)"([^>]*)>/g, function(match, before, src, after) {
+                    if (!match.includes('data-original-style')) {
+                        return `<img${before}src="${src}" data-original-style="width: 100%;height: auto !important;"${after}>`;
+                    }
+                    return match;
+                });
+            }
+            
+            return result;
+        }
+
+        // 固定开头图片HTML（使用 GitHub 链接）
+        const headerImageHTML = `<section style="text-align: center; font-size: 14px; margin: 0; white-space: normal; visibility: visible;" nodeleaf="">
+            <img data-src="${githubImages.header}" class="rich_pages wxw-img" data-ratio="0.2" data-s="300,640" data-type="png" data-w="900" style="width: 100% !important; height: auto !important; visibility: visible !important;" src="${githubImages.header}" alt="开头配图">
+        </section>`;
+
+        // 个人模式：开头虚线（模仿大标题的虚线实现方式）
+        const personalHeaderHTML = '<section style="border-top: 1.5px dashed rgb(192, 204, 92); margin: 2px 10px; padding: 0; text-align: center;">&nbsp;</section>';
+
+        // 个人模式：文章背景网格底纹
+        const personalBackgroundStyle = 'background-color: #fafafa;';
+
+        // 一级标题图片数组（使用 GitHub 链接）
+        const titleImages = [
+            githubImages.title1, githubImages.title2, githubImages.title3,
+            githubImages.title4, githubImages.title5, githubImages.title6,
+            githubImages.title7, githubImages.title8, githubImages.title9
+        ];
+
+        // 固定底部HTML（使用 GitHub 链接）
+        const footerHTML = `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em;"><span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: 14px; letter-spacing: normal;"><br></span></p>
+        <section style="margin-top: 10px;margin-bottom: 10px;box-sizing: border-box;text-align: center;">
+            <section style="padding: 10px;display: inline-block;width: 556px;border-width: 2px;border-style: none;border-color: rgb(192, 200, 209);background-color: rgb(239, 239, 239);border-radius: 11px;overflow: hidden;box-sizing: border-box;">
+                <section style="box-sizing: border-box;">
+                    <section style="font-size: 14px;box-sizing: border-box;">
+                        <p style="box-sizing: border-box;margin: 0;text-align: center;">
+                            <span style="font-size: 12px;color: rgb(34, 34, 34); font-family: &quot;PingFang SC&quot;, system-ui, -apple-system, &quot;system-ui&quot;, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; letter-spacing: 0.544px; text-align: center; background-color: rgb(239, 239, 239);">
+                                <span leaf="">点击</span><strong style="color: rgb(34, 34, 34); font-weight: bold;">阅读原文</strong><span leaf="">，前往</span><strong><span leaf="">数码荔枝</span></strong><span leaf="">买买买！</span>
+                            </span>
+                        </p>
+                    </section>
+                </section>
+            </section>
+        </section>
+        <p class="footer-ad" style="text-align: right;text-indent: 0em;margin: 0;padding: 0;">
+            <span style="font-family: monospace;font-size: 12px;letter-spacing: 0.578px;color: rgb(214, 214, 214);">
+                <span leaf="">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&lt;广告&gt;</span>
+            </span>
+        </p>
+        <hr class="divider" style="border-style: solid;border-width: 1px 0 0;border-color: rgba(0,0,0,0.1);-webkit-transform-origin: 0 0;-webkit-transform: scale(1, 0.5);transform-origin: 0 0;transform: scale(1, 0.5);margin: 0 0 10px 0 !important;">
+        <section class="footer-img" style="margin: 10px 0 !important;text-align: center;" nodeleaf="">
+            <img data-src="${githubImages.footer}" class="rich_pages wxw-img" data-ratio="0.4444444444444444" data-s="300,640" data-type="png" data-w="900" style="width: 100% !important; height: auto !important; visibility: visible !important;" src="${githubImages.footer}" alt="底部配图">
+        </section>
+        <p style="text-align: right;text-indent: 0em;white-space: normal;margin: 5px 0 0 0;">
+            <span style="font-size: 12px;background-color: rgb(0, 179, 255);color: rgb(255, 255, 255);padding: 2px 6px;border-radius: 3px;">
+                <span leaf="">点「♡」，了解更多新鲜资讯！</span>
+            </span>
+        </p>
+        <section style="text-align: right;white-space: normal;margin: 2px 0 10px 0;" nodeleaf="">
+            <img data-src="${githubImages.heart}" class="rich_pages wxw-img __bg_gif" data-ratio="0.20673076923076922" data-s="300,640" data-type="gif" data-w="208" style="width: 72px !important; height: auto !important; visibility: visible !important; float: right;" src="${githubImages.heart}" _width="72px" alt="底部GIF">
+        </section>`;
+
+        // 个人模式底部：末尾虚线（模仿大标题的虚线实现方式）
+        const personalFooterHTML = '<section style="border-bottom: 1.5px dashed rgb(192, 204, 92); margin: 2px 10px; padding: 0; text-align: center;">&nbsp;</section>';
+
+        // 标准空行模板（用于段落间距）- 根据模式动态生成
+        function getBrHtml(isPersonal) {
+            const fontSize = isPersonal ? '15px' : '14px';
+            const br = `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em;"><span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: ${fontSize}; letter-spacing: normal;"><br></span></p>`;
+            return { singleBr: br, doubleBr: br + br };
+        }
+
+        /* ==================== 文本格式化工具 ==================== */
+        
+        /**
+         * 处理行内格式：加粗、标蓝、加粗标蓝
+         * @param {string} text - 需要处理的文本
+         * @param {boolean} skipWrapper - 是否跳过基础span包装
+          * @returns {string} 处理后的HTML
+          */
+        function processTextSpacing(text) {
+            // 保护 URL 避免被斜杠规则影响
+            const urlTokens = [];
+            const urlPattern = /https?:\/\/[^\s]+/g;
+            text = text.replace(urlPattern, (match) => {
+                const token = `__URL_TOKEN_${urlTokens.length}__`;
+                urlTokens.push(match);
+                return token;
+            });
+            
+            // 中英文混排加空格（使用预编译正则）
+            text = text.replace(REGEX_PATTERNS.cnEnBefore, '$1 $2');
+            text = text.replace(REGEX_PATTERNS.enCnBefore, '$1 $2');
+            
+            // 数字和中文之间加空格
+            text = text.replace(REGEX_PATTERNS.cnDigitBefore, '$1 $2');
+            text = text.replace(REGEX_PATTERNS.digitCnBefore, '$1 $2');
+            
+            // 中文括号转换：「（」改为「 (」，「）」改为「) 」
+            text = text.replace(/（/g, ' (');
+            text = text.replace(/）/g, ') ');
+            text = text.replace(REGEX_PATTERNS.multiSpace, ' ');
+            
+            // 中文弯引号转换（只转换中文弯引号，不转换英文直引号）
+            let inQuote = false;
+            text = text.replace(/(\u201C|\u201D)/g, () => {
+                inQuote = !inQuote;
+                return inQuote ? '「' : '」';
+            });
+            
+            // 破折号两侧加空格
+            text = text.replace(/\s*——\s*/g, ' —— ');
+            
+            // 斜杠两侧加空格
+            text = text.replace(/\s*\/\s*/g, ' / ');
+            
+            // 恢复 URL 令牌
+            urlTokens.forEach((url, index) => {
+                const token = `__URL_TOKEN_${index}__`;
+                text = text.replace(token, url);
+            });
+            
+            return text;
+        }
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+        
+        function processInlineFormatting(text, skipWrapper = false) {
+            let processed = text || '';
+            const inlineCodeTokens = [];
+
+            // 先保护行内代码，避免内部内容被自动加空格等规则改写
+            processed = processed.replace(/`([^`\n]+)`/g, (match, content) => {
+                const token = `%%INLINE_CODE_${inlineCodeTokens.length}%%`;
+                inlineCodeTokens.push(
+                    `<code style="font-family: Menlo, &quot;Operator Mono&quot;, monospace; background-color: rgb(243, 243, 243); padding: 2px 5px; border-radius: 3px; font-size: 0.85em; color: rgb(232, 62, 140); visibility: visible;"><span leaf="" style="visibility: visible;">${escapeHtml(content)}</span></code>`
+                );
+                return token;
+            });
+            
+            // 中英文混排加空格、中文引号转换
+            processed = processTextSpacing(processed);
+            
+            // 先处理组合格式 ==**...**== 和 **==...==**（避免被后面的空格处理破坏）
+            processed = processed.replace(/==\*\*(.+?)\*\*==/g, (match, content) => {
+                if (isPersonalMode) {
+                    return `<em style="letter-spacing: normal; background: linear-gradient(transparent 50%, rgb(255, 242, 168) 0px); padding: 0px 2px; color: rgb(51, 51, 51); font-style: normal !important;"><span leaf="" style="font-weight: bold; color: rgb(0, 0, 0);">${content}</span></em>`;
+                }
+                return `<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255); font-weight: bold;">${content}</span>`;
+            });
+            processed = processed.replace(/\*\*==(.+?)==\*\*/g, (match, content) => {
+                if (isPersonalMode) {
+                    return `<em style="letter-spacing: normal; background: linear-gradient(transparent 50%, rgb(255, 242, 168) 0px); padding: 0px 2px; color: rgb(51, 51, 51); font-style: normal !important;"><span leaf="" style="font-weight: bold; color: rgb(0, 0, 0);">${content}</span></em>`;
+                }
+                return `<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255); font-weight: bold;">${content}</span>`;
+            });
+            
+            // 处理 ==：如果一边是中文，另一边是数字/英文，就在==右侧加空格
+            processed = processed.replace(/([\u4e00-\u9fa5\d_a-zA-Z]?)==([\u4e00-\u9fa5\d_a-zA-Z]?)/g, (match, left, right) => {
+                const isLeftCN = /[\u4e00-\u9fa5]/.test(left);
+                const isLeftEN = /[\d_a-zA-Z]/.test(left);
+                const isRightCN = /[\u4e00-\u9fa5]/.test(right);
+                const isRightEN = /[\d_a-zA-Z]/.test(right);
+                
+                // 一边是中文，另一边是数字/英文 → 加空格
+                if ((isLeftEN && isRightCN) || (isLeftCN && isRightEN)) {
+                    return left + '== ' + right;
+                }
+                return match;
+            });
+            
+            // 处理 ==文本== - 高亮/标蓝
+            processed = processed.replace(/==([^=]+)==/g, (match, content) => {
+                if (isPersonalMode) {
+                    return `<em style="letter-spacing: normal; background: linear-gradient(transparent 50%, rgb(255, 242, 168) 0px); padding: 0px 2px; color: rgb(51, 51, 51); font-style: normal !important;"><span leaf="" style="color: rgb(0, 0, 0);">${content}</span></em>`;
+                }
+                return `<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255);">${content}</span>`;
+            });
+            
+            // 处理 **文本** - 加粗
+            if (isPersonalMode) {
+                // 个人模式：仅加粗
+                processed = processed.replace(/\*\*(.+?)\*\*/g, (match, content) => {
+                    return `<span textstyle="" style="letter-spacing: normal; font-weight: bold; color: rgb(0, 0, 0);">${content}</span>`;
+                });
+            } else {
+                // 默认模式：仅加粗
+                processed = processed.replace(/\*\*(.+?)\*\*/g, (match, content) => {
+                    return `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${content}</span>`;
+                });
+            }
+
+            // 恢复行内代码原文
+            processed = processed.replace(/%%INLINE_CODE_(\d+)%%/g, (match, index) => {
+                return inlineCodeTokens[Number(index)] || match;
+            });
+            
+            // 基础span包装
+            if (!skipWrapper && !processed.includes('textstyle=""') && processed) {
+                processed = `<span textstyle="" style="letter-spacing: normal;">${processed}</span>`;
+            }
+            return processed;
+        }
+
+        /* ==================== Markdown 解析与渲染 ==================== */
+        
+        /**
+         * Markdown转微信预览HTML
+         * @param {string} markdown - Markdown文本
+         * @returns {string} 微信样式的HTML
+         */
+        function markdownToWeChatHTML(markdown) {
+            let rawLines = markdown.split('\n');
+            let contentBlocks = [];
+            let inList = false;
+            let currentList = [];
+            let i = 0;
+            
+            // 获取当前模式对应的空行HTML
+            const { singleBr, doubleBr } = getBrHtml(isPersonalMode);
+            
+            // 第一步：解析内容块
+            while (i < rawLines.length) {
+                const line = rawLines[i];
+                const trimmedLine = line.trim();
+
+                // 多行灰色底框开始（以 ` 开头但不以 ` 结尾）
+                if (trimmedLine.startsWith('`') && !trimmedLine.endsWith('`')) {
+                    let boxLines = [];
+                    
+                    // 收集开始行
+                    boxLines.push(trimmedLine.slice(1).trim());
+                    i++;
+                    
+                    // 收集中间行
+                    while (i < rawLines.length) {
+                        const nextLine = rawLines[i].trim();
+                        if (nextLine.endsWith('`')) {
+                            boxLines.push(nextLine.slice(0, -1).trim());
+                            i++;
+                            break;
+                        } else {
+                            boxLines.push(nextLine);
+                            i++;
+                        }
+                    }
+                    
+                    contentBlocks.push({
+                        type: 'box',
+                        content: boxLines.join('\n')
+                    });
+                    continue;
+                }
+
+                // 单行灰色底框
+                if (trimmedLine.startsWith('`') && trimmedLine.endsWith('`')) {
+                    contentBlocks.push({
+                        type: 'box',
+                        content: trimmedLine.slice(1, -1).trim()
+                    });
+                    i++;
+                    continue;
+                }
+
+                // 大标题 (## )
+                if (trimmedLine.startsWith('## ') && !trimmedLine.startsWith('### ')) {
+                    contentBlocks.push({
+                        type: 'h1',
+                        content: trimmedLine.substring(3)
+                    });
+                    i++;
+                    continue;
+                }
+
+                // 小标题 (### )
+                if (trimmedLine.startsWith('### ')) {
+                    contentBlocks.push({
+                        type: 'h2',
+                        content: trimmedLine.substring(4)
+                    });
+                    i++;
+                    continue;
+                }
+
+                // 分隔线（>=3个连续短横线）
+                if (/^-{3,}$/.test(trimmedLine)) {
+                    contentBlocks.push({
+                        type: 'divider'
+                    });
+                    i++;
+                    continue;
+                }
+
+                // 无序列表项
+                if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
+                    if (!inList) {
+                        inList = true;
+                        currentList = [];
+                    }
+                    // 清理末尾标点后再存入
+                    const cleanItem = trimmedLine.substring(2).replace(/[。；，,\.！!？?]+$/, '').trim();
+                    currentList.push(cleanItem);
+                    i++;
+                    continue;
+                }
+
+                // 列表中的空行：跳过，但不结束当前列表
+                if (inList && !trimmedLine) {
+                    i++;
+                    continue;
+                }
+
+                // 结束列表
+                if (inList) {
+                    contentBlocks.push({
+                        type: 'ul',
+                        content: currentList
+                    });
+                    inList = false;
+                    currentList = [];
+                    continue;
+                }
+
+                // 普通段落
+                if (trimmedLine) {
+                    // 检测商品卡片
+                    const productCardMatch = trimmedLine.match(/^商品卡片：(.*)$/);
+                    if (productCardMatch) {
+                        let productName = productCardMatch[1];
+                        
+                        // 提取淘口令
+                        const taoMatch = productName.match(/(77《[^》]+》.*?)(\s+https?:\/\/s\.tb\.cn\/)?$/);
+                        if (taoMatch && taoMatch[1]) {
+                            currentTaoKouLing = taoMatch[1].trim();
+                        }
+                        
+                        // 去掉图片扩展名和【】用于匹配
+                        productName = productName.replace(/^【|】$/g, '').replace(/\.(png|jpg|jpeg|gif|webp)$/i, '');
+                        
+                        contentBlocks.push({
+                            type: 'product-card',
+                            productName: productName
+                        });
+                        i++;
+                        continue;
+                    }
+                    
+                    // 检测【图1】、【动图演示】等图片引用
+                    const imageRefMatch = trimmedLine.match(/^【([^【】]+)】$/);
+                    if (imageRefMatch) {
+                        const refText = imageRefMatch[1].trim();
+                        const matchedImg = findImageByReference(refText);
+                        if (matchedImg) {
+                            // 检查下一行是否是图片标注
+                            let caption = null;
+                            if (i + 1 < rawLines.length) {
+                                const nextLine = rawLines[i + 1].trim();
+                                const captionMatch = nextLine.match(/^｜｜(.+)｜｜$/);
+                                if (captionMatch) {
+                                    caption = captionMatch[1].trim();
+                                    i++; // 跳过标注行
+                                }
+                            }
+                            contentBlocks.push({
+                                type: 'referenced-image',
+                                filename: matchedImg.filename,
+                                dataUrl: matchedImg.dataUrl,
+                                alt: refText,
+                                caption: caption
+                            });
+                            incrementImageUseCount(matchedImg.dataUrl);
+                        } else {
+                            contentBlocks.push({
+                                type: 'image-placeholder',
+                                text: refText
+                            });
+                        }
+                        i++;
+                        continue;
+                    }
+                    
+                    // 检测图片标注语法：｜｜文字｜｜（独立一行，作为前一个图片的标注）
+                    const imageCaptionMatch = trimmedLine.match(/^｜｜(.+)｜｜$/);
+                    if (imageCaptionMatch) {
+                        contentBlocks.push({
+                            type: 'image-caption',
+                            caption: imageCaptionMatch[1].trim()
+                        });
+                        i++;
+                        continue;
+                    }
+                    
+                    contentBlocks.push({
+                        type: 'p',
+                        content: trimmedLine
+                    });
+                }
+                i++;
+            }
+
+            // 处理最后一个列表
+            if (inList) {
+                contentBlocks.push({
+                    type: 'ul',
+                    content: currentList
+                });
+            }
+
+            // 统计一级标题数量
+            let h1Counter = 0;
+            
+            // 第二步：生成块HTML
+            function generateBlockHTML(block) {
+                switch (block.type) {
+                    case 'h1': {
+                        h1Counter++;
+                        
+                        // 个人模式：使用虚线样式（只有上下边框）
+                        if (isPersonalMode) {
+                            let titleContent = block.content;
+                            titleContent = processTextSpacing(titleContent);
+                            titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
+                            titleContent = titleContent.replace(/==([^=]+)==/g, '<span style="color: #0080ff;">$1</span>');
+                            titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #666; font-size: 14px;">[$1]</span>');
+                            
+                            return `<section class="level1-title-dashed personal-mode" style="box-sizing: border-box;font-size: 16px;margin: 20px 0px 20px;float: none !important;padding: 12px 0px;background: transparent;text-align: center;">
+                                <section style="display: inline-block;font-weight: 900;color: rgb(43, 43, 43);letter-spacing: 2px;border: none;visibility: visible;text-align: center;box-sizing: border-box;font-size: 20px;border-top: 1.5px dashed rgb(192, 204, 92);border-bottom: 1.5px dashed rgb(192, 204, 92);padding: 8px 20px;min-width: 100px;">
+                                    <span leaf="" style="visibility: visible;">${titleContent}</span>
+                                </section>
+                            </section>`;
+                        }
+                        
+                        // 数码荔枝模式：使用图片
+                        const imgIndex = (h1Counter - 1) % titleImages.length;
+                        const imgUrl = titleImages[imgIndex];
+                        
+                        // 处理标题格式
+                        let titleContent = block.content;
+                        titleContent = processTextSpacing(titleContent);
+                        titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
+                        titleContent = titleContent.replace(/==([^=]+)==/g, '<span style="color: rgb(51, 173, 255);">$1</span>');
+                        titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #333; font-size: 15px;">[$1]</span>');
+                        
+                        return `<div class="level1-title">
+                            <img src="${imgUrl}" width="50" height="50" alt="标题图标" style="margin-right: 8px;float: none;">
+                            <span class="title-text">${titleContent}</span>
+                        </div>`;
+                    }
+                    case 'h2': {
+                        // 个人模式小标题：带底色的小标题
+                        if (isPersonalMode) {
+                            return `<div class="level2-title" style="text-align: center; margin: 20px 0 15px 0;">
+                                <span style="display: inline-block; padding: 8px 24px; background: linear-gradient(135deg, #c0d860 0%, #9ab94a 100%); color: white; font-size: 17px; font-weight: bold; border-radius: 4px; letter-spacing: 2px;">
+                                    ${processInlineFormatting(block.content, true).trim()}
+                                </span>
+                            </div>`;
+                        }
+                        return `<div class="level2-title">
+                            <div class="title-box">
+                                <div class="title-box-inner">
+                                    <div class="title-text">${processInlineFormatting(block.content, true).trim()}</div>
+                                </div>
+                            </div>
+                        </div>`;
+                    }
+                    case 'product-card': {
+                        // 查找匹配的图片
+                        const matchedImg = findMatchingImage(block.productName);
+                        let qrImageSrc = githubImages.productCardQr;
+                        
+                        if (matchedImg) {
+                            qrImageSrc = matchedImg.dataUrl;
+                            incrementImageUseCount(matchedImg.dataUrl);
+                        }
+                        
+                        return `<section class="product-card-section" style="box-sizing: border-box;font-size: 16px;margin-bottom: 0;">
+                            <section style="text-align: center;margin-top: 0;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
+                                <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
+                                    <span leaf="">
+                                        <img data-src="${qrImageSrc}" class="rich_pages wxw-img" data-ratio="0.39453125" data-s="300,640" data-type="png" data-w="1024" style="vertical-align: middle; box-sizing: border-box; width: 677px !important; height: auto !important; visibility: visible !important;" src="${qrImageSrc}" _width="100%" alt="${block.productName}">
+                                    </span>
+                                </section>
+                            </section>
+                            <section style="text-align: center;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
+                                <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
+                                    <span leaf="">
+                                        <img data-src="${githubImages.productCardBanner}" class="rich_pages wxw-img" data-ratio="0.125" data-type="png" data-w="1000" style="vertical-align: middle; box-sizing: border-box; width: 677px !important; height: auto !important; visibility: visible !important;" data-backw="578" data-backh="72" data-aistatus="1" data-original-style="vertical-align:middle;box-sizing:border-box;width:100%;" src="${githubImages.productCardBanner}" _width="100%" alt="长条配图">
+                                    </span>
+                                </section>
+                            </section>
+                            <section style="display: inline-block;width: 100%;vertical-align: top;padding-right: 10px;padding-left: 10px;border-width: 0px;background-color: rgb(246, 251, 253);box-sizing: border-box;">
+                                <section style="margin: 10px 0%;box-sizing: border-box;">
+                                    <section style="text-align: center;color: rgb(0, 0, 0);font-size: 12px;box-sizing: border-box;">
+                                         <p><span style="font-size: 10px;"><span leaf="">${currentTaoKouLing}</span></span></p>
+                                        <p><span style="font-size: 10px;"><span leaf="">电脑直接访问链接，手机复制本段所有内容</span></span></p>
+                                    </section>
+                                </section>
+                            </section>
+                        </section>`;
+                    }
+                    case 'referenced-image': {
+                        const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center; font-size: 13px; color: #666666;">${block.caption}</p>` : '';
+                        const imageStyle = isPersonalMode ? 'max-width: 100%; height: auto; border: 1.5px dashed rgb(192, 204, 92); padding: 8px; background: #ffffff;' : 'max-width: 100%; height: auto;';
+                        return `<section style="text-align: center; margin: 0; padding: 10px 0;">
+                            <img data-src="${block.dataUrl}" 
+                                 class="rich_pages wxw-img"
+                                 style="${imageStyle}"
+                                 src="${block.dataUrl}" 
+                                 alt="${block.alt}">
+                            ${captionHTML}
+                        </section>`;
+                    }
+                    case 'image-placeholder': {
+                        return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed rgb(192, 204, 92); margin: 10px 0; color: #999; font-size: 14px;">
+                            【${block.text}】<span style="color: #e74c3c;">（未找到匹配图片，请上传对应图片后刷新）</span>
+                        </div>`;
+                    }
+                    case 'box': {
+                        const innerContent = block.content;
+                        const lines = innerContent.split('\n');
+                        let boxHTML = '<div class="link-box">';
+
+                        // 查找第一行的标签和后续行的URL
+                        let label = '';
+                        let url = '';
+                        let hasUrlInFirstLine = false;
+
+                        // 检查第一行是否有标签和URL在同一行
+                        const linkReg = /^(.*?)[:：]\s*(http|https):\/\/\S+/;
+                        const readMoreReg = /阅读原文/;
+                        
+                        if (lines[0].match(linkReg)) {
+                            hasUrlInFirstLine = true;
+                            const match = lines[0].match(linkReg);
+                            label = match[1].trim();
+                            const fullUrl = match[0];
+                            url = fullUrl.replace(`${label}：`, '').replace(`${label}:`, '').trim();
+                        } else {
+                            // 检查第一行是否有标签（以 ： 或 : 结尾）
+                            const labelReg = /^(.*)[:：]$/;
+                            const labelMatch = lines[0].match(labelReg);
+                            if (labelMatch) {
+                                label = labelMatch[1].trim();
+                            }
+                        }
+
+                        // 查找URL（可能在任意一行）
+                        const urlReg = /(http|https):\/\/\S+/;
+                        for (let j = 0; j < lines.length; j++) {
+                            const urlMatch = lines[j].match(urlReg);
+                            if (urlMatch) {
+                                url = urlMatch[0];
+                                break;
+                            }
+                        }
+
+                        // 生成内容HTML
+                        lines.forEach((line, index) => {
+                            const trimmedLine = line.trim();
+                            
+                            if (index === 0) {
+                                if (hasUrlInFirstLine) {
+                                    // 第一行有完整标签+URL
+                                    const match = trimmedLine.match(linkReg);
+                                    label = match[1].trim();
+                                    url = match[0].replace(`${label}：`, '').replace(`${label}:`, '').trim();
+                                    boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}：</span><a href="${url}" target="_blank">${url}</a>`;
+                                } else if (label && trimmedLine.endsWith('：') || trimmedLine.endsWith(':')) {
+                                    // 第一行只有标签
+                                    boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${trimmedLine}</span>`;
+                                } else if (trimmedLine.match(readMoreReg)) {
+                                    const cleanContent = trimmedLine.replace(/\s+/g, '');
+                                    boxHTML += processInlineFormatting(cleanContent);
+                                } else {
+                                    boxHTML += processInlineFormatting(trimmedLine);
+                                }
+                            } else {
+                                // 后续行
+                                const lineUrlMatch = trimmedLine.match(urlReg);
+                                if (lineUrlMatch) {
+                                    // 这一行有URL
+                                    if (url && index === 1 && label) {
+                                        // 如果是第一行后续且有标签，加<br>后直接显示URL
+                                        boxHTML += `<br><a href="${lineUrlMatch[0]}" target="_blank">${lineUrlMatch[0]}</a>`;
+                                    } else {
+                                        boxHTML += '<br>' + processInlineFormatting(trimmedLine);
+                                    }
+                                } else {
+                                    boxHTML += '<br>' + processInlineFormatting(trimmedLine);
+                                }
+                            }
+                        });
+
+                        boxHTML += '</div>';
+                        return boxHTML;
+                    }
+                    case 'ul': {
+                        let listHTML = '<ul style="list-style-type: disc; padding-left: 20px !important; margin-left: 0 !important;" class="list-paddingleft-1" id="wechat-list">';
+                        const itemCount = block.content.length;
+                        const listFontFamily = "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
+                        block.content.forEach((item, index) => {
+                            // 解析时已清理标点，这里直接添加
+                            const punct = (index === itemCount - 1) ? '。' : '；';
+                            listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important;"><p style="margin: 0px; text-align: left; line-height: 1.6em; font-family: ${listFontFamily}; font-size: 14px; letter-spacing: normal;">
+                                    ${processInlineFormatting(item, true)}${punct}
+                            </p></li>`;
+                        });
+                        listHTML += '</ul>';
+                        return listHTML;
+                    }
+                    case 'p': {
+                        const pFontSize = isPersonalMode ? '15px' : '14px';
+                        const pFontFamily = isPersonalMode ? "Optima, PingFangSC-light, 'PingFang SC', Georgia, serif" : "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
+                        return `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em; font-family: ${pFontFamily}; font-size: ${pFontSize}; letter-spacing: normal;">
+                            ${processInlineFormatting(block.content, true)}
+                        </p>`;
+                    }
+                    case 'divider': {
+                        return `<hr style="border-style: solid; border-width: 1px 0 0; border-color: rgba(0,0,0,0.1); margin: 10px 0;">`;
+                    }
+                    default:
+                        return '';
+                }
+            }
+
+            // 第三步：拼接HTML并添加空行 - 根据模式选择不同的 header
+            let html = '';
+            html += isPersonalMode ? personalHeaderHTML : headerImageHTML;
+            // 开头配图下方添加空行（个人模式不需要）
+            if (!isPersonalMode) {
+                html += singleBr;
+            }
+
+            contentBlocks.forEach((block, index) => {
+                const blockHTML = generateBlockHTML(block);
+                if (!blockHTML) return;
+
+                // 添加前置空行
+                if (index > 0) {
+                    // 个人模式：标题上方1个空行；数码荔枝模式：标题上方2个空行
+                    if ((block.type === 'h1' || block.type === 'h2') && !isPersonalMode) {
+                        html += doubleBr;
+                    } else {
+                        html += singleBr;
+                    }
+                }
+
+                // 添加块内容
+                html += blockHTML;
+
+                // 移除标题下方的空行
+            });
+
+            // 添加底部（根据模式选择）
+            if (isPersonalMode) {
+                html += personalFooterHTML;
+            } else {
+                html += footerHTML;
+            }
+
+            return html;
+        }
+
+        /**
+         * 生成微信编辑器专用完整HTML
+         * @param {string} markdown - Markdown文本
+         * @returns {string} 适合微信编辑器的完整HTML
+         */
+        function createWeChatFullHTML(markdown) {
+            let rawLines = markdown.split('\n');
+            let contentBlocks = [];
+            let inList = false;
+            let currentList = [];
+            let i = 0;
+            
+            // 获取当前模式对应的空行HTML
+            const { singleBr, doubleBr } = getBrHtml(isPersonalMode);
+            
+            // 解析内容块（支持多行灰色底框）
+            while (i < rawLines.length) {
+                const line = rawLines[i];
+                const trimmedLine = line.trim();
+
+                // 多行灰色底框开始（以 ` 开头但不以 ` 结尾）
+                if (trimmedLine.startsWith('`') && !trimmedLine.endsWith('`')) {
+                    let boxLines = [];
+                    
+                    // 收集开始行（去掉开头的 `）
+                    boxLines.push(trimmedLine.slice(1).trim());
+                    i++;
+                    
+                    // 收集中间行，直到遇到以 ` 结尾的行
+                    while (i < rawLines.length) {
+                        const nextLine = rawLines[i].trim();
+                        if (nextLine.endsWith('`')) {
+                            boxLines.push(nextLine.slice(0, -1).trim());
+                            i++;
+                            break;
+                        } else {
+                            boxLines.push(nextLine);
+                            i++;
+                        }
+                    }
+                    
+                    contentBlocks.push({
+                        type: 'box',
+                        content: boxLines.join('\n')
+                    });
+                    continue;
+                }
+
+                // 单行灰色底框
+                if (trimmedLine.startsWith('`') && trimmedLine.endsWith('`')) {
+                    contentBlocks.push({
+                        type: 'box',
+                        content: trimmedLine.slice(1, -1).trim()
+                    });
+                    i++;
+                    continue;
+                }
+
+                // 大标题 (## )
+                if (trimmedLine.startsWith('## ') && !trimmedLine.startsWith('### ')) {
+                    contentBlocks.push({ type: 'h1', content: trimmedLine.substring(3) });
+                    i++;
+                    continue;
+                }
+
+                // 小标题 (### )
+                if (trimmedLine.startsWith('### ')) {
+                    contentBlocks.push({ type: 'h2', content: trimmedLine.substring(4) });
+                    i++;
+                    continue;
+                }
+
+                // 分隔线（>=3个连续短横线）
+                if (/^-{3,}$/.test(trimmedLine)) {
+                    contentBlocks.push({ type: 'divider' });
+                    i++;
+                    continue;
+                }
+
+                if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
+                    if (!inList) { inList = true; currentList = []; }
+                    // 清理末尾标点后再存入
+                    const cleanItem = trimmedLine.substring(2).replace(/[。；，,\.！!？?]+$/, '').trim();
+                    currentList.push(cleanItem);
+                    i++;
+                    continue;
+                }
+
+                // 列表中的空行：跳过，但不结束当前列表
+                if (inList && !trimmedLine) {
+                    i++;
+                    continue;
+                }
+
+                if (inList) {
+                    contentBlocks.push({ type: 'ul', content: currentList });
+                    inList = false;
+                    continue;
+                }
+
+                if (trimmedLine) {
+                    // 检测商品卡片（支持冒号后无内容的情况）
+                    const productCardMatch = trimmedLine.match(/^商品卡片：(.*)$/);
+                    if (productCardMatch) {
+                        let productName = productCardMatch[1];
+                        // 提取淘口令（格式：产品名 淘口令 URL）
+                        const taoMatch = productName.match(/(77《[^》]+》.*?)(\s+https?:\/\/s\.tb\.cn\/)?$/);
+                        if (taoMatch && taoMatch[1]) {
+                            currentTaoKouLing = taoMatch[1].trim();
+                        }
+                        // 去掉图片扩展名和【】（用于和上传的图片文件名匹配）
+                        productName = productName.replace(/^【|】$/g, '').replace(/\.(png|jpg|jpeg|gif|webp)$/i, '');
+                        contentBlocks.push({
+                            type: 'product-card',
+                            productName: productName
+                        });
+                        i++;
+                        continue;
+                    }
+                    
+                    // 检测【图1】、【动图演示】等图片引用
+                    const imageRefMatch = trimmedLine.match(/^【([^【】]+)】$/);
+                    if (imageRefMatch) {
+                        const refText = imageRefMatch[1].trim();
+                        const matchedImg = findImageByReference(refText);
+                        if (matchedImg) {
+                            // 检查下一行是否是图片标注
+                            let caption = null;
+                            if (i + 1 < rawLines.length) {
+                                const nextLine = rawLines[i + 1].trim();
+                                const captionMatch = nextLine.match(/^｜｜(.+)｜｜$/);
+                                if (captionMatch) {
+                                    caption = captionMatch[1].trim();
+                                    i++; // 跳过标注行
+                                }
+                            }
+                            contentBlocks.push({
+                                type: 'referenced-image',
+                                filename: matchedImg.filename,
+                                dataUrl: matchedImg.dataUrl,
+                                alt: refText,
+                                caption: caption
+                            });
+                        } else {
+                            contentBlocks.push({
+                                type: 'image-placeholder',
+                                text: refText
+                            });
+                        }
+                        i++;
+                        continue;
+                    }
+                    
+                    contentBlocks.push({ type: 'p', content: trimmedLine });
+                }
+                i++;
+            }
+
+            if (inList) contentBlocks.push({ type: 'ul', content: currentList });
+
+            // 统计一级标题数量
+            let h1Counter = 0;
+
+            // 生成微信专用块HTML
+            function generateWeChatBlockHTML(block) {
+                switch (block.type) {
+                    case 'h1': {
+                        h1Counter++;
+                        
+                        // 个人模式：使用虚线样式（只有上下边框）
+                        if (isPersonalMode) {
+                            let titleContent = block.content;
+                            titleContent = processTextSpacing(titleContent);
+                            // 加粗 **文本**
+                            titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
+                            // 标蓝 ==文本==
+                            titleContent = titleContent.replace(/==([^=]+)==/g, '<span style="color: #0080ff;">$1</span>');
+                            // [文本] 灰色括号
+                            titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #666666;font-size: 14px;">[$1]</span>');
+
+                            return `<section class="level1-title-dashed personal-mode" style="box-sizing: border-box;font-size: 16px;margin: 20px 0px 20px;float: none !important;padding: 12px 0px;background: transparent;text-align: center;">
+                                <section style="display: inline-block;font-weight: 900;color: rgb(43, 43, 43);letter-spacing: 2px;border: none;visibility: visible;text-align: center;box-sizing: border-box;font-size: 20px;border-top: 1.5px dashed rgb(192, 204, 92);border-bottom: 1.5px dashed rgb(192, 204, 92);padding: 8px 20px;min-width: 100px;">
+                                    <span leaf="" style="visibility: visible;">${titleContent}</span>
+                                </section>
+                            </section>`;
+                        }
+                        
+                        // 数码荔枝模式：使用图片
+                        const imgIndex = (h1Counter - 1) % titleImages.length;
+                        const imgUrl = titleImages[imgIndex];
+                    
+                        // 大标题：使用更严格的正则顺序处理不同类型的括号
+                        let titleContent = block.content;
+                        
+                        // 加粗 **文本**
+                        titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
+                        
+                        // 标蓝 ==文本==
+                        titleContent = titleContent.replace(/==([^=]+)==/g, '<span style="color: rgb(51, 173, 255);">$1</span>');
+                        
+                        // [文本] 灰色括号
+                        titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #333333 !important; font-size: 15px !important;">[$1]</span>');
+                    
+                        const titleHTML = `<p style="white-space: normal;text-align: left;margin-bottom: 0px;float: none !important;">
+                            <span leaf="">
+                                <img data-src="${imgUrl}" class="rich_pages wxw-img" data-ratio="1" data-s="300,640" data-type="png" data-w="79" style="width: 50px !important; height: auto !important; visibility: visible !important; float: none !important; margin-right: 8px;" src="${imgUrl}&amp;tp=webp&amp;wxfrom=5&amp;wx_lazy=1" _width="50px" alt="标题图标">
+                            </span>
+                            <span style="font-size: 16px;color: rgb(33, 150, 243);font-weight: bold;float: none !important;display: inline;">
+                                ${titleContent}
+                            </span>
+                            <span leaf=""><br></span>
+                        </p>`;
+                    
+                        return titleHTML;
+                    }
+                    case 'h2': {
+                        // 个人模式小标题：带底色的小标题
+                        if (isPersonalMode) {
+                            return `<section style="text-align: center; margin: 20px 0 15px 0;">
+                                <span style="display: inline-block; padding: 8px 24px; background: linear-gradient(135deg, #c0d860 0%, #9ab94a 100%); color: white; font-size: 17px; font-weight: bold; border-radius: 4px; letter-spacing: 2px;">
+                                    ${processInlineFormatting(block.content, true).trim()}
+                                </span>
+                            </section>`;
+                        }
+                        const titleHTML = `<section style="box-sizing: border-box;font-size: 16px;margin-bottom: 0px;float: none !important;">
+                            <section style="transform: rotate(0deg);box-sizing: border-box;">
+                                <section style="display: flex;flex-flow: row nowrap;margin: 6px 0% 0px;transform: translate3d(4px, 0px, 0px);text-align: center;justify-content: center;box-sizing: border-box;">
+                                    <section style="display: inline-block;width: auto;vertical-align: top;min-width: 10%;max-width: 100%;flex: 0 0 auto;height: auto;align-self: flex-start;background-color: rgb(51, 173, 255);box-sizing: border-box;">
+                                        <section style="text-align: left;justify-content: flex-start;margin: -6px 0% 6px;transform: translate3d(-6px, 0px, 0px);box-sizing: border-box;">
+                                            <section style="display: inline-block;width: 100%;vertical-align: top;background-color: rgb(39, 218, 241);box-sizing: border-box;">
+                                                <section style="font-size: 15px;color: rgb(242, 249, 255);line-height: 2;padding-right: 10px;padding-left: 10px;box-sizing: border-box;">
+                                                    <p style="box-sizing: border-box;text-align: center;margin: 0;">
+                                                        <strong style="box-sizing: border-box;"><span leaf="">${processInlineFormatting(block.content, true).trim()}</span></strong>
+                                                    </p>
+                                                </section>
+                                            </section>
+                                        </section>
+                                    </section>
+                                </section>
+                            </section>
+                        </section>`;
+                    
+                        // 不在标题内部添加空行，由外部统一控制
+                        return titleHTML;
+                    }
+                    case 'product-card': {
+                        // 查找匹配的图片
+                        const matchedImg = findMatchingImage(block.productName);
+                        let qrImageSrc = githubImages.productCardQr;
+                        
+                        if (matchedImg) {
+                            qrImageSrc = matchedImg.dataUrl;
+                            incrementImageUseCount(matchedImg.dataUrl);
+                        }
+                        
+                        return `<section class="product-card-section" style="box-sizing: border-box;font-size: 16px;margin-bottom: 0;">
+                            <section style="text-align: center;margin-top: 0;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
+                                <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
+                                    <span leaf="">
+                                        <img data-src="${qrImageSrc}" class="rich_pages wxw-img" data-ratio="0.39453125" data-s="300,640" data-type="png" data-w="1024" style="vertical-align: middle; box-sizing: border-box; width: 677px !important; height: auto !important; visibility: visible !important;" src="${qrImageSrc}" _width="100%" alt="${block.productName}">
+                                    </span>
+                                </section>
+                            </section>
+                            <section style="text-align: center;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
+                                <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
+                                    <span leaf="">
+                                        <img data-src="${githubImages.productCardBanner}" class="rich_pages wxw-img" data-ratio="0.125" data-type="png" data-w="1000" style="vertical-align: middle; box-sizing: border-box; width: 677px !important; height: auto !important; visibility: visible !important;" src="${githubImages.productCardBanner}" _width="100%" alt="长条配图">
+                                    </span>
+                                </section>
+                            </section>
+                            <section style="display: inline-block;width: 100%;vertical-align: top;padding-right: 10px;padding-left: 10px;border-width: 0px;background-color: rgb(246, 251, 253);box-sizing: border-box;">
+                                <section style="margin: 10px 0%;box-sizing: border-box;">
+                                    <section style="text-align: center;color: rgb(0, 0, 0);font-size: 12px;box-sizing: border-box;">
+                                         <p><span style="font-size: 10px;"><span leaf="">${currentTaoKouLing}</span></span></p>
+                                        <p><span style="font-size: 10px;"><span leaf="">电脑直接访问链接，手机复制本段所有内容</span></span></p>
+                                    </section>
+                                </section>
+                            </section>
+                        </section>`;
+                    }
+                    case 'referenced-image': {
+                        const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center; font-size: 13px; color: #666666;">${block.caption}</p>` : '';
+                        const imageStyle = isPersonalMode ? 'max-width: 100%; height: auto; border: 1.5px dashed rgb(192, 204, 92); padding: 8px; background: #ffffff;' : 'max-width: 100%; height: auto;';
+                        return `<section style="text-align: center; margin: 0; padding: 10px 0;">
+                            <img data-src="${block.dataUrl}" 
+                                 class="rich_pages wxw-img"
+                                 style="${imageStyle}"
+                                 src="${block.dataUrl}" 
+                                 alt="${block.alt}">
+                            ${captionHTML}
+                        </section>`;
+                    }
+                    case 'image-placeholder': {
+                        return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed rgb(192, 204, 92); margin: 10px 0; color: #999; font-size: 14px;">
+                            【${block.text}】<span style="color: #e74c3c;">（未找到匹配图片，请上传对应图片后刷新）</span>
+                        </div>`;
+                    }
+                    case 'box': {
+                        const innerContent = block.content;
+                        const lines = innerContent.split('\n');
+                        const linkReg = /^(.*?)[:：]\s*(http|https):\/\/\S+/;
+                        const readMoreReg = /阅读原文/;
+
+                        let boxContentHTML = '';
+
+                        // 查找第一行的标签和后续行的URL
+                        let label = '';
+                        let hasUrlInFirstLine = false;
+
+                        if (lines[0].match(linkReg)) {
+                            hasUrlInFirstLine = true;
+                        } else {
+                            const labelReg = /^(.*)[:：]$/;
+                            const labelMatch = lines[0].match(labelReg);
+                            if (labelMatch) {
+                                label = labelMatch[1].trim();
+                            }
+                        }
+
+                        // 生成内容HTML
+                        lines.forEach((line, index) => {
+                            const trimmedLine = line.trim();
+                            
+                            if (index === 0) {
+                                if (hasUrlInFirstLine) {
+                                    const match = trimmedLine.match(linkReg);
+                                    label = match[1].trim();
+                                    const url = match[0].replace(`${label}：`, '').replace(`${label}:`, '').trim();
+                                    boxContentHTML += `<span leaf="" style="font-weight: bold !important;">${label}：</span>${url}`;
+                                } else if (trimmedLine.endsWith('：') || trimmedLine.endsWith(':')) {
+                                    boxContentHTML += `<span leaf="" style="font-weight: bold !important;">${trimmedLine}</span>`;
+                                } else if (trimmedLine.match(readMoreReg)) {
+                                    const cleanContent = trimmedLine.replace(/\s+/g, '');
+                                    boxContentHTML += processInlineFormatting(cleanContent);
+                                } else {
+                                    boxContentHTML += processInlineFormatting(trimmedLine);
+                                }
+                            } else {
+                                const lineUrlMatch = trimmedLine.match(linkReg);
+                                if (lineUrlMatch) {
+                                    boxContentHTML += `<br><span leaf="" style="font-weight: bold !important;">${lineUrlMatch[1].trim()}：</span>${lineUrlMatch[0].replace(lineUrlMatch[1], '').replace(/[:：]\s*/, '')}`;
+                                } else {
+                                    boxContentHTML += '<br>' + processInlineFormatting(trimmedLine);
+                                }
+                            }
+                        });
+
+                        return `<section style="white-space: normal;box-sizing: border-box;font-size: 16px;margin-bottom: 0px;">
+                            <section style="margin: 0 auto;box-sizing: border-box;text-align: center;">
+                                <section style="padding: 10px;display: inline-block;width: 556px;border-width: 2px;border-style: none;border-color: rgb(192, 200, 209);background-color: rgb(239, 239, 239);border-radius: 11px;overflow: hidden;box-sizing: border-box;">
+                                    <section style="box-sizing: border-box;">
+                                        <section style="font-size: 14px;box-sizing: border-box;">
+                                            <p style="box-sizing: border-box;margin: 0;">
+                                                <span style="font-size: 12px;color: rgb(34, 34, 34); font-family: &quot;PingFang SC&quot;, system-ui, -apple-system, &quot;system-ui&quot;, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; letter-spacing: 0.544px; text-align: center; background-color: rgb(239, 239, 239);">
+                                                    ${boxContentHTML}
+                                                </span>
+                                            </p>
+                                        </section>
+                                    </section>
+                                </section>
+                            </section>
+                        </section>`;
+                    }
+                    case 'ul': {
+                        let listHTML = '<ul style="list-style-type: disc; padding-left: 20px !important; margin-left: 0 !important;" class="list-paddingleft-1">';
+                        const itemCount = block.content.length;
+                        const listFontFamily = "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
+                        block.content.forEach((item, index) => {
+                            // 解析时已清理标点，这里直接添加
+                            const punct = (index === itemCount - 1) ? '。' : '；';
+                            listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important;"><p style="margin: 0px; text-align: left; line-height: 1.6em; font-family: ${listFontFamily}; font-size: 14px; letter-spacing: normal;">
+                                    ${processInlineFormatting(item, true)}${punct}
+                            </p></li>`;
+                        });
+                        listHTML += '</ul>';
+                        return listHTML;
+                    }                    
+                    case 'p': {
+                        const pFontSize = isPersonalMode ? '15px' : '14px';
+                        const pFontFamily = isPersonalMode ? "Optima, PingFangSC-light, 'PingFang SC', Georgia, serif" : "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
+                        return `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em; visibility: visible; font-family: ${pFontFamily}; font-size: ${pFontSize}; letter-spacing: normal;">
+                            ${processInlineFormatting(block.content, true)}
+                        </p>`;
+                    }
+                    case 'divider': {
+                        return `<hr class="divider" style="border-style: solid; border-width: 1px 0 0; border-color: rgba(0,0,0,0.1); -webkit-transform-origin: 0 0; -webkit-transform: scale(1, 0.5); transform-origin: 0 0; transform: scale(1, 0.5); margin: 10px 0 !important;">`;
+                    }
+                    default:
+                        return '';
+                }
+            }
+
+            // 拼接HTML - 根据模式选择不同的 header
+            let html = '';
+            html += isPersonalMode ? personalHeaderHTML : headerImageHTML;
+            // 开头配图下方添加空行（个人模式不需要）
+            if (!isPersonalMode) {
+                html += singleBr;
+            }
+
+            contentBlocks.forEach((block, index) => {
+                const blockHTML = generateWeChatBlockHTML(block);
+                if (!blockHTML) return;
+
+                if (index > 0) {
+                    // 个人模式：标题上方1个空行；数码荔枝模式：标题上方2个空行
+                    if ((block.type === 'h1' || block.type === 'h2') && !isPersonalMode) {
+                        html += doubleBr;
+                    } else {
+                        html += singleBr;
+                    }
+                }
+
+                html += blockHTML;
+            });
+
+            // 添加底部（根据模式选择）
+            if (isPersonalMode) {
+                html += personalFooterHTML;
+            } else {
+                html += footerHTML;
+            }
+            
+            return `<div class="rich_media_content js_underline_content defaultNoSetting fix_apple_default_style" id="js_content" style="text-size-adjust: var(--content-font-scale-percent, inherit);">${html}</div>`;
+        }
+
+        /**
+         * 富文本复制到剪贴板
+         * @param {string} html - 需要复制的HTML内容
+         */
+        function copyAsRichText(html) {
+            // 复制前将 GitHub 链接替换为微信链接
+            const htmlForWeChat = replaceImageLinks(html, true);
+            
+            const container = document.getElementById('copy-container');
+            container.innerHTML = htmlForWeChat;
+            
+            // 创建选区
+            const range = document.createRange();
+            range.selectNodeContents(container);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+
+            try {
+                // 尝试execCommand复制
+                let successful = document.execCommand('copy');
+                if (!successful) {
+                    throw new Error('execCommand copy failed');
+                }
+                showStatus('内容已复制到剪贴板，可直接粘贴到微信公众号编辑器！', 'success');
+            } catch (err) {
+                // 降级使用Clipboard API
+                navigator.clipboard.write([
+                    new ClipboardItem({
+                        'text/html': new Blob([htmlForWeChat], { type: 'text/html' }),
+                        'text/plain': new Blob([htmlForWeChat], { type: 'text/plain' })
+                    })
+                ]).then(() => {
+                    showStatus('内容已复制到剪贴板，可直接粘贴到微信公众号编辑器！', 'success');
+                }).catch(err => {
+                    console.error('复制失败: ', err);
+                    showStatus('复制失败，请尝试手动复制右侧预览内容', 'error');
+                });
+            } finally {
+                selection.removeAllRanges();
+            }
+        }
+
+        /**
+         * 显示状态提示消息（小窗口形式）
+         * @param {string} message - 提示消息
+         * @param {string} type - 类型：success/error
+         */
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status-message');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message ${type}`;
+            statusDiv.classList.add('show');
+
+            // 5秒后隐藏
+            setTimeout(() => {
+                statusDiv.classList.remove('show');
+            }, 5000);
+        }
+        
+        /* ==================== 预览与复制 ==================== */
+        
+        /**
+         * 更新预览区域内容
+         */
+          function updatePreview() {
+             try {
+                 // 先清零所有图片的使用计数
+                 for (const filename of Object.keys(uploadedImages)) {
+                     uploadedImages[filename].useCount = 0;
+                 }
+                 const markdown = document.getElementById('markdown-input').value;
+                  const html = markdownToWeChatHTML(markdown);
+                  document.getElementById('wx-preview').innerHTML = html;
+                  
+                  // 个人模式：设置背景色
+                  const previewContent = document.getElementById('preview-content');
+                  const wxArticle = document.querySelector('.wx-article');
+                  
+                  if (isPersonalMode) {
+                      previewContent.style.backgroundColor = '#fafafa';
+                      if (wxArticle) {
+                          wxArticle.style.backgroundColor = 'transparent';
+                      }
+                  } else {
+                      previewContent.style.backgroundColor = 'white';
+                      if (wxArticle) {
+                          wxArticle.style.backgroundColor = 'white';
+                      }
+                  }
+                  
+                  updateImagePreview();
+             } catch (e) {
+                 console.error('预览更新失败:', e);
+                 document.getElementById('wx-preview').innerHTML = `<div style="padding: 20px; color: red;">渲染出错：${e.message}</div>`;
+             }
+          }
+
+        /**
+         * 复制内容到剪贴板
+         */
+        function copyToClipboard() {
+            const markdown = document.getElementById('markdown-input').value;
+            const fullHTML = createWeChatFullHTML(markdown);
+            copyAsRichText(fullHTML);
+        }
+
+        /**
+         * 清空标记符（加粗、高亮、分割线）
+         */
+         function clearEditor() {
+            const textarea = document.getElementById('markdown-input');
+            let text = textarea.value;
+            // 清空加粗标记 **
+            text = text.replace(/\*\*(.*?)\*\*/g, '$1');
+            // 清空高亮标记 ==
+            text = text.replace(/==([^=]+)==/g, '$1');
+            // 清空分割线（>=3个连续短横线）
+            text = text.replace(/^-{3,}$/gm, '');
+            textarea.value = text;
+            updatePreview();
+            showStatus('已清空加粗、高亮、分割线标记符', 'success');
+        }
+
+        /**
+          * 更新淘口令
+          */
+        function updateTaokouling() {
+            const newTaoKouLing = prompt('请输入新的淘口令：');
+            if (newTaoKouLing && newTaoKouLing.trim()) {
+                currentTaoKouLing = newTaoKouLing.trim();
+                localStorage.setItem('currentTaoKouLing', currentTaoKouLing);
+                const textarea = document.getElementById('markdown-input');
+                const lines = textarea.value.split('\n');
+                const updatedLines = lines.map(line => {
+                    if (line.startsWith('商品卡片：')) {
+                        const match = line.match(/^(商品卡片：.*?)(77《[^》]+》.*)$/);
+                        if (match) {
+                            const prefix = match[1].trim();
+                            const taoKouLing = match[2].trim();
+                            const parts = taoKouLing.split(' ');
+                            if (parts.length >= 3) {
+                                return `${prefix} ${currentTaoKouLing} ${parts[parts.length - 1]}`;
+                            }
+                        }
+                    }
+                    return line;
+                });
+                textarea.value = updatedLines.join('\n');
+                textarea.dispatchEvent(new Event('input'));
+                showStatus('淘口令已更新', 'success');
+            }
+        }
+        
+        /**
+          * 加载示例内容
+          */
+        function loadExample() {
+            const exampleMarkdown = `欢迎使用我的 Markdown 编辑器，这个工具能够把 ==Markdown 标记文本==，**按照规范**渲染成公众号图文内容。
+编辑完成后，点击左下角的「==复制预览内容==」按钮，然后直接粘贴到微信公众编辑器内即可。
+这是示例内容，也是教程说明。
+## 我是大标题 [Mac]
+两个井号 + 文本，生成大标题。
+三个井号 + 文本，生成小标题。
+### 我是小标题
+上传图片，把文件名填写在「商品卡片：」后面，即可==自动修改==二维码，并添加商品卡片组件。
+
+商品卡片：Downie 4 - Mac在线视频下载软件 支持主流视频网站_推广二维码_2026-02-02-16-52-00.png
+
+
+## 插入文章配图 [Win]
+
+【图 1】
+【图 2】
+【图 3】
+▲ 这里是插入配图的语法，跟==外推==是一样的；
+▲ 记得在「==文章流==」保留存档！然后上传到这里，会自动按文件名匹配！
+
+### 我是小标题
+小标题下的内容，巴拉巴拉
+## 其他标记语法 [安卓/iOS]
+我是**加粗** (快捷键：Command + B)
+我是==高亮== (快捷键：Command + E)
+我是**==加粗同时高亮==** (快捷键：Command + U)
+我也是==**加粗同时标蓝**==
+
+下面是网址 (快捷键：Command + K)
+\`我是网址：http://www.lizhi.shop\`
+
+\`我是网址：
+http://www.lizhi.shop\`
+
+下面是列表：
+- 我是列表 1
+- 我是列表 2
+- 我是列表 3
+- 我是列表 4
+我是其他正文内容
+
+## 我是大标题
+
+大标题会自动引用对应的序号图片。
+
+## 我是大标题
+## 我是大标题
+## 我是大标题
+## 我是大标题
+## 我是大标题
+## 我是大标题
+
+大标题数量超过 9 个，会从 1 号重新累计——应该没什么机会会超过 9 的吧……`;
+
+            document.getElementById('markdown-input').value = exampleMarkdown;
+            updatePreview();
+            showStatus('示例内容已加载', 'success');
+        }
+
+        /**
+         * 切换标记（添加/移除包裹符）
+         * @param {string} text - 目标文本
+         * @param {string} wrapper - 包裹符（如 "==" 或 "`"）
+         * @returns {string} 处理后的文本
+         */
+        function toggleWrapper(text, wrapper) {
+            const wrapperLen = wrapper.length;
+            // 检查是否已被包裹
+            if (text.startsWith(wrapper) && text.endsWith(wrapper)) {
+                // 移除包裹符
+                return text.substring(wrapperLen, text.length - wrapperLen);
+            } else {
+                // 添加包裹符
+                return wrapper + text + wrapper;
+            }
+        }
+
+        /**
+         * 设置快捷键（Cmd+Z 撤销，Cmd+Y 重做）
+         */
+         function setupShortcuts() {
+             textarea.addEventListener('keydown', function(e) {
+                 // 撤销/重做
+                 if (e.metaKey) {
+                    if (e.key.toLowerCase() === 'z') {
+                        e.preventDefault();
+                        // Cmd+Z：撤销
+                        if (undoStack.length > 1) {
+                            redoStack.push(this.value);
+                            this.value = undoStack.pop();
+                            this.selectionStart = this.selectionEnd = this.value.length;
+                            updatePreview();
+                            showStatus('已撤销上一步操作', 'success');
+                        } else {
+                            showStatus('没有可撤销的操作', 'error');
+                        }
+                        return;
+                    } else if (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z')) {
+                        e.preventDefault();
+                        // Cmd+Y / Cmd+Shift+Z：重做
+                        if (redoStack.length > 0) {
+                            undoStack.push(this.value);
+                            this.value = redoStack.pop();
+                            this.selectionStart = this.selectionEnd = this.value.length;
+                            updatePreview();
+                            showStatus('已重做上一步操作', 'success');
+                        } else {
+                            showStatus('没有可重做的操作', 'error');
+                        }
+                        return;
+                    }
+                }
+        
+                // 只处理Cmd+B（加粗）、Cmd+K（反引号）、Cmd+E（高亮）、Cmd+U（加粗+高亮）
+                if (!e.metaKey || !['b', 'k', 'u', 'e'].includes(e.key.toLowerCase())) {
+                    return;
+                }
+                
+                e.preventDefault();
+                
+                const start = this.selectionStart;
+                const end = this.selectionEnd;
+                const selectedText = this.value.substring(start, end);
+                
+                if (selectedText.length === 0) return;
+        
+                let newText = '';
+                let action = '';
+                
+                // 匹配快捷键
+                if (e.key.toLowerCase() === 'b') {
+                    // Cmd+B: 加粗 **文本** / 取消加粗
+                    if (selectedText.startsWith('**') && selectedText.endsWith('**')) {
+                        newText = selectedText.slice(2, -2);
+                        action = '取消加粗';
+                    } else {
+                        newText = '**' + selectedText + '**';
+                        action = '加粗';
+                    }
+                } else if (e.key.toLowerCase() === 'k') {
+                    // Cmd+K: 反引号 `文本` / 移除反引号
+                    if (selectedText.startsWith('`') && selectedText.endsWith('`')) {
+                        newText = selectedText.slice(1, -1);
+                        action = '取消反引号';
+                    } else {
+                        newText = '`' + selectedText + '`';
+                        action = '添加反引号';
+                    }
+                } else if (e.key.toLowerCase() === 'u') {
+                    // Cmd+U: 加粗+高亮 **==文本==** / 取消
+                    if (selectedText.startsWith('**==') && selectedText.endsWith('==**')) {
+                        newText = selectedText.slice(4, -4);
+                        action = '取消加粗高亮';
+                    } else {
+                        newText = '**==' + selectedText + '==**';
+                        action = '加粗高亮';
+                    }
+                } else if (e.key.toLowerCase() === 'e') {
+                    // Cmd+E: 高亮 ==文本== / 取消高亮
+                    if (selectedText.startsWith('==') && selectedText.endsWith('==')) {
+                        newText = selectedText.slice(2, -2);
+                        action = '取消高亮';
+                    } else {
+                        newText = '==' + selectedText + '==';
+                        action = '高亮';
+                    }
+                }
+        
+                // 记录到撤销栈
+                undoStack.push(this.value);
+                redoStack.length = 0;
+                if (undoStack.length > 50) undoStack.shift();
+                
+                // 2. 标记为快捷键操作
+                this.dataset.isShortcutAction = 'true';
+                
+                // 3. 修改文本
+                const beforeText = this.value.substring(0, start);
+                const afterText = this.value.substring(end);
+                this.value = beforeText + newText + afterText;
+                this.selectionStart = this.selectionEnd = start + newText.length;
+                
+                // 更新预览
+                updatePreview();
+                
+                // 提示
+                showStatus(`已${action}选中文本`, 'success');
+            });
+        }
+
+        // 页面初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            undoStack.push(textarea.value); // 初始值入栈
+            
+            // 初始渲染
+            updatePreview();
+            
+            // 绑定事件
+            document.getElementById('markdown-input').addEventListener('input', updatePreview);
+            document.getElementById('copy-btn').addEventListener('click', copyToClipboard);
+            document.getElementById('clear-btn').addEventListener('click', clearEditor);
+            document.getElementById('example-btn').addEventListener('click', loadExample);
+            document.getElementById('update-taokouling-btn').addEventListener('click', updateTaokouling);
+            document.getElementById('personal-mode-btn').addEventListener('click', function() {
+                isPersonalMode = !isPersonalMode;
+                this.style.background = isPersonalMode ? 'linear-gradient(135deg, #27ae60, #2ecc71)' : 'linear-gradient(135deg, #f39c12, #e67e22)';
+                this.innerHTML = isPersonalMode ? '<i class="fas fa-star"></i> 默认模式' : '<i class="far fa-star"></i> 个人模式';
+                updatePreview();
+            });
+            
+            // 初始化快捷键
+            setupShortcuts();
+        });
+    </script>
+</body>
+</html>
