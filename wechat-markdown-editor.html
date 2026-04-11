@@ -1265,8 +1265,7 @@
                     return `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${content}</span>`;
                 });
             }
-
-            // 恢复行内代码原文
+// 恢复行内代码原文
             processed = processed.replace(/%%INLINE_CODE_(\d+)%%/g, (match, index) => {
                 return inlineCodeTokens[Number(index)] || match;
             });
