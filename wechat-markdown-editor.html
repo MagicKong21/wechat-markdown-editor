@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>微信公众号 Markdown 渲染编辑器</title>
     <!-- Favicon -->
-    <link rel="apple-touch-icon" sizes="180x180" href="/wechat-markdown-editor/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/wechat-markdown-editor/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/wechat-markdown-editor/favicon-16x16.png">
-    <link rel="manifest" href="/wechat-markdown-editor/site.webmanifest">
+    <link rel="apple-touch-icon" sizes="180x180" href="/wechat-markdown-editor/assets/icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/wechat-markdown-editor/assets/icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/wechat-markdown-editor/assets/icons/favicon-16x16.png">
+    <link rel="manifest" href="/wechat-markdown-editor/assets/icons/site.webmanifest">
     <!-- 
         微信公众号 Markdown 渲染编辑器
         
@@ -627,6 +627,30 @@
             .wx-article .link-box {
                 width: 100%;
             }
+            
+            /* 修复移动端个人模式图片边框显示问题 */
+            @media (max-width: 768px) {
+                .wx-article img.personal-mode-image {
+                    border: 3px solid rgb(192, 204, 92) !important;
+                    border-style: dashed !important;
+                    background-color: #ffffff !important;
+                    padding: 8px !important;
+                    box-sizing: border-box !important;
+                }
+                
+                /* 针对iOS Safari的特殊处理 */
+                @supports (-webkit-touch-callout: none) {
+                    .wx-article img.personal-mode-image {
+                        border: 3px solid rgb(192, 204, 92) !important;
+                        border-style: dashed !important;
+                        -webkit-border-image: none !important;
+                        border-image: none !important;
+                        background-color: #ffffff !important;
+                        padding: 8px !important;
+                        box-sizing: border-box !important;
+                    }
+                }
+            }
         }
     </style>
 </head>
@@ -749,6 +773,69 @@
         /* ==================== 图片上传与处理 ==================== */
         
         /**
+         * 处理粘贴的图片
+         * @param {ClipboardEvent} e - 粘贴事件
+         */
+        function handlePastedImage(e) {
+            const items = e.clipboardData.items;
+            let imageItem = null;
+            
+            // 查找图片项目
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    imageItem = items[i];
+                    break;
+                }
+            }
+            
+            if (!imageItem) return;
+            
+            e.preventDefault();
+            
+            // 获取图片文件
+            const file = imageItem.getAsFile();
+            if (!file) return;
+            
+            // 显示上传中状态
+            showUploadingStatus(1);
+            
+            // 处理图片
+            processImageWithQR(file, true); // 标记为粘贴的图片
+        }
+        
+        /**
+         * 在编辑器中插入图片引用
+         * @param {string} filename - 图片文件名（包含扩展名）
+         */
+        function insertImageReference(filename) {
+            const textarea = document.getElementById('markdown-input');
+            const cursorPos = textarea.selectionStart;
+            const textBefore = textarea.value.substring(0, cursorPos);
+            const textAfter = textarea.value.substring(cursorPos);
+            
+            // 查找当前行的开始位置
+            const lineStart = textBefore.lastIndexOf('\n') + 1;
+            const currentLine = textBefore.substring(lineStart);
+            
+            // 如果当前行为空，直接插入图片引用
+            if (!currentLine.trim()) {
+                const imageRef = `\n【${filename}】\n`;
+                const newText = textBefore + imageRef + textAfter;
+                textarea.value = newText;
+                textarea.selectionStart = textarea.selectionEnd = cursorPos + imageRef.length;
+            } else {
+                // 如果当前行不为空，在下一行插入图片引用
+                const imageRef = `\n\n【${filename}】\n`;
+                const newText = textBefore + imageRef + textAfter;
+                textarea.value = newText;
+                textarea.selectionStart = textarea.selectionEnd = cursorPos + imageRef.length;
+            }
+            
+            // 触发input事件更新预览
+            textarea.dispatchEvent(new Event('input'));
+        }
+        
+        /**
           * 图片上传事件监听
            */
         let pendingImageCount = 0;
@@ -823,8 +910,13 @@
         /**
          * 处理上传的图片（识别并替换二维码）
          * @param {File} file - 上传的文件对象
+         * @param {boolean} isPasted - 是否是粘贴的图片
           */
-        function processImageWithQR(file) {
+        function processImageWithQR(file, isPasted = false) {
+            // 获取存储用的文件名（粘贴的图片保留完整文件名，上传的图片移除扩展名）
+            const storageFilename = isPasted ? file.name : file.name.replace(/\.[^.]+$/, '');
+            // 获取显示用的文件名（粘贴的图片在引用中使用完整文件名）
+            const displayFilename = file.name;
             const reader = new FileReader();
             reader.onload = async function(event) {
                 const img = new Image();
@@ -867,12 +959,18 @@
                     }
                     
                     // 保存处理后的图片
-                    const filename = file.name.replace(/\.[^.]+$/, '');
-                    uploadedImages[filename] = {
+                    uploadedImages[storageFilename] = {
                         dataUrl: finalDataUrl,
                         useCount: 0,
-                        qrReplaced: qrReplaced
+                        qrReplaced: qrReplaced,
+                        displayName: displayFilename // 保存显示用的完整文件名
                     };
+                    
+                    // 如果是粘贴的图片，在编辑器中插入引用
+                    if (isPasted) {
+                        insertImageReference(displayFilename); // 使用完整文件名包含扩展名
+                        showStatus(`图片已插入：${displayFilename}`, 'success');
+                    }
                     
                     // 渐进式显示：每处理完一张就刷新
                     pendingImageCount--;
@@ -907,19 +1005,19 @@
             filenames.forEach(filename => {
                 const img = uploadedImages[filename];
                 const isUsed = img.useCount > 0;
+                const displayName = img.displayName || filename; // 使用显示名称，如果没有则使用存储名称
                 const item = document.createElement('div');
                 item.className = `image-preview-item ${isUsed ? 'used' : 'unused'}`;
                 item.title = '点击复制图片引用（带【】符号）';
                 item.innerHTML = `
-                    <img src="${img.dataUrl}" alt="${filename}">
+                    <img src="${img.dataUrl}" alt="${displayName}">
                     <div class="use-count">${img.useCount}</div>
-                    <div class="filename">${filename}</div>
+                    <div class="filename">${displayName}</div>
                 `;
                 
                 // 点击复制图片引用（带【】符号）
                 item.addEventListener('click', () => {
-                    const nameWithoutExt = filename.replace(/\.[^.]+$/, '');
-                    const refWithBrackets = `【${nameWithoutExt}】`;
+                    const refWithBrackets = `【${displayName}】`;
                     navigator.clipboard.writeText(refWithBrackets).then(() => {
                         showStatus(`已复制: ${refWithBrackets}`, 'success');
                     }).catch(() => {
@@ -962,15 +1060,23 @@
             }
         }
         
-        /**
+/**
          * 根据引用文本查找匹配的图片（优先级：精确 > 包含 > 模糊）
          * @param {string} refText - 引用文本（如「图1」、「动图演示」）
          * @returns {{ filename, dataUrl } | null}
-         */
+          */
         function findImageByReference(refText) {
             const refLower = refText.toLowerCase();
             
-            // 1. 精确匹配文件名（不含扩展名）
+            // 1. 精确匹配完整文件名（包含扩展名）
+            for (const filename of Object.keys(uploadedImages)) {
+                const displayName = uploadedImages[filename].displayName || filename;
+                if (displayName.toLowerCase() === refLower) {
+                    return { filename, dataUrl: uploadedImages[filename].dataUrl };
+                }
+            }
+            
+            // 2. 精确匹配文件名（不含扩展名）
             for (const filename of Object.keys(uploadedImages)) {
                 const nameWithoutExt = filename.replace(/\.[^.]+$/, '').toLowerCase();
                 if (nameWithoutExt === refLower) {
@@ -978,7 +1084,15 @@
                 }
             }
             
-            // 2. 文件名（不含扩展名）以引用文本开头
+            // 3. 完整文件名以引用文本开头
+            for (const filename of Object.keys(uploadedImages)) {
+                const displayName = uploadedImages[filename].displayName || filename;
+                if (displayName.toLowerCase().startsWith(refLower)) {
+                    return { filename, dataUrl: uploadedImages[filename].dataUrl };
+                }
+            }
+            
+            // 4. 文件名（不含扩展名）以引用文本开头
             for (const filename of Object.keys(uploadedImages)) {
                 const nameWithoutExt = filename.replace(/\.[^.]+$/, '').toLowerCase();
                 if (nameWithoutExt.startsWith(refLower)) {
@@ -1084,7 +1198,7 @@
         </section>`;
 
         // 个人模式：开头虚线（模仿大标题的虚线实现方式）
-        const personalHeaderHTML = '<section style="border-top: 1.5px dashed rgb(192, 204, 92); margin: 2px 10px; padding: 0; text-align: center;">&nbsp;</section>';
+        const personalHeaderHTML = '<section style="border-top: 1.5px dashed rgb(192, 204, 92); margin: 2px 0px; padding: 0; text-align: center; width: 100%;">&nbsp;</section>';
 
         // 个人模式：文章背景网格底纹
         const personalBackgroundStyle = 'background-color: #fafafa;';
@@ -1130,7 +1244,7 @@
         </section>`;
 
         // 个人模式底部：末尾虚线（模仿大标题的虚线实现方式）
-        const personalFooterHTML = '<section style="border-bottom: 1.5px dashed rgb(192, 204, 92); margin: 2px 10px; padding: 0; text-align: center;">&nbsp;</section>';
+        const personalFooterHTML = '<section style="border-bottom: 1.5px dashed rgb(192, 204, 92); margin: 2px 0px; padding: 0; text-align: center; width: 100%;">&nbsp;</section>';
 
         // 标准空行模板（用于段落间距）- 根据模式动态生成
         function getBrHtml(isPersonal) {
@@ -1575,7 +1689,7 @@
                     }
                     case 'referenced-image': {
                         const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center; font-size: 13px; color: #666666;">${block.caption}</p>` : '';
-                        const imageStyle = isPersonalMode ? 'max-width: 100%; height: auto; border: 1.5px dashed rgb(192, 204, 92); padding: 8px; background: #ffffff;' : 'max-width: 100%; height: auto;';
+                        const imageStyle = isPersonalMode ? 'max-width: 100%; height: auto; border: 2px solid rgb(192, 204, 92); border-style: dashed; padding: 8px; background: #ffffff; box-sizing: border-box;' : 'max-width: 100%; height: auto;';
                         return `<section style="text-align: center; margin: 0; padding: 10px 0;">
                             <img data-src="${block.dataUrl}" 
                                  class="rich_pages wxw-img"
@@ -2018,7 +2132,7 @@
                     }
                     case 'referenced-image': {
                         const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center; font-size: 13px; color: #666666;">${block.caption}</p>` : '';
-                        const imageStyle = isPersonalMode ? 'max-width: 100%; height: auto; border: 1.5px dashed rgb(192, 204, 92); padding: 8px; background: #ffffff;' : 'max-width: 100%; height: auto;';
+                        const imageStyle = isPersonalMode ? 'max-width: 100%; height: auto; border: 2px solid rgb(192, 204, 92); border-style: dashed; padding: 8px; background: #ffffff; box-sizing: border-box;' : 'max-width: 100%; height: auto;';
                         return `<section style="text-align: center; margin: 0; padding: 10px 0;">
                             <img data-src="${block.dataUrl}" 
                                  class="rich_pages wxw-img"
@@ -2528,6 +2642,11 @@ http://www.lizhi.shop\`
                 this.style.background = isPersonalMode ? 'linear-gradient(135deg, #27ae60, #2ecc71)' : 'linear-gradient(135deg, #f39c12, #e67e22)';
                 this.innerHTML = isPersonalMode ? '<i class="fas fa-star"></i> 默认模式' : '<i class="far fa-star"></i> 个人模式';
                 updatePreview();
+            });
+            
+            // 绑定粘贴事件
+            document.getElementById('markdown-input').addEventListener('paste', function(e) {
+                handlePastedImage(e);
             });
             
             // 初始化快捷键
