@@ -1348,39 +1348,36 @@
                 urlTokens.push(match);
                 return token;
             });
-            
+
             // 中英文混排加空格（使用预编译正则）
             text = text.replace(REGEX_PATTERNS.cnEnBefore, '$1 $2');
             text = text.replace(REGEX_PATTERNS.enCnBefore, '$1 $2');
-            
+
             // 数字和中文之间加空格
             text = text.replace(REGEX_PATTERNS.cnDigitBefore, '$1 $2');
             text = text.replace(REGEX_PATTERNS.digitCnBefore, '$1 $2');
-            
+
             // 中文括号转换：「（」改为「 (」，「）」改为「) 」
             text = text.replace(/（/g, ' (');
             text = text.replace(/）/g, ') ');
             text = text.replace(REGEX_PATTERNS.multiSpace, ' ');
-            
+
             // 中文弯引号转换（只转换中文弯引号，不转换英文直引号）
             let inQuote = false;
             text = text.replace(/(\u201C|\u201D)/g, () => {
                 inQuote = !inQuote;
                 return inQuote ? '「' : '」';
             });
-            
+
             // 破折号两侧加空格
             text = text.replace(/\s*——\s*/g, ' —— ');
-            
-            // 斜杠两侧加空格
-            text = text.replace(/\s*\/\s*/g, ' / ');
-            
-            // 恢复 URL 令牌
+
+            // 恢复 URL 令牌（在斜杠处理之前恢复，这样 URL 内部的斜杠就不会被处理）
             urlTokens.forEach((url, index) => {
                 const token = `__URL_TOKEN_${index}__`;
                 text = text.replace(token, url);
             });
-            
+
             return text;
         }
 
@@ -1392,12 +1389,12 @@
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
         }
-        
+
         function processInlineFormatting(text, skipWrapper = false) {
             let processed = text || '';
             const inlineCodeTokens = [];
 
-            // 先保护行内代码，避免内部内容被自动加空格等规则改写
+            // 先保护行内代码（反引号 ` ` 包裹的内容），避免内部内容被自动加空格等规则改写
             processed = processed.replace(/`([^`\n]+)`/g, (match, content) => {
                 const token = `%%INLINE_CODE_${inlineCodeTokens.length}%%`;
                 inlineCodeTokens.push(
@@ -1405,7 +1402,7 @@
                 );
                 return token;
             });
-            
+
             // 中英文混排加空格、中文引号转换
             processed = processTextSpacing(processed);
             
