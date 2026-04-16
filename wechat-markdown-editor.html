@@ -1369,10 +1369,13 @@
                 return inQuote ? '「' : '」';
             });
 
-            // 破折号两侧加空格
+// 破折号两侧加空格
             text = text.replace(/\s*——\s*/g, ' —— ');
 
-            // 恢复 URL 令牌（在斜杠处理之前恢复，这样 URL 内部的斜杠就不会被处理）
+            // 斜杠两侧加空格（仅对普通文字，不处理已保护的 URL）
+            text = text.replace(/\s*\/\s*/g, ' / ');
+
+            // 恢复 URL 令牌
             urlTokens.forEach((url, index) => {
                 const token = `__URL_TOKEN_${index}__`;
                 text = text.replace(token, url);
