@@ -764,6 +764,10 @@
         // 获取编辑器元素
         const textarea = document.getElementById('markdown-input');
         
+        // 防抖定时器
+        let previewUpdateTimer = null;
+        const PREVIEW_UPDATE_DELAY = 300; // 防抖延迟（毫秒）
+        
         /* ==================== 预编译正则表达式（性能优化） ==================== */
         
         // 文本格式化正则（预编译避免重复创建）
@@ -1042,7 +1046,7 @@
                     updateImagePreview();
                     if (pendingImageCount <= 0) {
                         pendingImageCount = 0;
-                        updatePreview();
+                        immediateUpdatePreview();
                     }
                 };
                 img.src = event.target.result;
@@ -1088,7 +1092,7 @@
                     if (confirm(`确定要删除图片 "${displayName}" 吗？`)) {
                         delete uploadedImages[filename];
                         updateImagePreview(); // 刷新预览面板
-                        updatePreview(); // 刷新文章预览
+                        immediateUpdatePreview(); // 刷新文章预览
                         showStatus(`已删除图片: ${displayName}`, 'success');
                     }
                 });
@@ -1138,11 +1142,11 @@
             }
         }
         
-/**
+        /**
          * 根据引用文本查找匹配的图片（优先级：精确 > 包含 > 模糊）
          * @param {string} refText - 引用文本（如「图1」、「动图演示」）
          * @returns {{ filename, dataUrl } | null}
-          */
+         */
         function findImageByReference(refText) {
             const refLower = refText.toLowerCase();
             
@@ -1472,7 +1476,7 @@ function processTextSpacing(text) {
                     return `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${content}</span>`;
                 });
             }
-// 恢复行内代码原文
+            // 恢复行内代码原文
             processed = processed.replace(/%%INLINE_CODE_(\d+)%%/g, (match, index) => {
                 return inlineCodeTokens[Number(index)] || match;
             });
@@ -1848,7 +1852,7 @@ function processTextSpacing(text) {
                     }
                     case 'image-placeholder': {
                         return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed rgb(192, 204, 92); margin: 10px 0; color: #999; font-size: 14px;">
-                            【${block.text}】<span style="color: #e74c3c;">（未找到匹配图片，请上传对应图片后刷新）</span>
+                            【${block.text}】<span style="color: #e74c3c;">（未找到匹配图片）</span>
                         </div>`;
                     }
                     case 'box': {
@@ -1924,18 +1928,40 @@ function processTextSpacing(text) {
                                     // 有标签+URL（带协议）：加粗标签，URL 不处理
                                     const label = urlMatch[1].trim();
                                     const url = urlMatch[2];
-                                    boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}：</span>${url}`;
+                                    // 排除 http/https 开头的情况（这种情况没有标签）
+                                    if (label === 'http' || label === 'https') {
+                                        boxHTML += `<a href="${url}" target="_blank">${url}</a>`;
+                                    } else {
+                                        const colonMatch = inlineCodeContent.match(/[:：]/);
+                                        const originalColon = colonMatch ? colonMatch[0] : ':';
+                                        boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}${originalColon}</span>${url}`;
+                                    }
                                 } else {
                                     // 检查是否有标签+路径格式（标签：xxx/xxx）
                                     const labelPathMatch = inlineCodeContent.match(/^(.*?)[:：]\s*([^\s]+)$/);
                                     if (labelPathMatch) {
                                         const label = labelPathMatch[1].trim();
                                         const path = labelPathMatch[2];
-                                        // 如果路径包含斜杠，说明是路径，需要保护斜杠
-                                        if (path.includes('/')) {
-                                            boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}：</span>${path}`;
+                                        // 排除 http/https 开头的情况（这是纯 URL，没有标签）
+                                        if (label === 'http' || label === 'https') {
+                                            let protected = inlineCodeContent
+                                                .replace(/\//g, '__PROTECTED_SLASH__');
+                                            protected = protected
+                                                .replace(REGEX_PATTERNS.cnEnBefore, '$1 $2')
+                                                .replace(REGEX_PATTERNS.enCnBefore, '$1 $2')
+                                                .replace(REGEX_PATTERNS.multiSpace, ' ');
+                                            protected = protected
+                                                .replace(/__PROTECTED_SLASH__/g, '/');
+                                            boxHTML += protected;
                                         } else {
-                                            boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}：</span>${path}`;
+                                            const colonMatch = inlineCodeContent.match(/[:：]/);
+                                            const originalColon = colonMatch ? colonMatch[0] : ':';
+                                            // 如果路径包含斜杠，说明是路径，需要保护斜杠
+                                            if (path.includes('/')) {
+                                                boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}${originalColon}</span>${path}`;
+                                            } else {
+                                                boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}${originalColon}</span>${path}`;
+                                            }
                                         }
                                     } else {
                                         // 纯内容（无标签）：保护斜杠
@@ -1959,12 +1985,19 @@ function processTextSpacing(text) {
                                     const match = trimmedLine.match(linkReg);
                                     label = match[1].trim();
                                     url = match[0].replace(`${label}：`, '').replace(`${label}:`, '').trim();
-                                    boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}：</span><a href="${url}" target="_blank">${url}</a>`;
+                                    // 排除空标签或 http/https 开头的情况（这种情况没有标签）
+                                    if (!label || label === 'http' || label === 'https') {
+                                        boxHTML += `<a href="${url}" target="_blank">${url}</a>`;
+                                    } else {
+                                        const originalColon = match[0].includes(':') && !match[0].includes('：') ? ':' : '：';
+                                        boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}${originalColon}</span><a href="${url}" target="_blank">${url}</a>`;
+                                    }
                                 } else if (hasLabelWithPath) {
                                     // 第一行有标签+路径（无协议）
                                     boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}：</span>${labelPathContent}`;
-                                } else if (label && trimmedLine.endsWith('：') || trimmedLine.endsWith(':')) {
-                                    // 第一行只有标签
+                                } else if (trimmedLine.endsWith('：') || trimmedLine.endsWith(':')) {
+                                    // 第一行只有标签（以冒号结尾的行都加粗）
+                                    label = trimmedLine.slice(0, -1); // 去掉冒号作为标签
                                     boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${trimmedLine}</span>`;
                                 } else if (trimmedLine.match(readMoreReg)) {
                                     const cleanContent = trimmedLine.replace(/\s+/g, '');
@@ -1980,9 +2013,22 @@ function processTextSpacing(text) {
                                     if (url && index === 1 && label) {
                                         // 如果是第一行后续且有标签，加<br>后直接显示URL
                                         boxHTML += `<br><a href="${lineUrlMatch[0]}" target="_blank">${lineUrlMatch[0]}</a>`;
+                                    } else if (url && label) {
+                                        // 标签和URL分别在不同行的情况：输出标签（加粗）+ 之前的内容 + URL
+                                        boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}：</span>${labelPathContent || ''}<a href="${lineUrlMatch[0]}" target="_blank">${lineUrlMatch[0]}</a>`;
+                                    } else if (label) {
+                                        // 有标签但URL在后续行：输出标签（加粗）+ URL
+                                        boxHTML += `<br><span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}：</span><a href="${lineUrlMatch[0]}" target="_blank">${lineUrlMatch[0]}</a>`;
                                     } else {
-                                        boxHTML += '<br>' + processInlineFormatting(trimmedLine);
+                                        // 当前行是URL但没有标签：直接输出URL（不加处理）
+                                        boxHTML += `<br><a href="${lineUrlMatch[0]}" target="_blank">${lineUrlMatch[0]}</a>`;
                                     }
+                                } else if (label && labelPathContent) {
+                                    // 有标签且有路径内容：输出标签（加粗）+ 路径内容 + 当前行
+                                    boxHTML += `<br><span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}：</span>${labelPathContent}${trimmedLine}`;
+                                } else if (label) {
+                                    // 有标签但没有路径内容（标签行和内容行分开）：只输出当前行内容（标签已在第一行输出）
+                                    boxHTML += `<br>${trimmedLine}`;
                                 } else {
                                     boxHTML += '<br>' + processInlineFormatting(trimmedLine);
                                 }
@@ -2141,7 +2187,7 @@ function processTextSpacing(text) {
                     continue;
                 }
 
-// 大标题 (## )
+                // 大标题 (## )
                 if (trimmedLine.startsWith('## ') && !trimmedLine.startsWith('### ')) {
                     // 如果正在处理列表，先结束列表
                     if (inList) {
@@ -2406,7 +2452,7 @@ function processTextSpacing(text) {
                     }
                     case 'image-placeholder': {
                         return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed rgb(192, 204, 92); margin: 10px 0; color: #999; font-size: 14px;">
-                            【${block.text}】<span style="color: #e74c3c;">（未找到匹配图片，请上传对应图片后刷新）</span>
+                            【${block.text}】<span style="color: #e74c3c;">（未找到匹配图片）</span>
                         </div>`;
                     }
                     case 'box': {
@@ -2465,14 +2511,36 @@ function processTextSpacing(text) {
                                     // 有标签+URL（带协议）：加粗标签，URL 不处理
                                     const label = urlMatch[1].trim();
                                     const url = urlMatch[2];
-                                    boxContentHTML += `<span leaf="" style="font-weight: bold !important;">${label}：</span>${url}`;
+                                    // 排除 http/https 开头的情况（这种情况没有标签）
+                                    if (label === 'http' || label === 'https') {
+                                        boxContentHTML += `<a href="${url}" target="_blank">${url}</a>`;
+                                    } else {
+                                        const colonMatch = inlineCodeContent.match(/[:：]/);
+                                        const originalColon = colonMatch ? colonMatch[0] : ':';
+                                        boxContentHTML += `<span leaf="" style="font-weight: bold !important;">${label}${originalColon}</span>${url}`;
+                                    }
                                 } else {
                                     // 检查是否有标签+路径格式（标签：xxx/xxx）
                                     const labelPathMatch = inlineCodeContent.match(/^(.*?)[:：]\s*([^\s]+)$/);
                                     if (labelPathMatch) {
                                         const label = labelPathMatch[1].trim();
                                         const path = labelPathMatch[2];
-                                        boxContentHTML += `<span leaf="" style="font-weight: bold !important;">${label}：</span>${path}`;
+                                        // 排除 http/https 开头的情况（这是纯 URL，没有标签）
+                                        if (label === 'http' || label === 'https') {
+                                            let protected = inlineCodeContent
+                                                .replace(/\//g, '__PROTECTED_SLASH__');
+                                            protected = protected
+                                                .replace(REGEX_PATTERNS.cnEnBefore, '$1 $2')
+                                                .replace(REGEX_PATTERNS.enCnBefore, '$1 $2')
+                                                .replace(REGEX_PATTERNS.multiSpace, ' ');
+                                            protected = protected
+                                                .replace(/__PROTECTED_SLASH__/g, '/');
+                                            boxContentHTML += protected;
+                                        } else {
+                                            const colonMatch = inlineCodeContent.match(/[:：]/);
+                                            const originalColon = colonMatch ? colonMatch[0] : ':';
+                                            boxContentHTML += `<span leaf="" style="font-weight: bold !important;">${label}${originalColon}</span>${path}`;
+                                        }
                                     } else {
                                         // 纯内容（无标签）：保护斜杠
                                         let protected = inlineCodeContent
@@ -2494,11 +2562,18 @@ function processTextSpacing(text) {
                                     const match = trimmedLine.match(linkReg);
                                     label = match[1].trim();
                                     const url = match[0].replace(`${label}：`, '').replace(`${label}:`, '').trim();
-                                    boxContentHTML += `<span leaf="" style="font-weight: bold !important;">${label}：</span>${url}`;
+                                    // 排除空标签或 http/https 开头的情况（这种情况没有标签）
+                                    if (!label || label === 'http' || label === 'https') {
+                                        boxContentHTML += `<a href="${url}" target="_blank">${url}</a>`;
+                                    } else {
+                                        const originalColon = match[0].includes(':') && !match[0].includes('：') ? ':' : '：';
+                                        boxContentHTML += `<span leaf="" style="font-weight: bold !important;">${label}${originalColon}</span>${url}`;
+                                    }
                                 } else if (hasLabelWithPath) {
                                     // 标签+路径（无协议）
                                     boxContentHTML += `<span leaf="" style="font-weight: bold !important;">${label}：</span>${labelPathContent}`;
                                 } else if (trimmedLine.endsWith('：') || trimmedLine.endsWith(':')) {
+                                    label = trimmedLine.slice(0, -1); // 去掉冒号作为标签
                                     boxContentHTML += `<span leaf="" style="font-weight: bold !important;">${trimmedLine}</span>`;
                                 } else if (trimmedLine.match(readMoreReg)) {
                                     const cleanContent = trimmedLine.replace(/\s+/g, '');
@@ -2510,6 +2585,12 @@ function processTextSpacing(text) {
                                 const lineUrlMatch = trimmedLine.match(linkReg);
                                 if (lineUrlMatch) {
                                     boxContentHTML += `<br><span leaf="" style="font-weight: bold !important;">${lineUrlMatch[1].trim()}：</span>${lineUrlMatch[0].replace(lineUrlMatch[1], '').replace(/[:：]\s*/, '')}`;
+                                } else if (label && labelPathContent) {
+                                    // 有标签且有路径内容：输出标签（加粗）+ 路径内容 + 当前行
+                                    boxContentHTML += `<br><span leaf="" style="font-weight: bold !important;">${label}：</span>${labelPathContent}${trimmedLine}`;
+                                } else if (label) {
+                                    // 有标签但没有路径内容（标签行和内容行分开）：只输出当前行内容（标签已在第一行输出）
+                                    boxContentHTML += `<br>${trimmedLine}`;
                                 } else {
                                     boxContentHTML += '<br>' + processInlineFormatting(trimmedLine);
                                 }
@@ -2663,6 +2744,29 @@ function processTextSpacing(text) {
         /* ==================== 预览与复制 ==================== */
         
         /**
+         * 防抖更新预览（避免输入时频繁更新导致卡顿）
+         */
+        function debouncedUpdatePreview() {
+            if (previewUpdateTimer) {
+                clearTimeout(previewUpdateTimer);
+            }
+            previewUpdateTimer = setTimeout(function() {
+                updatePreview();
+            }, PREVIEW_UPDATE_DELAY);
+        }
+        
+        /**
+         * 立即更新预览（用于需要立即响应的场景）
+         */
+        function immediateUpdatePreview() {
+            if (previewUpdateTimer) {
+                clearTimeout(previewUpdateTimer);
+                previewUpdateTimer = null;
+            }
+            updatePreview();
+        }
+        
+        /**
          * 更新预览区域内容
          */
           function updatePreview() {
@@ -2720,7 +2824,7 @@ function processTextSpacing(text) {
             // 清空分割线（>=3个连续短横线）
             text = text.replace(/^-{3,}$/gm, '');
             textarea.value = text;
-            updatePreview();
+            immediateUpdatePreview();
             showStatus('已清空加粗、高亮、分割线标记符', 'success');
         }
 
@@ -2813,7 +2917,7 @@ http://www.lizhi.shop\`
 大标题数量超过 9 个，会从 1 号重新累计——应该没什么机会会超过 9 的吧……`;
 
             document.getElementById('markdown-input').value = exampleMarkdown;
-            updatePreview();
+            immediateUpdatePreview();
             showStatus('示例内容已加载', 'success');
         }
 
@@ -2849,7 +2953,7 @@ http://www.lizhi.shop\`
                             redoStack.push(this.value);
                             this.value = undoStack.pop();
                             this.selectionStart = this.selectionEnd = this.value.length;
-                            updatePreview();
+                            immediateUpdatePreview();
                             showStatus('已撤销上一步操作', 'success');
                         } else {
                             showStatus('没有可撤销的操作', 'error');
@@ -2862,7 +2966,7 @@ http://www.lizhi.shop\`
                             undoStack.push(this.value);
                             this.value = redoStack.pop();
                             this.selectionStart = this.selectionEnd = this.value.length;
-                            updatePreview();
+                            immediateUpdatePreview();
                             showStatus('已重做上一步操作', 'success');
                         } else {
                             showStatus('没有可重做的操作', 'error');
@@ -2956,7 +3060,9 @@ http://www.lizhi.shop\`
             updatePreview();
             
             // 绑定事件
-            document.getElementById('markdown-input').addEventListener('input', updatePreview);
+            document.getElementById('markdown-input').addEventListener('input', function() {
+                debouncedUpdatePreview();
+            });
             document.getElementById('copy-btn').addEventListener('click', copyToClipboard);
             document.getElementById('clear-btn').addEventListener('click', clearEditor);
             document.getElementById('example-btn').addEventListener('click', loadExample);
@@ -2965,7 +3071,7 @@ http://www.lizhi.shop\`
                 isPersonalMode = !isPersonalMode;
                 this.style.background = isPersonalMode ? 'linear-gradient(135deg, #27ae60, #2ecc71)' : 'linear-gradient(135deg, #f39c12, #e67e22)';
                 this.innerHTML = isPersonalMode ? '<i class="fas fa-star"></i> 默认模式' : '<i class="far fa-star"></i> 个人模式';
-                updatePreview();
+                immediateUpdatePreview();
             });
             
             // 绑定粘贴事件
