@@ -1339,13 +1339,22 @@
          * @param {boolean} skipWrapper - 是否跳过基础span包装
           * @returns {string} 处理后的HTML
           */
-        function processTextSpacing(text) {
+function processTextSpacing(text) {
             // 保护 URL 避免被斜杠规则影响
             const urlTokens = [];
             const urlPattern = /https?:\/\/[^\s]+/g;
             text = text.replace(urlPattern, (match) => {
                 const token = `__URL_TOKEN_${urlTokens.length}__`;
                 urlTokens.push(match);
+                return token;
+            });
+
+            // 保护行内代码（反引号包裹的内容）避免被斜杠规则影响
+            const inlineCodeTokens = [];
+            const inlineCodePattern = /`([^`]+?)`/g;
+            text = text.replace(inlineCodePattern, (match, content) => {
+                const token = `__INLINE_CODE_${inlineCodeTokens.length}__`;
+                inlineCodeTokens.push(match); // 保留原始文本，包括反引号
                 return token;
             });
 
@@ -1369,11 +1378,17 @@
                 return inQuote ? '「' : '」';
             });
 
-// 破折号两侧加空格
+            // 破折号两侧加空格
             text = text.replace(/\s*——\s*/g, ' —— ');
 
-            // 斜杠两侧加空格（仅对普通文字，不处理已保护的 URL）
+            // 斜杠两侧加空格（仅对普通文字，不处理已保护的 URL 和行内代码）
             text = text.replace(/\s*\/\s*/g, ' / ');
+
+            // 恢复行内代码令牌
+            inlineCodeTokens.forEach((code, index) => {
+                const token = `__INLINE_CODE_${index}__`;
+                text = text.replace(token, code);
+            });
 
             // 恢复 URL 令牌
             urlTokens.forEach((url, index) => {
@@ -1541,9 +1556,10 @@
                         inList = false;
                         currentList = [];
                     }
+                    // 保留反引号标记，让渲染时的 processInlineFormatting 能正确处理斜杠保护
                     contentBlocks.push({
                         type: 'box',
-                        content: trimmedLine.slice(1, -1).trim()
+                        content: trimmedLine
                     });
                     i++;
                     continue;
@@ -1744,12 +1760,9 @@
                         
                         // 个人模式：使用虚线样式（只有上下边框）
                         if (isPersonalMode) {
-                            let titleContent = block.content;
-                            titleContent = processTextSpacing(titleContent);
-                            titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
-                            titleContent = titleContent.replace(/==([^=]+)==/g, '<span style="color: #0080ff;">$1</span>');
-                            titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #666; font-size: 14px;">[$1]</span>');
-                            
+                            // 先用 processInlineFormatting 处理加粗、标蓝、反引号等，再处理空格（避免斜杠处理破坏反引号内的内容）
+                            let titleContent = processInlineFormatting(block.content, true).trim();
+
                             return `<section class="level1-title-dashed personal-mode" style="box-sizing: border-box;font-size: 16px;margin: 20px 0px 20px;float: none !important;padding: 12px 0px;background: transparent;text-align: center;">
                                 <section style="display: inline-block;font-weight: 900;color: rgb(43, 43, 43);letter-spacing: 2px;border: none;visibility: visible;text-align: center;box-sizing: border-box;font-size: 20px;border-top: 1.5px dashed rgb(192, 204, 92);border-bottom: 1.5px dashed rgb(192, 204, 92);padding: 8px 20px;min-width: 100px;">
                                     <span leaf="" style="visibility: visible;">${titleContent}</span>
@@ -1760,14 +1773,10 @@
                         // 数码荔枝模式：使用图片
                         const imgIndex = (h1Counter - 1) % titleImages.length;
                         const imgUrl = titleImages[imgIndex];
-                        
-                        // 处理标题格式
-                        let titleContent = block.content;
-                        titleContent = processTextSpacing(titleContent);
-                        titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
-                        titleContent = titleContent.replace(/==([^=]+)==/g, '<span style="color: rgb(51, 173, 255);">$1</span>');
-                        titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #333; font-size: 15px;">[$1]</span>');
-                        
+
+                        // 先用 processInlineFormatting 处理加粗、标蓝、反引号等，再处理空格（避免斜杠处理破坏反引号内的内容）
+                        let titleContent = processInlineFormatting(block.content, true).trim();
+
                         return `<div class="level1-title">
                             <img src="${imgUrl}" width="50" height="50" alt="标题图标" style="margin-right: 8px;float: none;">
                             <span class="title-text">${titleContent}</span>
@@ -1843,31 +1852,53 @@
                         </div>`;
                     }
                     case 'box': {
-                        const innerContent = block.content;
+                        let innerContent = block.content;
                         const lines = innerContent.split('\n');
                         let boxHTML = '<div class="link-box">';
+
+                        // 检查第一行是否是反引号包裹的内联代码格式
+                        const inlineCodePattern = /^`([^`]+)`$/;
+                        let hasInlineCode = false;
+                        let inlineCodeContent = '';
+
+                        if (lines.length === 1) {
+                            const match = lines[0].match(inlineCodePattern);
+                            if (match) {
+                                hasInlineCode = true;
+                                inlineCodeContent = match[1];
+                            }
+                        }
 
                         // 查找第一行的标签和后续行的URL
                         let label = '';
                         let url = '';
                         let hasUrlInFirstLine = false;
+                        let hasLabelWithPath = false;
+                        let labelPathContent = '';
 
                         // 检查第一行是否有标签和URL在同一行
                         const linkReg = /^(.*?)[:：]\s*(http|https):\/\/\S+/;
+                        // 检查标签+路径格式（无协议，如：开源地址：github.com/foo/bar）
+                        const labelPathReg = /^(.*?)[:：]\s*([^\s]+)$/;
                         const readMoreReg = /阅读原文/;
-                        
+
                         if (lines[0].match(linkReg)) {
                             hasUrlInFirstLine = true;
                             const match = lines[0].match(linkReg);
                             label = match[1].trim();
                             const fullUrl = match[0];
                             url = fullUrl.replace(`${label}：`, '').replace(`${label}:`, '').trim();
-                        } else {
-                            // 检查第一行是否有标签（以 ： 或 : 结尾）
-                            const labelReg = /^(.*)[:：]$/;
-                            const labelMatch = lines[0].match(labelReg);
-                            if (labelMatch) {
-                                label = labelMatch[1].trim();
+                        } else if (!hasInlineCode) {
+                            // 检查是否是标签+路径格式（无协议）
+                            const labelPathMatch = lines[0].match(labelPathReg);
+                            if (labelPathMatch) {
+                                const possibleLabel = labelPathMatch[1].trim();
+                                const possiblePath = labelPathMatch[2];
+                                if (possibleLabel && possiblePath && possiblePath.includes('/')) {
+                                    hasLabelWithPath = true;
+                                    label = possibleLabel;
+                                    labelPathContent = possiblePath;
+                                }
                             }
                         }
 
@@ -1883,15 +1914,55 @@
 
                         // 生成内容HTML
                         lines.forEach((line, index) => {
-                            const trimmedLine = line.trim();
-                            
+                            let trimmedLine = line.trim();
+
+                            // 如果是反引号包裹的内联代码格式
+                            if (hasInlineCode && index === 0) {
+                                // 检查内容是否包含带协议的 URL（标签：https://xxx）
+                                const urlMatch = inlineCodeContent.match(/^(.*?)[:：]\s*(https?:\/\/\S+)$/);
+                                if (urlMatch) {
+                                    // 有标签+URL（带协议）：加粗标签，URL 不处理
+                                    const label = urlMatch[1].trim();
+                                    const url = urlMatch[2];
+                                    boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}：</span>${url}`;
+                                } else {
+                                    // 检查是否有标签+路径格式（标签：xxx/xxx）
+                                    const labelPathMatch = inlineCodeContent.match(/^(.*?)[:：]\s*([^\s]+)$/);
+                                    if (labelPathMatch) {
+                                        const label = labelPathMatch[1].trim();
+                                        const path = labelPathMatch[2];
+                                        // 如果路径包含斜杠，说明是路径，需要保护斜杠
+                                        if (path.includes('/')) {
+                                            boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}：</span>${path}`;
+                                        } else {
+                                            boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}：</span>${path}`;
+                                        }
+                                    } else {
+                                        // 纯内容（无标签）：保护斜杠
+                                        let protected = inlineCodeContent
+                                            .replace(/\//g, '__PROTECTED_SLASH__');
+                                        protected = protected
+                                            .replace(REGEX_PATTERNS.cnEnBefore, '$1 $2')
+                                            .replace(REGEX_PATTERNS.enCnBefore, '$1 $2')
+                                            .replace(REGEX_PATTERNS.multiSpace, ' ');
+                                        protected = protected
+                                            .replace(/__PROTECTED_SLASH__/g, '/');
+                                        boxHTML += protected;
+                                    }
+                                }
+                                return;
+                            }
+
                             if (index === 0) {
                                 if (hasUrlInFirstLine) {
-                                    // 第一行有完整标签+URL
+                                    // 第一行有完整标签+URL（带协议）
                                     const match = trimmedLine.match(linkReg);
                                     label = match[1].trim();
                                     url = match[0].replace(`${label}：`, '').replace(`${label}:`, '').trim();
                                     boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}：</span><a href="${url}" target="_blank">${url}</a>`;
+                                } else if (hasLabelWithPath) {
+                                    // 第一行有标签+路径（无协议）
+                                    boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${label}：</span>${labelPathContent}`;
                                 } else if (label && trimmedLine.endsWith('：') || trimmedLine.endsWith(':')) {
                                     // 第一行只有标签
                                     boxHTML += `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${trimmedLine}</span>`;
@@ -2061,9 +2132,10 @@
                         inList = false;
                         currentList = [];
                     }
+                    // 保留反引号标记，让渲染时的处理逻辑能正确识别并保护斜杠
                     contentBlocks.push({
                         type: 'box',
-                        content: trimmedLine.slice(1, -1).trim()
+                        content: trimmedLine
                     });
                     i++;
                     continue;
@@ -2223,17 +2295,11 @@
                     }
                     case 'h1': {
                         h1Counter++;
-                        
+
                         // 个人模式：使用虚线样式（只有上下边框）
                         if (isPersonalMode) {
-                            let titleContent = block.content;
-                            titleContent = processTextSpacing(titleContent);
-                            // 加粗 **文本**
-                            titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
-                            // 标蓝 ==文本==
-                            titleContent = titleContent.replace(/==([^=]+)==/g, '<span style="color: #0080ff;">$1</span>');
-                            // [文本] 灰色括号
-                            titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #666666;font-size: 14px;">[$1]</span>');
+                            // 先用 processInlineFormatting 处理加粗、标蓝、反引号等，再处理空格（避免斜杠处理破坏反引号内的内容）
+                            let titleContent = processInlineFormatting(block.content, true).trim();
 
                             return `<section class="level1-title-dashed personal-mode" style="box-sizing: border-box;font-size: 16px;margin: 20px 0px 20px;float: none !important;padding: 12px 0px;background: transparent;text-align: center;">
                                 <section style="display: inline-block;font-weight: 900;color: rgb(43, 43, 43);letter-spacing: 2px;border: none;visibility: visible;text-align: center;box-sizing: border-box;font-size: 20px;border-top: 1.5px dashed rgb(192, 204, 92);border-bottom: 1.5px dashed rgb(192, 204, 92);padding: 8px 20px;min-width: 100px;">
@@ -2241,23 +2307,14 @@
                                 </section>
                             </section>`;
                         }
-                        
+
                         // 数码荔枝模式：使用图片
                         const imgIndex = (h1Counter - 1) % titleImages.length;
                         const imgUrl = titleImages[imgIndex];
-                    
-                        // 大标题：使用更严格的正则顺序处理不同类型的括号
-                        let titleContent = block.content;
-                        
-                        // 加粗 **文本**
-                        titleContent = titleContent.replace(/\*\*(.*?)\*\*/g, '<span style="font-weight: bold;">$1</span>');
-                        
-                        // 标蓝 ==文本==
-                        titleContent = titleContent.replace(/==([^=]+)==/g, '<span style="color: rgb(51, 173, 255);">$1</span>');
-                        
-                        // [文本] 灰色括号
-                        titleContent = titleContent.replace(/\[([^\[\]]+)\]/g, '<span style="color: #333333 !important; font-size: 15px !important;">[$1]</span>');
-                    
+
+                        // 先用 processInlineFormatting 处理加粗、标蓝、反引号等，再处理空格（避免斜杠处理破坏反引号内的内容）
+                        let titleContent = processInlineFormatting(block.content, true).trim();
+
                         const titleHTML = `<p style="white-space: normal;text-align: left;margin-bottom: 0px;float: none !important;">
                             <span leaf="">
                                 <img data-src="${imgUrl}" class="rich_pages wxw-img" data-ratio="1" data-s="300,640" data-type="png" data-w="79" style="width: 50px !important; height: auto !important; visibility: visible !important; float: none !important; margin-right: 8px;" src="${imgUrl}&amp;tp=webp&amp;wxfrom=5&amp;wx_lazy=1" _width="50px" alt="标题图标">
@@ -2353,37 +2410,94 @@
                         </div>`;
                     }
                     case 'box': {
-                        const innerContent = block.content;
+                        let innerContent = block.content;
                         const lines = innerContent.split('\n');
                         const linkReg = /^(.*?)[:：]\s*(http|https):\/\/\S+/;
                         const readMoreReg = /阅读原文/;
+
+                        // 检查第一行是否是反引号包裹的内联代码格式
+                        const inlineCodePattern = /^`([^`]+)`$/;
+                        let hasInlineCode = false;
+                        let inlineCodeContent = '';
+
+                        if (lines.length === 1) {
+                            const match = lines[0].match(inlineCodePattern);
+                            if (match) {
+                                hasInlineCode = true;
+                                inlineCodeContent = match[1];
+                            }
+                        }
 
                         let boxContentHTML = '';
 
                         // 查找第一行的标签和后续行的URL
                         let label = '';
                         let hasUrlInFirstLine = false;
+                        let hasLabelWithPath = false;
+                        let labelPathContent = '';
 
                         if (lines[0].match(linkReg)) {
                             hasUrlInFirstLine = true;
-                        } else {
-                            const labelReg = /^(.*)[:：]$/;
-                            const labelMatch = lines[0].match(labelReg);
-                            if (labelMatch) {
-                                label = labelMatch[1].trim();
+                        } else if (!hasInlineCode) {
+                            // 检查标签+路径格式（无协议，如：开源地址：github.com/foo/bar）
+                            const labelPathReg = /^(.*?)[:：]\s*([^\s]+)$/;
+                            const labelPathMatch = lines[0].match(labelPathReg);
+                            if (labelPathMatch) {
+                                const possibleLabel = labelPathMatch[1].trim();
+                                const possiblePath = labelPathMatch[2];
+                                if (possibleLabel && possiblePath && possiblePath.includes('/')) {
+                                    hasLabelWithPath = true;
+                                    label = possibleLabel;
+                                    labelPathContent = possiblePath;
+                                }
                             }
                         }
 
                         // 生成内容HTML
                         lines.forEach((line, index) => {
-                            const trimmedLine = line.trim();
-                            
+                            let trimmedLine = line.trim();
+
+                            // 如果是反引号包裹的内联代码格式
+                            if (hasInlineCode && index === 0) {
+                                // 检查内容是否包含带协议的 URL（标签：https://xxx）
+                                const urlMatch = inlineCodeContent.match(/^(.*?)[:：]\s*(https?:\/\/\S+)$/);
+                                if (urlMatch) {
+                                    // 有标签+URL（带协议）：加粗标签，URL 不处理
+                                    const label = urlMatch[1].trim();
+                                    const url = urlMatch[2];
+                                    boxContentHTML += `<span leaf="" style="font-weight: bold !important;">${label}：</span>${url}`;
+                                } else {
+                                    // 检查是否有标签+路径格式（标签：xxx/xxx）
+                                    const labelPathMatch = inlineCodeContent.match(/^(.*?)[:：]\s*([^\s]+)$/);
+                                    if (labelPathMatch) {
+                                        const label = labelPathMatch[1].trim();
+                                        const path = labelPathMatch[2];
+                                        boxContentHTML += `<span leaf="" style="font-weight: bold !important;">${label}：</span>${path}`;
+                                    } else {
+                                        // 纯内容（无标签）：保护斜杠
+                                        let protected = inlineCodeContent
+                                            .replace(/\//g, '__PROTECTED_SLASH__');
+                                        protected = protected
+                                            .replace(REGEX_PATTERNS.cnEnBefore, '$1 $2')
+                                            .replace(REGEX_PATTERNS.enCnBefore, '$1 $2')
+                                            .replace(REGEX_PATTERNS.multiSpace, ' ');
+                                        protected = protected
+                                            .replace(/__PROTECTED_SLASH__/g, '/');
+                                        boxContentHTML += protected;
+                                    }
+                                }
+                                return;
+                            }
+
                             if (index === 0) {
                                 if (hasUrlInFirstLine) {
                                     const match = trimmedLine.match(linkReg);
                                     label = match[1].trim();
                                     const url = match[0].replace(`${label}：`, '').replace(`${label}:`, '').trim();
                                     boxContentHTML += `<span leaf="" style="font-weight: bold !important;">${label}：</span>${url}`;
+                                } else if (hasLabelWithPath) {
+                                    // 标签+路径（无协议）
+                                    boxContentHTML += `<span leaf="" style="font-weight: bold !important;">${label}：</span>${labelPathContent}`;
                                 } else if (trimmedLine.endsWith('：') || trimmedLine.endsWith(':')) {
                                     boxContentHTML += `<span leaf="" style="font-weight: bold !important;">${trimmedLine}</span>`;
                                 } else if (trimmedLine.match(readMoreReg)) {
