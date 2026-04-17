@@ -1491,6 +1491,19 @@ function processTextSpacing(text) {
         /* ==================== Markdown 解析与渲染 ==================== */
         
         /**
+         * 处理标题中的平台标签 [xxx]，将其设置为 15px 黑色
+         * @param {string} content - 标题内容
+         * @returns {string} 处理后的HTML
+         */
+        function processPlatformTags(content) {
+            // 先用 processInlineFormatting 处理加粗、标蓝等
+            let processed = processInlineFormatting(content, true).trim();
+            // 平台标签：15px 黑色
+            processed = processed.replace(/\[([^\]]+)\]/g, '<span style="font-size: 15px; color: rgb(0, 0, 0);">[$1]</span>');
+            return processed;
+        }
+        
+        /**
          * Markdown转微信预览HTML
          * @param {string} markdown - Markdown文本
          * @returns {string} 微信样式的HTML
@@ -1764,8 +1777,8 @@ function processTextSpacing(text) {
                         
                         // 个人模式：使用虚线样式（只有上下边框）
                         if (isPersonalMode) {
-                            // 先用 processInlineFormatting 处理加粗、标蓝、反引号等，再处理空格（避免斜杠处理破坏反引号内的内容）
-                            let titleContent = processInlineFormatting(block.content, true).trim();
+                            // 处理平台标签 [xxx]，使其为 15px 黑色
+                            let titleContent = processPlatformTags(block.content);
 
                             return `<section class="level1-title-dashed personal-mode" style="box-sizing: border-box;font-size: 16px;margin: 20px 0px 20px;float: none !important;padding: 12px 0px;background: transparent;text-align: center;">
                                 <section style="display: inline-block;font-weight: 900;color: rgb(43, 43, 43);letter-spacing: 2px;border: none;visibility: visible;text-align: center;box-sizing: border-box;font-size: 20px;border-top: 1.5px dashed rgb(192, 204, 92);border-bottom: 1.5px dashed rgb(192, 204, 92);padding: 8px 20px;min-width: 100px;">
@@ -1778,8 +1791,8 @@ function processTextSpacing(text) {
                         const imgIndex = (h1Counter - 1) % titleImages.length;
                         const imgUrl = titleImages[imgIndex];
 
-                        // 先用 processInlineFormatting 处理加粗、标蓝、反引号等，再处理空格（避免斜杠处理破坏反引号内的内容）
-                        let titleContent = processInlineFormatting(block.content, true).trim();
+                        // 处理平台标签 [xxx]，使其为 15px 黑色
+                        let titleContent = processPlatformTags(block.content);
 
                         return `<div class="level1-title">
                             <img src="${imgUrl}" width="50" height="50" alt="标题图标" style="margin-right: 8px;float: none;">
@@ -2344,8 +2357,8 @@ function processTextSpacing(text) {
 
                         // 个人模式：使用虚线样式（只有上下边框）
                         if (isPersonalMode) {
-                            // 先用 processInlineFormatting 处理加粗、标蓝、反引号等，再处理空格（避免斜杠处理破坏反引号内的内容）
-                            let titleContent = processInlineFormatting(block.content, true).trim();
+                            // 处理平台标签 [xxx]，使其为 15px 黑色
+                            let titleContent = processPlatformTags(block.content);
 
                             return `<section class="level1-title-dashed personal-mode" style="box-sizing: border-box;font-size: 16px;margin: 20px 0px 20px;float: none !important;padding: 12px 0px;background: transparent;text-align: center;">
                                 <section style="display: inline-block;font-weight: 900;color: rgb(43, 43, 43);letter-spacing: 2px;border: none;visibility: visible;text-align: center;box-sizing: border-box;font-size: 20px;border-top: 1.5px dashed rgb(192, 204, 92);border-bottom: 1.5px dashed rgb(192, 204, 92);padding: 8px 20px;min-width: 100px;">
@@ -2358,8 +2371,8 @@ function processTextSpacing(text) {
                         const imgIndex = (h1Counter - 1) % titleImages.length;
                         const imgUrl = titleImages[imgIndex];
 
-                        // 先用 processInlineFormatting 处理加粗、标蓝、反引号等，再处理空格（避免斜杠处理破坏反引号内的内容）
-                        let titleContent = processInlineFormatting(block.content, true).trim();
+                        // 处理平台标签 [xxx]，使其为 15px 黑色
+                        let titleContent = processPlatformTags(block.content);
 
                         const titleHTML = `<p style="white-space: normal;text-align: left;margin-bottom: 0px;float: none !important;">
                             <span leaf="">
