@@ -29,6 +29,7 @@
     
     <!-- 外部资源 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     
@@ -504,7 +505,12 @@
             background: linear-gradient(135deg, #ea4335, #d33426);
             color: white;
         }
-        
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: white;
+        }
+
         .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
@@ -535,11 +541,63 @@
             top: -45px;
         }
 
-        .success {
+        #status-container {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+            pointer-events: none;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .status-item {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            text-align: center;
+        }
+
+        .status-item.success {
             background-color: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
         }
+
+        .status-item.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-item.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .status-item.warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+
+        /* 通知堆叠时的淡化效果 */
+        .status-item:nth-last-child(1) { opacity: 1; }
+        .status-item:nth-last-child(2) { opacity: 0.85; }
+        .status-item:nth-last-child(3) { opacity: 0.7; }
+        .status-item:nth-last-child(4) { opacity: 0.55; }
+        .status-item:nth-last-child(5) { opacity: 0.4; }
+        .status-item:nth-last-child(6) { opacity: 0.25; }
+        .status-item:nth-last-child(n+7) { opacity: 0; transform: translateY(-10px); }
 
         .error {
             background-color: #f8d7da;
@@ -700,6 +758,7 @@
             <div class="panel-header">
                 <i class="fas fa-eye"></i>
                 <h2>微信公众号预览</h2>
+                <span id="preview-stats" style="font-size: 12px; color: #bbb; margin-left: 8px; display: flex; align-items: center; gap: 8px;"></span>
                 <button class="btn btn-sm" id="personal-mode-btn" style="background: linear-gradient(135deg, #f39c12, #e67e22); color: white; margin-left: auto;">
                     <i class="far fa-star"></i> 个人模式
                 </button>
@@ -716,7 +775,7 @@
 
     <!-- ==================== 控制按钮区 ==================== -->
     <div class="controls">
-        <div id="status-message" class="status-message"></div>
+        <div id="status-container"></div>
         <button class="btn btn-primary" id="copy-btn">
             <i class="fas fa-copy"></i> 复制预览内容
         </button>
@@ -737,6 +796,17 @@
     <!-- ==================== 图片预览面板 ==================== -->
     <div id="image-preview-panel" class="image-preview-panel" style="display: none;">
         <h4>已上传图片 <span style="font-size: 12px; color: #999; font-weight: normal;">(自动为商品卡片添加日期参数)</span></h4>
+        <div id="image-preview-actions" style="display: flex; gap: 6px; margin-bottom: 6px;">
+            <button id="btn-download-all" class="btn btn-sm btn-primary" style="flex: 1; padding: 4px 8px; font-size: 11px; justify-content: center;">
+                <span style="display: flex; align-items: center; gap: 6px;"><i class="fas fa-download"></i> 原图打包</span>
+            </button>
+            <button id="btn-download-compressed" class="btn btn-sm" style="flex: 1; padding: 4px 8px; font-size: 11px; background: linear-gradient(135deg, #28a745, #218823); color: white; justify-content: center;">
+                <span style="display: flex; align-items: center; gap: 6px;"><i class="fas fa-compress-alt"></i> 压缩打包</span>
+            </button>
+            <button id="btn-delete-all" class="btn btn-sm btn-danger" style="flex: 1; padding: 4px 8px; font-size: 11px; justify-content: center;">
+                <span style="display: flex; align-items: center; gap: 6px;"><i class="fas fa-trash"></i> 清空图片</span>
+            </button>
+        </div>
         <div id="image-preview-grid" class="image-preview-grid"></div>
     </div>
     
@@ -752,9 +822,16 @@
         const undoStack = [];
         const redoStack = [];
         
-        // 上传的图片管理 { filename: { dataUrl, useCount, qrReplaced } }
+        // 上传的图片管理 { filename: { originalDataUrl, displayDataUrl, useCount, qrReplaced, displayName } }
         const uploadedImages = {};
-        
+
+        // 图片压缩配置
+        const CompressionConfig = {
+            maxWidth: 1500,  // 图片宽度最大 1500px
+            webpQuality: 0.95,
+            gifSizeWarning: 6 * 1024 * 1024 // GIF 超过 6MB 提醒
+        };
+
         // 当前淘口令（用于商品卡片展示）
         let currentTaoKouLing = localStorage.getItem('currentTaoKouLing') || '77《Dnd3UYMQhCh✔ https://s.tb.cn/h.77yL1DE &nbsp;CZ001';
         
@@ -980,14 +1057,24 @@
         
         /**
          * 处理上传的图片（识别并替换二维码）
+         * 原图用于打包下载，QR替换后用于预览和复制
          * @param {File} file - 上传的文件对象
          * @param {boolean} isPasted - 是否是粘贴的图片
           */
         function processImageWithQR(file, isPasted = false) {
             // 根据是否粘贴获取唯一文件名
             const { storageName: storageFilename, displayName: displayFilename } = getUniqueFilename(file.name, isPasted);
+
+            // GIF 超过 6MB 提醒
+            if (file.type === 'image/gif' && file.size > CompressionConfig.gifSizeWarning) {
+                showStatus(`⚠️ GIF "${displayFilename}" 超过 6MB，建议本地压缩后再使用`, 'error');
+            }
+
             const reader = new FileReader();
             reader.onload = async function(event) {
+                // 保存原始图片（用于打包下载）
+                const originalDataUrl = event.target.result;
+
                 const img = new Image();
                 img.onload = async () => {
                     // 创建画布处理图片
@@ -996,14 +1083,14 @@
                     canvas.width = img.width;
                     canvas.height = img.height;
                     ctx.drawImage(img, 0, 0);
-                    
+
                     // 识别二维码
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     const code = jsQR(imageData.data, imageData.width, imageData.height);
-                    
-                    let finalDataUrl = event.target.result;
+
+                    let displayDataUrl = originalDataUrl;
                     let qrReplaced = false;
-                    
+
                     if (code) {
                         const newUrl = getNewQRUrl(code.data);
                         if (newUrl !== code.data) {
@@ -1012,35 +1099,36 @@
                             const qrSize = isNewCard ? 203 : 216;
                             const qrX = isNewCard ? 738 : 760;
                             const qrY = isNewCard ? 148 : 140;
-                            
+
                             // 生成新二维码并绘制到图片上
                             const qrCanvas = document.createElement('canvas');
-                            await QRCode.toCanvas(qrCanvas, newUrl, { 
-                                margin: 0, 
-                                width: qrSize, 
-                                errorCorrectionLevel: 'H' 
+                            await QRCode.toCanvas(qrCanvas, newUrl, {
+                                margin: 0,
+                                width: qrSize,
+                                errorCorrectionLevel: 'H'
                             });
                             ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
-                            finalDataUrl = canvas.toDataURL('image/png');
+                            displayDataUrl = canvas.toDataURL('image/png');
                             qrReplaced = true;
                             console.log(`二维码已替换: ${file.name} (${isNewCard ? '新版' : '旧版'}卡片)`);
                         }
                     }
-                    
-                    // 保存处理后的图片
+
+                    // 保存图片（分离原始URL和显示URL）
                     uploadedImages[storageFilename] = {
-                        dataUrl: finalDataUrl,
+                        originalDataUrl: originalDataUrl, // 原始图片，打包下载用
+                        displayDataUrl: displayDataUrl,     // 处理后图片，预览复制用
                         useCount: 0,
                         qrReplaced: qrReplaced,
-                        displayName: displayFilename // 保存显示用的完整文件名
+                        displayName: displayFilename
                     };
-                    
+
                     // 如果是粘贴的图片，在编辑器中插入引用
                     if (isPasted) {
-                        insertImageReference(displayFilename); // 使用完整文件名包含扩展名
+                        insertImageReference(displayFilename);
                         showStatus(`图片已插入：${displayFilename}`, 'success');
                     }
-                    
+
                     // 渐进式显示：每处理完一张就刷新
                     pendingImageCount--;
                     updateImagePreview();
@@ -1053,7 +1141,198 @@
             };
             reader.readAsDataURL(file);
         }
-        
+
+        /* ==================== 图片批量操作 ==================== */
+
+        /**
+         * 压缩单张图片用于复制（不修改存储的原图）
+         * @param {string} dataUrl - 原始图片的 dataUrl
+         * @returns {Promise<string>} 压缩后的 dataUrl
+         */
+        async function compressImageForCopy(dataUrl) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    let { width, height } = img;
+                    if (width > CompressionConfig.maxWidth) {
+                        height = Math.round((height * CompressionConfig.maxWidth) / width);
+                        width = CompressionConfig.maxWidth;
+                    }
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const compressedDataUrl = canvas.toDataURL('image/webp', CompressionConfig.webpQuality);
+                    resolve(compressedDataUrl);
+                };
+                img.onerror = () => resolve(dataUrl);
+                img.src = dataUrl;
+            });
+        }
+
+        /**
+         * 删除所有已上传的图片（仅清空面板，不影响编辑区文案）
+         */
+        function deleteAllUploadedImages() {
+            const filenames = Object.keys(uploadedImages);
+            if (filenames.length === 0) {
+                showStatus('没有已上传的图片', 'error');
+                return;
+            }
+
+            if (!confirm(`确定要清空所有 ${filenames.length} 张已上传图片吗？\n编辑区的文案不会被删除，但图片引用会失效。`)) {
+                return;
+            }
+
+            for (const filename of filenames) {
+                delete uploadedImages[filename];
+            }
+
+            updateImagePreview();
+            immediateUpdatePreview();
+            showStatus(`已清空 ${filenames.length} 张图片`, 'success');
+        }
+
+        /**
+         * 打包下载所有已上传的图片（按 markdown 顺序重命名）
+         */
+        async function downloadAllImagesAsZip() {
+            try {
+                // 从 markdown 文本中按顺序提取图片引用
+                const markdown = textarea.value;
+                const lines = markdown.split('\n');
+                const imageOrder = [];
+
+                for (const line of lines) {
+                    const match = line.match(/^【([^【】]+)】$/);
+                    if (match) {
+                        const refText = match[1].trim();
+                        const matched = findImageByReference(refText);
+                        if (matched && !uploadedImages[matched.filename].qrReplaced) {
+                            imageOrder.push({
+                                refText,
+                                filename: matched.filename
+                            });
+                        }
+                    }
+                }
+
+                if (imageOrder.length === 0) {
+                    showStatus('没有可下载的图片（QR替换的图片不下载）', 'error');
+                    return;
+                }
+
+                showStatus(`正在打包 ${imageOrder.length} 张图片...`, 'info');
+
+                const zip = new JSZip();
+                const folder = zip.folder('uploaded-images');
+
+                imageOrder.forEach((item, index) => {
+                    const img = uploadedImages[item.filename];
+                    const base64 = img.originalDataUrl.split(',')[1];
+                    const ext = img.displayName.split('.').pop();
+                    const zipFilename = `图 ${index + 1}.${ext}`;
+                    folder.file(zipFilename, base64, { base64: true });
+                });
+
+                const content = await zip.generateAsync({
+                    type: 'blob',
+                    compression: 'DEFLATE',
+                    compressionOptions: { level: 6 }
+                });
+
+                const timestamp = new Date().toISOString().slice(0, 10);
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = `wechat-images-${timestamp}.zip`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+
+                showStatus(`已打包下载 ${imageOrder.length} 张图片（已跳过QR替换图片）`, 'success');
+            } catch (err) {
+                console.error('打包下载失败:', err);
+                showStatus('打包下载失败: ' + err.message, 'error');
+            }
+        }
+
+        /**
+         * 压缩并打包下载所有已上传的图片（按 markdown 顺序重命名）
+         */
+        async function downloadCompressedImagesAsZip() {
+            try {
+                // 从 markdown 文本中按顺序提取图片引用
+                const markdown = textarea.value;
+                const lines = markdown.split('\n');
+                const imageOrder = [];
+
+                for (const line of lines) {
+                    const match = line.match(/^【([^【】]+)】$/);
+                    if (match) {
+                        const refText = match[1].trim();
+                        const matched = findImageByReference(refText);
+                        if (matched && !uploadedImages[matched.filename].qrReplaced) {
+                            imageOrder.push({
+                                refText,
+                                filename: matched.filename
+                            });
+                        }
+                    }
+                }
+
+                if (imageOrder.length === 0) {
+                    showStatus('没有可下载的图片（QR替换的图片不下载）', 'error');
+                    return;
+                }
+
+                const zip = new JSZip();
+                const folder = zip.folder('uploaded-images');
+
+                for (let i = 0; i < imageOrder.length; i++) {
+                    const item = imageOrder[i];
+                    const img = uploadedImages[item.filename];
+
+                    let base64, ext;
+                    if (img.displayName.toLowerCase().endsWith('.gif')) {
+                        // GIF 不压缩，直接用原图
+                        base64 = img.originalDataUrl.split(',')[1];
+                        ext = img.displayName.split('.').pop();
+                    } else {
+                        // 压缩非GIF图片
+                        const compressedDataUrl = await compressImageForCopy(img.originalDataUrl);
+                        base64 = compressedDataUrl.split(',')[1];
+                        ext = 'webp';
+                    }
+                    const zipFilename = `图 ${i + 1}.${ext}`;
+                    folder.file(zipFilename, base64, { base64: true });
+                }
+
+                const content = await zip.generateAsync({
+                    type: 'blob',
+                    compression: 'DEFLATE',
+                    compressionOptions: { level: 6 }
+                });
+
+                const timestamp = new Date().toISOString().slice(0, 10);
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = `wechat-images-compressed-${timestamp}.zip`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+
+                showStatus(`已压缩打包下载 ${imageOrder.length} 张图片`, 'success');
+            } catch (err) {
+                console.error('压缩打包失败:', err);
+                showStatus('压缩打包失败: ' + err.message, 'error');
+            }
+        }
+
         /**
          * 更新图片预览面板显示
           */
@@ -1079,7 +1358,7 @@
                 item.className = `image-preview-item ${isUsed ? 'used' : 'unused'}`;
                 item.title = displayName;
                 item.innerHTML = `
-                    <img src="${img.dataUrl}" alt="${displayName}">
+                    <img src="${img.displayDataUrl}" alt="${displayName}">
                     <div class="use-count">${img.useCount}</div>
                     <div class="delete-btn">×</div>
                     <div class="filename">${displayName}</div>
@@ -1123,7 +1402,7 @@
             const exactName = productName.toLowerCase();
             for (const filename of Object.keys(uploadedImages)) {
                 if (filename.toLowerCase() === exactName) {
-                    return { filename, dataUrl: uploadedImages[filename].dataUrl };
+                    return { filename, dataUrl: uploadedImages[filename].displayDataUrl };
                 }
             }
             return null;
@@ -1135,7 +1414,7 @@
          */
          function incrementImageUseCount(dataUrl) {
             for (const filename of Object.keys(uploadedImages)) {
-                if (uploadedImages[filename].dataUrl === dataUrl) {
+                if (uploadedImages[filename].displayDataUrl === dataUrl) {
                     uploadedImages[filename].useCount++;
                     break;
                 }
@@ -1154,7 +1433,7 @@
             for (const filename of Object.keys(uploadedImages)) {
                 const displayName = uploadedImages[filename].displayName || filename;
                 if (displayName.toLowerCase() === refLower) {
-                    return { filename, dataUrl: uploadedImages[filename].dataUrl };
+                    return { filename, dataUrl: uploadedImages[filename].displayDataUrl };
                 }
             }
             
@@ -1162,7 +1441,7 @@
             for (const filename of Object.keys(uploadedImages)) {
                 const nameWithoutExt = filename.replace(/\.[^.]+$/, '').toLowerCase();
                 if (nameWithoutExt === refLower) {
-                    return { filename, dataUrl: uploadedImages[filename].dataUrl };
+                    return { filename, dataUrl: uploadedImages[filename].displayDataUrl };
                 }
             }
             
@@ -1170,7 +1449,7 @@
             for (const filename of Object.keys(uploadedImages)) {
                 const displayName = uploadedImages[filename].displayName || filename;
                 if (displayName.toLowerCase().startsWith(refLower)) {
-                    return { filename, dataUrl: uploadedImages[filename].dataUrl };
+                    return { filename, dataUrl: uploadedImages[filename].displayDataUrl };
                 }
             }
             
@@ -1178,7 +1457,7 @@
             for (const filename of Object.keys(uploadedImages)) {
                 const nameWithoutExt = filename.replace(/\.[^.]+$/, '').toLowerCase();
                 if (nameWithoutExt.startsWith(refLower)) {
-                    return { filename, dataUrl: uploadedImages[filename].dataUrl };
+                    return { filename, dataUrl: uploadedImages[filename].displayDataUrl };
                 }
             }
             
@@ -1241,7 +1520,7 @@
             // 复制到微信时，替换上传图片的 GitHub 链接为实际 dataURL
             if (useWechatLinks) {
                 for (const filename of Object.keys(uploadedImages)) {
-                    const dataUrl = uploadedImages[filename].dataUrl;
+                    const dataUrl = uploadedImages[filename].displayDataUrl;
                     // 替换 GitHub 链接为实际 dataURL
                     const githubUrlPng = `${githubBase}/${filename}.png`;
                     const githubUrlJpg = `${githubBase}/${filename}.jpg`;
@@ -1853,15 +2132,11 @@ function processTextSpacing(text) {
                     }
                     case 'referenced-image': {
                         const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center;"><span style="font-size: 12px; color: rgb(136, 136, 136);">${block.caption}</span></p>` : '';
-                        const imageStyle = isPersonalMode ? 'max-width: 100%; height: auto; border: 2px solid rgb(192, 204, 92); border-style: dashed; padding: 8px; background: #ffffff; box-sizing: border-box;' : 'max-width: 100%; height: auto;';
-                        return `<section style="text-align: center; margin: 0; padding: 0;">
-                            <img data-src="${block.dataUrl}" 
-                                 class="rich_pages wxw-img"
-                                 style="${imageStyle}"
-                                 src="${block.dataUrl}" 
-                                 alt="${block.alt}">
-                            ${captionHTML}
-                        </section>`;
+                        const imageStyle = isPersonalMode ? 'width: 100%; height: auto; border: 2px solid rgb(192, 204, 92); border-style: dashed; padding: 8px; background: #ffffff; box-sizing: border-box;' : 'width: 100%; height: auto;';
+                        const isGif = block.filename && block.filename.toLowerCase().endsWith('.gif');
+                        const dataTypeAttr = isGif ? ' data-type="gif"' : '';
+                        const originalStyleAttr = ' data-original-style="width: 100%;height: auto !important;"';
+                        return `<section style="text-align: center; margin: 0; padding: 0;"><img data-src="${block.dataUrl}" class="rich_pages wxw-img" style="${imageStyle}" src="${block.dataUrl}" alt="${block.alt}" ${originalStyleAttr}${dataTypeAttr}>${captionHTML}</section>`;
                     }
                     case 'image-placeholder': {
                         return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed rgb(192, 204, 92); margin: 10px 0; color: #999; font-size: 14px;">
@@ -2453,15 +2728,11 @@ function processTextSpacing(text) {
                     }
                     case 'referenced-image': {
                         const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center;"><span style="font-size: 12px; color: rgb(136, 136, 136);">${block.caption}</span></p>` : '';
-                        const imageStyle = isPersonalMode ? 'max-width: 100%; height: auto; border: 2px solid rgb(192, 204, 92); border-style: dashed; padding: 8px; background: #ffffff; box-sizing: border-box;' : 'max-width: 100%; height: auto;';
-                        return `<section style="text-align: center; margin: 0; padding: 0;">
-                            <img data-src="${block.dataUrl}" 
-                                 class="rich_pages wxw-img"
-                                 style="${imageStyle}"
-                                 src="${block.dataUrl}" 
-                                 alt="${block.alt}">
-                            ${captionHTML}
-                        </section>`;
+                        const imageStyle = isPersonalMode ? 'width: 100%; height: auto; border: 2px solid rgb(192, 204, 92); border-style: dashed; padding: 8px; background: #ffffff; box-sizing: border-box;' : 'width: 100%; height: auto;';
+                        const isGif = block.filename && block.filename.toLowerCase().endsWith('.gif');
+                        const dataTypeAttr = isGif ? ' data-type="gif"' : '';
+                        const originalStyleAttr = ' data-original-style="width: 100%;height: auto !important;"';
+                        return `<section style="text-align: center; margin: 0; padding: 0;"><img data-src="${block.dataUrl}" class="rich_pages wxw-img" style="${imageStyle}" src="${block.dataUrl}" alt="${block.alt}" ${originalStyleAttr}${dataTypeAttr}>${captionHTML}</section>`;
                     }
                     case 'image-placeholder': {
                         return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed rgb(192, 204, 92); margin: 10px 0; color: #999; font-size: 14px;">
@@ -2740,18 +3011,35 @@ function processTextSpacing(text) {
         /**
          * 显示状态提示消息（小窗口形式）
          * @param {string} message - 提示消息
-         * @param {string} type - 类型：success/error
+         * @param {string} type - 类型：success/error/info/warning
          */
-        function showStatus(message, type) {
-            const statusDiv = document.getElementById('status-message');
-            statusDiv.textContent = message;
-            statusDiv.className = `status-message ${type}`;
-            statusDiv.classList.add('show');
+        function showStatus(message, type = 'info') {
+            const container = document.getElementById('status-container');
 
-            // 5秒后隐藏
+            // 创建新通知
+            const item = document.createElement('div');
+            item.className = `status-item ${type}`;
+            item.textContent = message;
+            container.appendChild(item);
+
+            // 移除超过6条的最旧通知
+            const items = container.querySelectorAll('.status-item');
+            if (items.length > 6) {
+                items[0].remove();
+            }
+
+            // 3秒后移除
             setTimeout(() => {
-                statusDiv.classList.remove('show');
-            }, 5000);
+                if (item.parentNode) {
+                    item.style.opacity = '0';
+                    item.style.transform = 'translateY(-10px)';
+                    setTimeout(() => {
+                        if (item.parentNode) {
+                            item.remove();
+                        }
+                    }, 300);
+                }
+            }, 3000);
         }
         
         /* ==================== 预览与复制 ==================== */
@@ -2791,11 +3079,11 @@ function processTextSpacing(text) {
                  const markdown = document.getElementById('markdown-input').value;
                   const html = markdownToWeChatHTML(markdown);
                   document.getElementById('wx-preview').innerHTML = html;
-                  
+
                   // 个人模式：设置背景色
                   const previewContent = document.getElementById('preview-content');
                   const wxArticle = document.querySelector('.wx-article');
-                  
+
                   if (isPersonalMode) {
                       previewContent.style.backgroundColor = '#fafafa';
                       if (wxArticle) {
@@ -2807,7 +3095,8 @@ function processTextSpacing(text) {
                           wxArticle.style.backgroundColor = 'white';
                       }
                   }
-                  
+
+                  updatePreviewStats();
                   updateImagePreview();
              } catch (e) {
                  console.error('预览更新失败:', e);
@@ -2816,9 +3105,54 @@ function processTextSpacing(text) {
           }
 
         /**
-         * 复制内容到剪贴板
+         * 更新预览区统计信息（字数和图片总大小）
          */
-        function copyToClipboard() {
+        function updatePreviewStats() {
+            const markdown = document.getElementById('markdown-input').value;
+            const charCount = markdown.length;
+
+            // 计算已上传图片的总大小（MB）
+            let totalImageSize = 0;
+            for (const filename of Object.keys(uploadedImages)) {
+                const dataUrl = uploadedImages[filename].originalDataUrl;
+                // base64 data URL 大小计算：去掉 data:image/...;base64, 部分后，每4个字符表示3个字节
+                const base64Data = dataUrl.split(',')[1];
+                if (base64Data) {
+                    totalImageSize += (base64Data.length * 3) / 4;
+                }
+            }
+            const imageSizeMB = (totalImageSize / (1024 * 1024)).toFixed(2);
+
+            const statsEl = document.getElementById('preview-stats');
+            if (statsEl) {
+                statsEl.textContent = `字数: ${charCount} | 图片: ${imageSizeMB} MB`;
+            }
+        }
+
+        /**
+         * 复制内容到剪贴板（复制时压缩图片）
+         */
+        async function copyToClipboard() {
+            // 先压缩需要压缩的图片
+            const filenames = Object.keys(uploadedImages);
+            let compressed = 0;
+            const total = filenames.length;
+
+            for (const filename of filenames) {
+                const img = uploadedImages[filename];
+                // QR替换过的图片或GIF不压缩
+                if (img.qrReplaced || img.displayName.toLowerCase().endsWith('.gif')) {
+                    compressed++;
+                    continue;
+                }
+                // 压缩图片并更新 displayDataUrl
+                img.displayDataUrl = await compressImageForCopy(img.originalDataUrl);
+                compressed++;
+                const progress = Math.round((compressed / total) * 100);
+                showStatus(`正在处理图片：${progress}%`, 'info');
+            }
+
+            // 复制
             const markdown = document.getElementById('markdown-input').value;
             const fullHTML = createWeChatFullHTML(markdown);
             copyAsRichText(fullHTML);
@@ -3094,6 +3428,11 @@ http://www.lizhi.shop\`
             
             // 初始化快捷键
             setupShortcuts();
+
+            // 绑定图片批量操作按钮
+            document.getElementById('btn-download-all').addEventListener('click', downloadAllImagesAsZip);
+            document.getElementById('btn-download-compressed').addEventListener('click', downloadCompressedImagesAsZip);
+            document.getElementById('btn-delete-all').addEventListener('click', deleteAllUploadedImages);
         });
     </script>
 </body>
