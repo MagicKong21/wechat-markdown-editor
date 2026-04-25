@@ -32,9 +32,28 @@
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
     
     <!-- ==================== 样式区域 ==================== -->
     <style>
+        :root {
+            --radius-sm: 7px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --border-subtle: rgba(255, 255, 255, 0.10);
+            --border-strong: rgba(255, 255, 255, 0.16);
+            --shadow-panel: 0 20px 70px rgba(0, 0, 0, 0.34);
+            --shadow-float: 0 22px 70px rgba(0, 0, 0, 0.42);
+            --surface: rgba(17, 20, 29, 0.74);
+            --surface-solid: rgba(18, 21, 30, 0.94);
+            --surface-raised: rgba(255, 255, 255, 0.055);
+            --control-bg: rgba(255, 255, 255, 0.045);
+            --text-strong: #f6f7fb;
+            --text-muted: #9aa4b2;
+            --accent: #8b5cf6;
+            --accent-2: #22d3ee;
+        }
+
         /* 全局基础样式 */
         * {
             margin: 0;
@@ -45,8 +64,11 @@
         
         /* 页面主体 */
         body {
-            background-color: #f5f7fa;
-            color: #333;
+            background:
+                linear-gradient(135deg, rgba(139, 92, 246, 0.18), transparent 34%),
+                linear-gradient(215deg, rgba(34, 211, 238, 0.13), transparent 36%),
+                linear-gradient(180deg, #080a12 0%, #0d101a 48%, #11131e 100%);
+            color: var(--text-strong);
             line-height: 1.6;
             padding: 15px;
             max-width: 1600px;
@@ -55,6 +77,40 @@
             overflow: hidden;
             display: flex;
             flex-direction: column;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+            background-size: 48px 48px;
+            mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 72%);
+        }
+
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.035);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.16);
+            border: 3px solid transparent;
+            border-radius: 999px;
+            background-clip: padding-box;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.24);
+            border: 3px solid transparent;
+            background-clip: padding-box;
         }
         
         /* 页面标题区域 */
@@ -83,7 +139,7 @@
         .container {
             display: flex;
             flex-wrap: nowrap;
-            gap: 15px;
+            gap: 16px;
             flex: 1;
             min-height: 0;
         }
@@ -92,10 +148,14 @@
         .editor-container, .preview-container {
             flex: 1;
             min-width: 300px;
-            border-radius: 8px;
+            border-radius: var(--radius-lg);
             overflow: hidden;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-            background-color: white;
+            border: 1px solid var(--border-subtle);
+            box-shadow: var(--shadow-panel);
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.035)),
+                var(--surface);
+            backdrop-filter: blur(22px) saturate(1.1);
             display: flex;
             flex-direction: column;
         }
@@ -103,24 +163,33 @@
         /* 面板头部 */
         .panel-header {
             flex-shrink: 0;
-            background: linear-gradient(135deg, #3498db, #2c3e50);
-            color: white;
-            padding: 10px 15px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.03));
+            color: var(--text-strong);
+            padding: 12px 14px;
             display: flex;
             align-items: center;
             gap: 8px;
             font-size: 14px;
+            border-bottom: 1px solid var(--border-subtle);
+            backdrop-filter: blur(22px);
+        }
+
+        .panel-header h2 {
+            font-size: 13px;
+            font-weight: 650;
+            letter-spacing: 0;
         }
         
         /* 头部内的小按钮 */
         .panel-header .btn-sm {
             padding: 4px 10px;
             font-size: 12px;
-            border-radius: 4px;
+            border-radius: var(--radius-sm);
         }
         
         .panel-header i {
             font-size: 16px;
+            color: rgba(246, 247, 251, 0.82);
         }
         
         /* 面板内容区 */
@@ -129,7 +198,11 @@
             min-height: 0;
             overflow-y: auto;
             overflow-x: hidden;
-            border-top: 1px solid #e0e0e0;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .editor-container .panel-content {
+            overflow: hidden;
         }
         
         /* Markdown 输入框 */
@@ -143,14 +216,26 @@
             resize: none;
             font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
             outline: none;
-            background-color: #f9f9f9;
+            background-color: rgba(7, 10, 18, 0.42);
+            color: #e8ecf4;
+            caret-color: var(--accent-2);
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+
+        #markdown-input::-webkit-scrollbar {
+            display: none;
+        }
+
+        #markdown-input::placeholder {
+            color: rgba(154, 164, 178, 0.72);
         }
         
         #preview-content {
-            padding: 15px;
+            padding: 24px 32px;
             height: 100%;
             overflow-y: auto;
-            background-color: white;
+            background: #ffffff;
             font-size: 13px;
         }
 
@@ -159,7 +244,9 @@
             max-width: 677px;
             margin: 0 auto;
             background-color: white;
+            color: #333333;
             padding: 10px;
+            box-shadow: none;
         }
         
         .wx-article img {
@@ -355,13 +442,15 @@
         .controls {
             flex-shrink: 0;
             display: flex;
-            justify-content: flex-start;
+            justify-content: center;
             align-items: center;
-            gap: 15px;
+            gap: 10px;
             flex-wrap: wrap;
-            padding: 10px;
-            background-color: white;
-            border-top: 1px solid #e8edf3;
+            padding: 14px 16px;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025)),
+                rgba(8, 10, 16, 0.56);
+            border-top: 1px solid var(--border-subtle);
             position: relative;
             margin-top: 0;
         }
@@ -372,7 +461,7 @@
         }
 
         .controls .btn {
-            padding: 9px 14px;
+            padding: 9px 13px;
             font-size: 13px;
         }
         
@@ -391,13 +480,20 @@
             right: 20px;
             bottom: 20px;
             width: 320px;
-            max-height: 150px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            height: 300px;
+            max-height: min(300px, calc(100vh - 40px));
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.045)),
+                rgba(14, 17, 26, 0.90);
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-float);
             padding: 10px;
             z-index: 1000;
-            overflow-y: auto;
+            overflow: hidden;
+            display: grid;
+            grid-template-rows: auto auto minmax(0, 1fr);
+            backdrop-filter: blur(24px) saturate(1.15);
             transition: transform 0.22s ease, box-shadow 0.22s ease;
         }
 
@@ -410,15 +506,15 @@
         .image-preview-tab {
             position: absolute;
             left: -42px;
-            bottom: 12px;
+            top: 10px;
             width: 42px;
             min-height: 128px;
-            border: 1px solid #dbe3ee;
+            border: 1px solid var(--border-strong);
             border-right: none;
-            border-radius: 8px 0 0 8px;
-            background: white;
-            color: #3b4a5e;
-            box-shadow: -4px 6px 18px rgba(15, 23, 42, 0.12);
+            border-radius: var(--radius-md) 0 0 var(--radius-md);
+            background: rgba(15, 18, 27, 0.92);
+            color: #d7deea;
+            box-shadow: -8px 12px 32px rgba(0, 0, 0, 0.28);
             cursor: pointer;
             display: none;
             align-items: center;
@@ -441,13 +537,14 @@
         
         .image-preview-panel h4 {
             font-size: 12px;
-            color: #666;
+            color: #c7cfdd;
             margin: 0 0 6px 0;
             padding-bottom: 6px;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--border-subtle);
             display: flex;
             align-items: center;
             gap: 8px;
+            flex-shrink: 0;
         }
 
         .image-preview-title {
@@ -458,10 +555,10 @@
         .image-panel-toggle {
             width: 24px;
             height: 24px;
-            border: none;
-            border-radius: 4px;
-            background: #f1f5f9;
-            color: #475569;
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: var(--radius-sm);
+            background: rgba(255, 255, 255, 0.07);
+            color: #cbd5e1;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
@@ -469,22 +566,77 @@
         }
 
         .image-panel-toggle:hover {
-            background: #e2e8f0;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        #image-preview-actions {
+            flex-shrink: 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        #image-preview-actions .btn {
+            min-width: 0;
+            padding: 5px 8px !important;
+            font-size: 11px !important;
+        }
+
+        .image-uploading-placeholder {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 22px 12px;
+            color: var(--text-muted);
+        }
+
+        .image-uploading-placeholder .spinner {
+            width: 24px;
+            height: 24px;
+            margin: 0 auto 10px;
+            border: 2px solid rgba(255, 255, 255, 0.14);
+            border-top-color: var(--accent-2);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .image-uploading-placeholder .title {
+            color: #e8ecf4;
+            font-size: 12px;
+        }
+
+        .image-uploading-placeholder .hint {
+            margin-top: 4px;
+            font-size: 11px;
+            color: rgba(154, 164, 178, 0.76);
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
         }
         
         .image-preview-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            grid-auto-rows: 58px;
+            align-content: start;
             gap: 4px;
+            overflow-y: scroll;
+            padding: 1px 2px 2px 1px;
+            min-height: 0;
+            height: 100%;
+            scrollbar-width: thin;
         }
         
         .image-preview-item {
             position: relative;
-            aspect-ratio: 1;
-            border-radius: 3px;
+            height: 58px;
+            min-width: 0;
+            border-radius: var(--radius-sm);
             overflow: hidden;
             cursor: pointer;
             font-size: 8px;
+            background: rgba(255, 255, 255, 0.06);
         }
         
         .image-preview-item img {
@@ -494,11 +646,11 @@
         }
         
         .image-preview-item.used {
-            box-shadow: 0 0 0 1px #28a745;
+            box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.86);
         }
         
         .image-preview-item.unused {
-            box-shadow: 0 0 0 1px #dc3545;
+            box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.82);
         }
         
         .image-preview-item .use-count {
@@ -522,7 +674,7 @@
             bottom: 0;
             left: 0;
             right: 0;
-            background: rgba(0,0,0,0.7);
+            background: rgba(4, 7, 14, 0.76);
             color: white;
             font-size: 7px;
             padding: 1px;
@@ -558,39 +710,106 @@
         
         .btn {
             padding: 10px 20px;
-            border: none;
-            border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: var(--radius-md);
             cursor: pointer;
             font-size: 14px;
-            font-weight: bold;
+            font-weight: 650;
             display: flex;
             align-items: center;
             gap: 8px;
-            transition: all 0.3s;
+            color: #eef2ff;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.055)),
+                rgba(255, 255, 255, 0.03);
+            transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 2px rgba(0, 0, 0, 0.20);
         }
         
         .btn-primary {
-            background: linear-gradient(135deg, #4285f4, #3367d6);
+            background:
+                linear-gradient(135deg, rgba(34, 211, 238, 0.95), rgba(59, 130, 246, 0.82)),
+                #2563eb;
             color: white;
+            border-color: rgba(255, 255, 255, 0.18);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 10px 28px rgba(37, 99, 235, 0.24);
         }
         
         .btn-secondary {
-            background: linear-gradient(135deg, #ea4335, #d33426);
-            color: white;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.055)),
+                rgba(255, 255, 255, 0.03);
+            color: #f3f6ff;
         }
 
         .btn-danger {
-            background: linear-gradient(135deg, #dc3545, #c82333);
+            background: linear-gradient(180deg, rgba(248, 113, 113, 0.92), rgba(220, 38, 38, 0.88));
             color: white;
+            border-color: rgba(255, 255, 255, 0.16);
         }
 
         .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+            transform: translateY(-1px);
+            border-color: rgba(255, 255, 255, 0.22);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 28px rgba(0, 0, 0, 0.30);
+            filter: brightness(1.06) saturate(1.04);
         }
         
         .btn:active {
-            transform: translateY(-1px);
+            transform: translateY(0);
+        }
+
+        #example-btn {
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.06)),
+                rgba(255, 255, 255, 0.04) !important;
+            color: white !important;
+        }
+
+        #update-taokouling-btn {
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.06)),
+                rgba(255, 255, 255, 0.04) !important;
+            color: white !important;
+        }
+
+        #image-upload-trigger {
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.06)),
+                rgba(255, 255, 255, 0.04) !important;
+            color: white !important;
+        }
+
+        #personal-mode-btn {
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.06)),
+                rgba(255, 255, 255, 0.04) !important;
+            color: white !important;
+        }
+
+        #personal-mode-btn.is-active {
+            background:
+                linear-gradient(135deg, rgba(34, 211, 238, 0.95), rgba(59, 130, 246, 0.82)),
+                #2563eb !important;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 10px 28px rgba(37, 99, 235, 0.24);
+        }
+
+        #btn-download-compressed {
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.06)),
+                rgba(255, 255, 255, 0.04) !important;
+            color: white !important;
+        }
+
+        #btn-delete-all {
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.06)),
+                rgba(255, 255, 255, 0.04) !important;
+            color: white !important;
+        }
+
+        #preview-stats {
+            color: rgba(154, 164, 178, 0.86) !important;
         }
         
         .status-message {
@@ -599,7 +818,7 @@
             left: 50%;
             transform: translateX(-50%);
             padding: 8px 16px;
-            border-radius: 6px;
+            border-radius: var(--radius-md);
             font-size: 13px;
             z-index: 1000;
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
@@ -633,12 +852,12 @@
             align-items: start;
             gap: 10px;
             padding: 11px 13px;
-            border-radius: 10px;
+            border-radius: var(--radius-md);
             font-size: 13px;
             line-height: 1.45;
-            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16);
-            border: 1px solid rgba(15, 23, 42, 0.08);
-            backdrop-filter: blur(10px);
+            box-shadow: 0 16px 42px rgba(0, 0, 0, 0.30);
+            border: 1px solid var(--border-strong);
+            backdrop-filter: blur(18px) saturate(1.08);
             opacity: 0;
             transform: translateX(16px) scale(0.98);
             transition: opacity 0.2s ease, transform 0.2s ease;
@@ -671,8 +890,8 @@
         }
 
         .status-item.success {
-            background-color: rgba(240, 253, 244, 0.96);
-            color: #14532d;
+            background-color: rgba(12, 34, 28, 0.92);
+            color: #c9f7df;
         }
 
         .status-item.success::before {
@@ -681,8 +900,8 @@
         }
 
         .status-item.error {
-            background-color: rgba(254, 242, 242, 0.96);
-            color: #7f1d1d;
+            background-color: rgba(45, 16, 22, 0.92);
+            color: #fecdd3;
         }
 
         .status-item.error::before {
@@ -691,8 +910,8 @@
         }
 
         .status-item.info {
-            background-color: rgba(239, 246, 255, 0.96);
-            color: #1e3a8a;
+            background-color: rgba(17, 27, 48, 0.92);
+            color: #dbeafe;
         }
 
         .status-item.info::before {
@@ -701,8 +920,8 @@
         }
 
         .status-item.warning {
-            background-color: rgba(255, 251, 235, 0.96);
-            color: #78350f;
+            background-color: rgba(45, 32, 13, 0.92);
+            color: #fde68a;
         }
 
         .status-item.warning::before {
@@ -719,23 +938,23 @@
         /* ========== 快捷键提示 ========== */
         .shortcut-hint {
             font-size: 12px;
-            color: #666;
+            color: var(--text-muted);
             margin-top: 5px;
             padding: 5px 10px;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            border-left: 3px solid #3498db;
+            background-color: var(--surface-raised);
+            border-radius: var(--radius-sm);
+            border-left: 3px solid var(--accent-2);
         }
         
         .shortcut-hint kbd {
-            background-color: #f1f3f4;
-            border: 1px solid #dadce0;
-            border-radius: 3px;
+            background-color: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: var(--radius-sm);
             padding: 1px 5px;
             font-family: monospace;
             font-size: 11px;
             margin: 0 2px;
-            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 1px rgba(0,0,0,0.18);
         }
 
         /* ========== 工具信息+使用说明 ========== */
@@ -750,15 +969,16 @@
         .info-panel, .instructions-panel {
             flex: 1;
             min-width: 300px;
-            border-radius: 8px;
+            border-radius: var(--radius-lg);
             overflow: hidden;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-            background-color: white;
+            border: 1px solid var(--border-subtle);
+            box-shadow: var(--shadow-panel);
+            background-color: var(--surface-solid);
         }
         
         .info-header, .instructions-header {
-            background: linear-gradient(135deg, #3498db, #2c3e50);
-            color: white;
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-strong);
             padding: 12px 15px;
             display: flex;
             align-items: center;
@@ -782,9 +1002,9 @@
         }
         
         .info-content code, .instructions-content code {
-            background-color: #f4f4f4;
+            background-color: rgba(255, 255, 255, 0.08);
             padding: 2px 4px;
-            border-radius: 3px;
+            border-radius: var(--radius-sm);
             font-family: 'Courier New', monospace;
             font-size: 12px;
         }
@@ -796,6 +1016,7 @@
             top: -9999px;
             width: 677px;
             background-color: white;
+            color: rgb(34, 34, 34);
         }
 
         /* ========== 响应式布局 ========== */
@@ -865,7 +1086,6 @@
             </div>
             <!-- ==================== 控制按钮区 ==================== -->
             <div class="controls">
-                <div id="status-container"></div>
                 <button class="btn btn-primary" id="copy-btn">
                     <i class="fas fa-copy"></i> 复制预览内容
                 </button>
@@ -876,8 +1096,8 @@
                     <i class="fas fa-key"></i> 更新淘口令
                 </button>
                 <div class="image-upload-area">
-                    <input type="file" id="image-upload" class="image-upload-input" multiple accept="image/*">
-                    <button class="btn" style="background: linear-gradient(135deg, #fbbc05, #e5a804); color: white;" onclick="document.getElementById('image-upload').click()">
+                    <input type="file" id="image-upload" class="image-upload-input" multiple accept="image/*,.heic,.heif">
+                    <button class="btn" id="image-upload-trigger" style="background: linear-gradient(135deg, #fbbc05, #e5a804); color: white;" onclick="document.getElementById('image-upload').click()">
                         <i class="fas fa-image"></i> 上传图片
                     </button>
                 </div>
@@ -902,6 +1122,8 @@
             </div>
         </div>
     </div>
+
+    <div id="status-container"></div>
     
     <!-- ==================== 图片预览面板 ==================== -->
     <div id="image-preview-panel" class="image-preview-panel" style="display: none;">
@@ -941,7 +1163,7 @@
         const undoStack = [];
         const redoStack = [];
         
-        // 上传的图片管理 { filename: { originalDataUrl, displayDataUrl, previewSrc, useCount, qrReplaced, displayName, width, height, mimeType } }
+        // 上传的图片管理 { filename: { originalDataUrl, displayDataUrl, thumbnailSrc, useCount, qrReplaced, displayName, width, height, mimeType } }
         const uploadedImages = {};
         let totalUploadedImageBytes = 0;
 
@@ -1023,6 +1245,7 @@
             if (!file) return;
             
             // 显示上传中状态
+            pendingImageCount = 1;
             showUploadingStatus(1);
             
             // 处理图片
@@ -1067,7 +1290,13 @@
         let pendingImageCount = 0;
         
         document.getElementById('image-upload').addEventListener('change', function(e) {
-            const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+            const selectedFiles = Array.from(e.target.files);
+            const files = selectedFiles.filter(isSupportedImageFile);
+            const skippedFiles = selectedFiles.filter(file => !isSupportedImageFile(file));
+
+            skippedFiles.forEach(file => {
+                showStatus(`【${file.name}】不是支持的图片格式`, 'warning');
+            });
             
             if (files.length === 0) return;
             
@@ -1090,14 +1319,57 @@
             const panel = document.getElementById('image-preview-panel');
             const grid = document.getElementById('image-preview-grid');
             
-            panel.style.display = 'block';
+            panel.style.display = 'grid';
             grid.innerHTML = `
-                <div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: #666;">
-                    <div style="font-size: 24px; margin-bottom: 8px;">⏳</div>
-                    <div style="font-size: 12px;">正在处理 ${total} 张图片...</div>
-                    <div style="font-size: 11px; color: #999; margin-top: 4px;">请稍候</div>
+                <div class="image-uploading-placeholder">
+                    <div class="spinner"></div>
+                    <div class="title">正在处理 ${total} 张图片...</div>
+                    <div class="hint">请稍候</div>
                 </div>
             `;
+        }
+
+        function isHeicFile(file) {
+            const name = (file && file.name ? file.name : '').toLowerCase();
+            const type = (file && file.type ? file.type : '').toLowerCase();
+            return type === 'image/heic' || type === 'image/heif' || name.endsWith('.heic') || name.endsWith('.heif');
+        }
+
+        function isSupportedImageFile(file) {
+            return !!file && ((file.type || '').startsWith('image/') || isHeicFile(file));
+        }
+
+        async function convertHeicToJpeg(file) {
+            if (typeof heic2any !== 'function') {
+                throw new Error('HEIC 转换库未加载');
+            }
+
+            const converted = await heic2any({
+                blob: file,
+                toType: 'image/jpeg',
+                quality: 0.92
+            });
+            const jpegBlob = Array.isArray(converted) ? converted[0] : converted;
+            const jpegName = file.name.replace(/\.(heic|heif)$/i, '.jpg') || `${file.name}.jpg`;
+            return new File([jpegBlob], jpegName, {
+                type: 'image/jpeg',
+                lastModified: file.lastModified || Date.now()
+            });
+        }
+
+        function finishImageProcessing(refreshPreview = true) {
+            pendingImageCount--;
+            if (pendingImageCount < 0) pendingImageCount = 0;
+
+            if (Object.keys(uploadedImages).length > 0) {
+                updateImagePreview();
+            } else if (pendingImageCount === 0) {
+                document.getElementById('image-preview-panel').style.display = 'none';
+            }
+
+            if (pendingImageCount === 0 && refreshPreview) {
+                immediateUpdatePreview();
+            }
         }
         
         /**
@@ -1181,13 +1453,31 @@
          * @param {File} file - 上传的文件对象
          * @param {boolean} isPasted - 是否是粘贴的图片
           */
-        function processImageWithQR(file, isPasted = false) {
+        async function processImageWithQR(file, isPasted = false) {
+            if (!isSupportedImageFile(file)) {
+                showStatus(`【${file.name}】不是支持的图片格式`, 'warning');
+                finishImageProcessing(false);
+                return;
+            }
+
+            if (isHeicFile(file)) {
+                try {
+                    showStatus(`正在转换 HEIC：${file.name}`, 'info');
+                    file = await convertHeicToJpeg(file);
+                } catch (err) {
+                    console.error('HEIC 转换失败:', err);
+                    showStatus(`【${file.name}】HEIC 转换失败，请先转 JPG`, 'warning');
+                    finishImageProcessing(false);
+                    return;
+                }
+            }
+
             // 根据是否粘贴获取唯一文件名
             const { storageName: storageFilename, displayName: displayFilename } = getUniqueFilename(file.name, isPasted);
 
             // GIF 超过 6MB 提醒
             if (file.type === 'image/gif' && file.size > CompressionConfig.gifSizeWarning) {
-                showStatus(`图片超过 6MB，压缩后再上传公众号编辑器：${displayFilename}`, 'warning');
+                showStatus(`【${displayFilename}】超过 6MB，请压缩！`, 'warning');
             }
 
             const reader = new FileReader();
@@ -1197,12 +1487,13 @@
 
                 const img = new Image();
                 img.onload = async () => {
-                    // 创建画布处理图片
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
+                    try {
+                        // 创建画布处理图片
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.drawImage(img, 0, 0);
 
                     // 识别二维码
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -1240,12 +1531,13 @@
                         revokePreviewUrl(uploadedImages[storageFilename]);
                     }
 
-                    // 保存图片（分离原始URL和显示URL）
-                    const previewSrc = qrReplaced ? displayDataUrl : URL.createObjectURL(file);
+                    // 保存图片（分离原始URL、显示URL和静态缩略图）
+                    // GIF 在 img 标签中会持续播放，面板内大量 GIF 会拖慢滚动；缩略图统一用静态首帧。
+                    const thumbnailSrc = createImagePreviewThumbnail(canvas);
                     uploadedImages[storageFilename] = {
                         originalDataUrl: originalDataUrl, // 原始图片，打包下载用
                         displayDataUrl: displayDataUrl,     // 处理后图片，预览复制用
-                        previewSrc: previewSrc,             // 本地预览用，避免反复把大 base64 写入 DOM
+                        thumbnailSrc: thumbnailSrc,         // 面板静态缩略图，避免大图/GIF 影响滚动性能
                         useCount: 0,
                         qrReplaced: qrReplaced,
                         displayName: displayFilename,
@@ -1262,15 +1554,23 @@
                         showStatus(`图片已插入：${displayFilename}`, 'success');
                     }
 
-                    // 渐进式显示：每处理完一张就刷新
-                    pendingImageCount--;
-                    updateImagePreview();
-                    if (pendingImageCount <= 0) {
-                        pendingImageCount = 0;
-                        immediateUpdatePreview();
+                        // 渐进式显示：每处理完一张就刷新
+                        finishImageProcessing(true);
+                    } catch (err) {
+                        console.error('图片处理失败:', err);
+                        showStatus(`【${displayFilename}】处理失败`, 'warning');
+                        finishImageProcessing(false);
                     }
                 };
+                img.onerror = () => {
+                    showStatus(`【${displayFilename}】无法读取，请换 JPG/PNG`, 'warning');
+                    finishImageProcessing(false);
+                };
                 img.src = event.target.result;
+            };
+            reader.onerror = () => {
+                showStatus(`【${displayFilename}】读取失败`, 'warning');
+                finishImageProcessing(false);
             };
             reader.readAsDataURL(file);
         }
@@ -1321,6 +1621,20 @@
             });
         }
 
+        function createImagePreviewThumbnail(source, maxSize = 180) {
+            const ratio = source.width && source.height ? Math.min(1, maxSize / Math.max(source.width, source.height)) : 1;
+            const width = Math.max(1, Math.round((source.width || maxSize) * ratio));
+            const height = Math.max(1, Math.round((source.height || maxSize) * ratio));
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(source, 0, 0, width, height);
+            return canvas.toDataURL('image/jpeg', 0.72);
+        }
+
         function getDataUrlByteSize(dataUrl) {
             const commaIndex = dataUrl.indexOf(',');
             if (commaIndex === -1) return 0;
@@ -1329,9 +1643,12 @@
         }
 
         function revokePreviewUrl(image) {
-            if (image && image.previewSrc && image.previewSrc.startsWith('blob:')) {
-                URL.revokeObjectURL(image.previewSrc);
-            }
+            if (!image) return;
+            ['previewSrc', 'thumbnailSrc'].forEach((key) => {
+                if (image[key] && image[key].startsWith('blob:')) {
+                    URL.revokeObjectURL(image[key]);
+                }
+            });
         }
 
         /**
@@ -1510,7 +1827,7 @@
                 return;
             }
             
-            panel.style.display = 'block';
+            panel.style.display = 'grid';
             grid.innerHTML = '';
             
             filenames.forEach(filename => {
@@ -1522,7 +1839,7 @@
 	                item.title = displayName;
                     item.dataset.filename = filename;
 	                item.innerHTML = `
-	                    <img src="${img.previewSrc || img.displayDataUrl}" alt="${displayName}">
+	                    <img src="${img.thumbnailSrc || img.displayDataUrl}" alt="${displayName}">
                     <div class="use-count">${img.useCount}</div>
                     <div class="delete-btn">×</div>
                     <div class="filename">${displayName}</div>
@@ -1572,7 +1889,7 @@
                 return;
             }
 
-            panel.style.display = 'block';
+            panel.style.display = 'grid';
             filenames.forEach(filename => {
                 const img = uploadedImages[filename];
                 const item = grid.querySelector(`[data-filename="${CSS.escape(filename)}"]`);
@@ -1599,6 +1916,20 @@
                 toggle.innerHTML = collapsed ? '<i class="fas fa-chevron-left"></i>' : '<i class="fas fa-chevron-right"></i>';
             }
         }
+
+        function setupImagePreviewPanelScroll() {
+            const panel = document.getElementById('image-preview-panel');
+            const grid = document.getElementById('image-preview-grid');
+            if (!panel || !grid) return;
+
+            panel.addEventListener('wheel', (e) => {
+                if (panel.classList.contains('collapsed')) return;
+                if (grid.scrollHeight <= grid.clientHeight) return;
+
+                e.preventDefault();
+                grid.scrollTop += e.deltaY;
+            }, { passive: false });
+        }
         
         /* ==================== 图片匹配工具 ==================== */
         
@@ -1622,7 +1953,7 @@
             const image = uploadedImages[filename];
             return {
                 filename,
-                dataUrl: useCopyDataUrl ? image.displayDataUrl : (image.previewSrc || image.displayDataUrl),
+                dataUrl: image.displayDataUrl,
                 width: image.width,
                 height: image.height,
                 mimeType: image.mimeType || '',
@@ -1948,7 +2279,7 @@
         // 标准空行模板（用于段落间距）- 根据模式动态生成
         function getBrHtml(isPersonal) {
             const fontSize = isPersonal ? '15px' : '14px';
-            const br = `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em;"><span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: ${fontSize}; letter-spacing: normal;"><br></span></p>`;
+            const br = `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em; color: rgb(34, 34, 34);"><span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-size: ${fontSize}; letter-spacing: normal; color: rgb(34, 34, 34);"><br></span></p>`;
             return { singleBr: br, doubleBr: br + br };
         }
 
@@ -2682,7 +3013,7 @@ function processTextSpacing(text) {
                         block.content.forEach((item, index) => {
                             // 解析时已清理标点，这里直接添加
                             const punct = (index === itemCount - 1) ? '。' : '；';
-                            listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important;"><p style="margin: 0px; text-align: left; line-height: 1.6em; font-family: ${listFontFamily}; font-size: 14px; letter-spacing: normal;">
+                            listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important; color: rgb(34, 34, 34);"><p style="margin: 0px; text-align: left; line-height: 1.6em; font-family: ${listFontFamily}; font-size: 14px; letter-spacing: normal; color: rgb(34, 34, 34);">
                                     ${processInlineFormatting(item, true)}${punct}
                             </p></li>`;
                         });
@@ -2692,7 +3023,7 @@ function processTextSpacing(text) {
                     case 'p': {
                         const pFontSize = isPersonalMode ? '15px' : '14px';
                         const pFontFamily = isPersonalMode ? "Optima, PingFangSC-light, 'PingFang SC', Georgia, serif" : "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
-                        return `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em; font-family: ${pFontFamily}; font-size: ${pFontSize}; letter-spacing: normal;">
+                        return `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em; font-family: ${pFontFamily}; font-size: ${pFontSize}; letter-spacing: normal; color: rgb(34, 34, 34);">
                             ${processInlineFormatting(block.content, true)}
                         </p>`;
                     }
@@ -3267,7 +3598,7 @@ function processTextSpacing(text) {
                         block.content.forEach((item, index) => {
                             // 解析时已清理标点，这里直接添加
                             const punct = (index === itemCount - 1) ? '。' : '；';
-                            listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important;"><p style="margin: 0px; text-align: left; line-height: 1.6em; font-family: ${listFontFamily}; font-size: 14px; letter-spacing: normal;">
+                            listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important; color: rgb(34, 34, 34);"><p style="margin: 0px; text-align: left; line-height: 1.6em; font-family: ${listFontFamily}; font-size: 14px; letter-spacing: normal; color: rgb(34, 34, 34);">
                                     ${processInlineFormatting(item, true)}${punct}
                             </p></li>`;
                         });
@@ -3277,7 +3608,7 @@ function processTextSpacing(text) {
                     case 'p': {
                         const pFontSize = isPersonalMode ? '15px' : '14px';
                         const pFontFamily = isPersonalMode ? "Optima, PingFangSC-light, 'PingFang SC', Georgia, serif" : "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
-                        return `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em; visibility: visible; font-family: ${pFontFamily}; font-size: ${pFontSize}; letter-spacing: normal;">
+                        return `<p style="margin: 0px 16px; text-align: left; line-height: 1.6em; visibility: visible; font-family: ${pFontFamily}; font-size: ${pFontSize}; letter-spacing: normal; color: rgb(34, 34, 34);">
                             ${processInlineFormatting(block.content, true)}
                         </p>`;
                     }
@@ -3325,7 +3656,7 @@ function processTextSpacing(text) {
                 html += footerHTML;
             }
             
-            return `<div class="rich_media_content js_underline_content defaultNoSetting fix_apple_default_style" id="js_content" style="text-size-adjust: var(--content-font-scale-percent, inherit);">${html}</div>`;
+            return `<div class="rich_media_content js_underline_content defaultNoSetting fix_apple_default_style" id="js_content" style="text-size-adjust: var(--content-font-scale-percent, inherit); color: rgb(34, 34, 34); background-color: rgb(255, 255, 255);">${html}</div>`;
         }
 
         /**
@@ -3456,12 +3787,12 @@ function processTextSpacing(text) {
                   const wxArticle = document.querySelector('.wx-article');
 
                   if (isPersonalMode) {
-                      previewContent.style.backgroundColor = '#fafafa';
+                      previewContent.style.background = '#fafafa';
                       if (wxArticle) {
                           wxArticle.style.backgroundColor = 'transparent';
                       }
                   } else {
-                      previewContent.style.backgroundColor = 'white';
+                      previewContent.style.background = '#ffffff';
                       if (wxArticle) {
                           wxArticle.style.backgroundColor = 'white';
                       }
@@ -3785,7 +4116,7 @@ http://www.lizhi.shop\`
             document.getElementById('update-taokouling-btn').addEventListener('click', updateTaokouling);
             document.getElementById('personal-mode-btn').addEventListener('click', function() {
                 isPersonalMode = !isPersonalMode;
-                this.style.background = isPersonalMode ? 'linear-gradient(135deg, #27ae60, #2ecc71)' : 'linear-gradient(135deg, #f39c12, #e67e22)';
+                this.classList.toggle('is-active', isPersonalMode);
                 this.innerHTML = isPersonalMode ? '<i class="fas fa-star"></i> 默认模式' : '<i class="far fa-star"></i> 个人模式';
                 immediateUpdatePreview();
             });
@@ -3804,6 +4135,7 @@ http://www.lizhi.shop\`
             document.getElementById('btn-delete-all').addEventListener('click', deleteAllUploadedImages);
             document.getElementById('image-panel-toggle').addEventListener('click', () => toggleImagePreviewPanel(true));
             document.getElementById('image-preview-tab').addEventListener('click', () => toggleImagePreviewPanel(false));
+            setupImagePreviewPanelScroll();
         });
     </script>
 </body>
