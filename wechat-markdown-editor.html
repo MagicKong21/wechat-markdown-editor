@@ -1184,6 +1184,11 @@
         
         // 获取编辑器元素
         const textarea = document.getElementById('markdown-input');
+
+        // 本地草稿自动保存
+        const DRAFT_STORAGE_KEY = 'wechatMarkdownEditorDraft';
+        const DRAFT_SAVED_AT_KEY = 'wechatMarkdownEditorDraftSavedAt';
+        let draftSaveTimer = null;
         
         // 防抖定时器
         let previewUpdateTimer = null;
@@ -1203,6 +1208,28 @@
             cnRParen: /）/g,
             multiSpace: /\s+/g
         };
+
+        function saveDraftNow() {
+            try {
+                localStorage.setItem(DRAFT_STORAGE_KEY, textarea.value);
+                localStorage.setItem(DRAFT_SAVED_AT_KEY, String(Date.now()));
+            } catch (err) {
+                console.warn('自动保存草稿失败:', err);
+            }
+        }
+
+        function scheduleDraftSave() {
+            clearTimeout(draftSaveTimer);
+            draftSaveTimer = setTimeout(saveDraftNow, 400);
+        }
+
+        function restoreDraftIfAvailable() {
+            const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+            if (savedDraft === null) return false;
+
+            textarea.value = savedDraft;
+            return true;
+        }
         
         /* ==================== 撤销/重做功能 ==================== */
         
@@ -1217,6 +1244,7 @@
                  // 限制撤销栈长度
                  if (undoStack.length > 50) undoStack.shift();
              }
+             scheduleDraftSave();
              delete this.dataset.isShortcutAction;
          });
          
@@ -1966,11 +1994,26 @@
          * @param {string} productName - 商品名称
          * @returns {{ filename, dataUrl, width, height, mimeType } | null}
          */
+        function normalizeProductImageName(name) {
+            return (name || '')
+                .trim()
+                .replace(/^【|】$/g, '')
+                .replace(/\.(png|jpg|jpeg|gif|webp|heic|heif)$/i, '')
+                .toLowerCase();
+        }
+
         function findMatchingImage(productName, useCopyDataUrl = false) {
-            // 完全匹配文件名
-            const exactName = productName.toLowerCase();
+            const exactName = normalizeProductImageName(productName);
             for (const filename of Object.keys(uploadedImages)) {
-                if (filename.toLowerCase() === exactName) {
+                const image = uploadedImages[filename];
+                const candidates = [
+                    filename,
+                    image.displayName || '',
+                    (image.displayName || '').replace(/\.[^.]+$/, ''),
+                    filename.replace(/\.[^.]+$/, '')
+                ].map(normalizeProductImageName);
+
+                if (candidates.includes(exactName)) {
                     return getUploadedImageInfo(filename, useCopyDataUrl);
                 }
             }
@@ -2169,25 +2212,27 @@
         
         /* ==================== 图片资源常量定义 ==================== */
         
-        // GitHub 资源基础 URL（用于预览显示）
-        const githubBase = 'https://raw.githubusercontent.com/MagicKong21/wechat-markdown-editor/main/images';
+        // 本地资源基础 URL（用于预览显示）
+        const githubBase = 'images';
+        const localAssetVersion = Date.now();
+        const localAsset = (filename) => `${githubBase}/${filename}?v=${localAssetVersion}`;
         
         // GitHub 图片资源映射
         const githubImages = {
-            header: `${githubBase}/header.png`,
-            footer: `${githubBase}/footer.png`,
-            heart: `${githubBase}/heart.gif`,
-            title1: `${githubBase}/title1.png`,
-            title2: `${githubBase}/title2.png`,
-            title3: `${githubBase}/title3.png`,
-            title4: `${githubBase}/title4.png`,
-            title5: `${githubBase}/title5.png`,
-            title6: `${githubBase}/title6.png`,
-            title7: `${githubBase}/title7.png`,
-            title8: `${githubBase}/title8.png`,
-            title9: `${githubBase}/title9.png`,
-            productCardQr: `${githubBase}/product-card-qr.png`,
-            productCardBanner: `${githubBase}/product-card-banner.png`
+            header: localAsset('header.png'),
+            footer: localAsset('footer.png'),
+            heart: localAsset('heart.gif'),
+            title1: localAsset('title1.png'),
+            title2: localAsset('title2.png'),
+            title3: localAsset('title3.png'),
+            title4: localAsset('title4.png'),
+            title5: localAsset('title5.png'),
+            title6: localAsset('title6.png'),
+            title7: localAsset('title7.png'),
+            title8: localAsset('title8.png'),
+            title9: localAsset('title9.png'),
+            productCardQr: localAsset('product-card-qr.png'),
+            productCardBanner: localAsset('product-card-banner.png')
         };
 
         // 微信原始链接（用于复制到微信编辑器）
@@ -2283,10 +2328,10 @@
                 </section>
             </section>
         </section>
+        <hr class="divider" style="border-style: solid;border-width: 1px 0 0;border-color: rgba(0,0,0,0.1);-webkit-transform-origin: 0 0;-webkit-transform: scale(1, 0.5);transform-origin: 0 0;transform: scale(1, 0.5);margin: 0 0 10px 0 !important;">
         <p class="footer-ad" style="text-align: right;text-indent: 0em;margin: 0;padding: 0;line-height: 1.4;color: #d6d6d6;font-size: 12px;">
             <span leaf="" style="font-family: monospace;font-size: 12px;letter-spacing: 0.578px;color: #d6d6d6;">&lt;广告&gt;</span>
         </p>
-        <hr class="divider" style="border-style: solid;border-width: 1px 0 0;border-color: rgba(0,0,0,0.1);-webkit-transform-origin: 0 0;-webkit-transform: scale(1, 0.5);transform-origin: 0 0;transform: scale(1, 0.5);margin: 0 0 10px 0 !important;">
         <section class="footer-img" style="margin: 10px 0 !important;text-align: center;" nodeleaf="">
             <img data-src="${githubImages.footer}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="0.4444444444444444" data-s="300,640" data-type="png" data-w="900" data-backw="578" data-backh="257" data-original-style="width: 100%;height: auto !important;" style="width: 100% !important; height: auto !important; visibility: visible !important;" src="${githubImages.footer}" alt="底部配图">
         </section>
@@ -2882,7 +2927,7 @@ function processTextSpacing(text) {
                         }
                         
                         // 去掉图片扩展名和【】用于匹配
-                        productName = productName.replace(/^【|】$/g, '').replace(/\.(png|jpg|jpeg|gif|webp)$/i, '');
+                        productName = normalizeProductImageName(productName);
                         
                         contentBlocks.push({
                             type: 'product-card',
@@ -3541,7 +3586,7 @@ function processTextSpacing(text) {
                             currentTaoKouLing = taoMatch[1].trim();
                         }
                         // 去掉图片扩展名和【】（用于和上传的图片文件名匹配）
-                        productName = productName.replace(/^【|】$/g, '').replace(/\.(png|jpg|jpeg|gif|webp)$/i, '');
+                        productName = normalizeProductImageName(productName);
                         contentBlocks.push({
                             type: 'product-card',
                             productName: productName
@@ -4202,6 +4247,7 @@ function processTextSpacing(text) {
             // 清空分割线（>=3个连续短横线）
             text = text.replace(/^-{3,}$/gm, '');
             textarea.value = text;
+            saveDraftNow();
             immediateUpdatePreview();
             showStatus('已清空加粗、高亮、分割线标记符', 'success');
         }
@@ -4295,6 +4341,7 @@ http://www.lizhi.shop\`
 大标题数量超过 9 个，会从 1 号重新累计——应该没什么机会会超过 9 的吧……`;
 
             document.getElementById('markdown-input').value = exampleMarkdown;
+            saveDraftNow();
             immediateUpdatePreview();
             showStatus('示例内容已加载', 'success');
         }
@@ -4423,6 +4470,7 @@ http://www.lizhi.shop\`
                 this.selectionStart = this.selectionEnd = start + newText.length;
                 
                 // 更新预览
+                saveDraftNow();
                 updatePreview();
                 
                 // 提示
@@ -4432,6 +4480,7 @@ http://www.lizhi.shop\`
 
         // 页面初始化
         document.addEventListener('DOMContentLoaded', function() {
+            const restoredDraft = restoreDraftIfAvailable();
             undoStack.push(textarea.value); // 初始值入栈
             
             // 初始渲染
@@ -4467,6 +4516,11 @@ http://www.lizhi.shop\`
             document.getElementById('image-panel-toggle').addEventListener('click', () => toggleImagePreviewPanel(true));
             document.getElementById('image-preview-tab').addEventListener('click', () => toggleImagePreviewPanel(false));
             setupImagePreviewPanelScroll();
+
+            window.addEventListener('beforeunload', saveDraftNow);
+            if (restoredDraft && textarea.value.trim()) {
+                showStatus('已恢复本地草稿', 'success');
+            }
         });
     </script>
 </body>
