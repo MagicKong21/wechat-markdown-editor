@@ -406,6 +406,8 @@
             margin: 0 !important;
             padding: 0;
             line-height: 1.4;
+            color: #d6d6d6;
+            font-size: 12px;
         }
         
         .wx-article .footer-img {
@@ -1687,6 +1689,19 @@
                 const imageOrder = [];
 
                 for (const line of lines) {
+                    // 并排图片：【图1】|【图2】 或 【图1】｜【图2】｜【图3】
+                    const sideMatch = line.match(/^【([^【】]+)】[|｜]【([^【】]+)】(?:[|｜]【([^【】]+)】)?$/);
+                    if (sideMatch) {
+                        for (let j = 1; j <= 3; j++) {
+                            if (!sideMatch[j]) continue;
+                            const refText = sideMatch[j].trim();
+                            const matched = findImageByReference(refText);
+                            if (matched && !uploadedImages[matched.filename].qrReplaced) {
+                                imageOrder.push({ refText, filename: matched.filename });
+                            }
+                        }
+                        continue;
+                    }
                     const match = line.match(/^【([^【】]+)】$/);
                     if (match) {
                         const refText = match[1].trim();
@@ -1751,6 +1766,19 @@
                 const imageOrder = [];
 
                 for (const line of lines) {
+                    // 并排图片：【图1】|【图2】 或 【图1】｜【图2】｜【图3】
+                    const sideMatch = line.match(/^【([^【】]+)】[|｜]【([^【】]+)】(?:[|｜]【([^【】]+)】)?$/);
+                    if (sideMatch) {
+                        for (let j = 1; j <= 3; j++) {
+                            if (!sideMatch[j]) continue;
+                            const refText = sideMatch[j].trim();
+                            const matched = findImageByReference(refText);
+                            if (matched && !uploadedImages[matched.filename].qrReplaced) {
+                                imageOrder.push({ refText, filename: matched.filename });
+                            }
+                        }
+                        continue;
+                    }
                     const match = line.match(/^【([^【】]+)】$/);
                     if (match) {
                         const refText = match[1].trim();
@@ -2255,10 +2283,8 @@
                 </section>
             </section>
         </section>
-        <p class="footer-ad" style="text-align: right;text-indent: 0em;margin: 0;padding: 0;">
-            <span style="font-family: monospace;font-size: 12px;letter-spacing: 0.578px;color: rgb(214, 214, 214);">
-                <span leaf="">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&lt;广告&gt;</span>
-            </span>
+        <p class="footer-ad" style="text-align: right;text-indent: 0em;margin: 0;padding: 0;line-height: 1.4;color: #d6d6d6;font-size: 12px;">
+            <span leaf="" style="font-family: monospace;font-size: 12px;letter-spacing: 0.578px;color: #d6d6d6;">&lt;广告&gt;</span>
         </p>
         <hr class="divider" style="border-style: solid;border-width: 1px 0 0;border-color: rgba(0,0,0,0.1);-webkit-transform-origin: 0 0;-webkit-transform: scale(1, 0.5);transform-origin: 0 0;transform: scale(1, 0.5);margin: 0 0 10px 0 !important;">
         <section class="footer-img" style="margin: 10px 0 !important;text-align: center;" nodeleaf="">
@@ -2358,6 +2384,212 @@ function processTextSpacing(text) {
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
+        }
+
+        /**
+         * 轻量级代码语法高亮
+         */
+        function highlightCode(code, language) {
+            let html = escapeHtml(code);
+            const lang = (language || '').toLowerCase();
+
+            // 语言关键词映射
+            const keywords = {
+                python: 'False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield|self|print|range|len|str|int|float|list|dict|tuple|set|type|isinstance|super|__init__|__name__|__main__',
+                javascript: 'abstract|arguments|async|await|boolean|break|byte|case|catch|char|class|const|continue|debugger|default|delete|do|double|else|enum|eval|export|extends|false|final|finally|float|for|function|goto|if|implements|import|in|instanceof|int|interface|let|long|native|new|null|of|package|private|protected|public|return|short|static|super|switch|synchronized|this|throw|throws|transient|true|try|typeof|undefined|var|void|volatile|while|with|yield|console|log|require|module|exports',
+                typescript: 'abstract|as|async|await|break|case|catch|class|const|continue|debugger|declare|default|delete|do|else|enum|export|extends|false|finally|for|from|function|get|if|implements|import|in|instanceof|interface|is|keyof|let|module|namespace|never|null|of|package|private|protected|public|readonly|return|set|static|super|switch|this|throw|true|try|type|typeof|undefined|var|void|while|with|yield',
+                bash: 'if|then|else|elif|fi|for|while|do|done|case|esac|in|function|return|exit|local|export|source|alias|bg|fg|jobs|kill|cd|pwd|echo|printf|read|test|shift|set|unset|trap|wait|exec|eval|declare|typeset|readonly|mapfile|readarray|select|until|coproc',
+                shell: 'if|then|else|elif|fi|for|while|do|done|case|esac|in|function|return|exit|local|export|source|alias|bg|fg|jobs|kill|cd|pwd|echo|printf|read|test|shift|set|unset|trap|wait|exec|eval|declare|typeset|readonly',
+                json: '',
+                css: 'align|all|animation|background|border|bottom|box|break|calc|clear|clip|color|column|content|counter|cursor|direction|display|empty|filter|flex|float|font|gap|grid|height|justify|left|letter|line|list|margin|max|min|mix|object|opacity|order|outline|overflow|padding|page|perspective|place|position|quotes|resize|right|row|scroll|tab|table|text|top|transform|transition|unicode|vertical|visibility|white|width|word|z|important|inherit|initial|unset|auto|none|solid|dashed|dotted|block|inline|flex|grid|relative|absolute|fixed|sticky',
+                html: '',
+                go: 'break|case|chan|const|continue|default|defer|else|fallthrough|for|func|go|goto|if|import|interface|map|package|range|return|select|struct|switch|type|var|make|len|cap|append|copy|delete|close|panic|recover|nil|true|false|iota|print|println',
+                rust: 'as|async|await|break|const|continue|crate|dyn|else|enum|extern|false|fn|for|if|impl|in|let|loop|match|mod|move|mut|pub|ref|return|self|static|struct|super|trait|true|type|unsafe|use|where|while|yield|Some|None|Ok|Err|Box|Vec|String|Option|Result',
+                java: 'abstract|assert|boolean|break|byte|case|catch|char|class|const|continue|default|do|double|else|enum|extends|final|finally|float|for|goto|if|implements|import|instanceof|int|interface|long|native|new|null|package|private|protected|public|return|short|static|strictfp|super|switch|synchronized|this|throw|throws|transient|try|void|volatile|while|true|false',
+                c: 'auto|break|case|char|const|continue|default|do|double|else|enum|extern|float|for|goto|if|inline|int|long|register|restrict|return|short|signed|sizeof|static|struct|switch|typedef|union|unsigned|void|volatile|while|NULL|true|false|bool|size_t|printf|scanf|malloc|free|strlen|strcpy|memcpy',
+                cpp: 'alignas|alignof|and|asm|auto|bitand|bitor|bool|break|case|catch|char|char8_t|char16_t|char32_t|class|compl|concept|const|consteval|constexpr|constinit|const_cast|continue|co_await|co_return|co_yield|decltype|default|delete|do|double|dynamic_cast|else|enum|explicit|export|extern|float|for|friend|goto|if|inline|int|long|mutable|namespace|new|noexcept|not|nullptr|operator|or|private|protected|public|register|reinterpret_cast|requires|return|short|signed|sizeof|static|static_assert|static_cast|struct|switch|template|this|thread_local|throw|try|typedef|typeid|typename|union|unsigned|using|virtual|void|volatile|wchar_t|while|xor',
+                sql: 'SELECT|FROM|WHERE|AND|OR|NOT|IN|IS|NULL|AS|ON|JOIN|LEFT|RIGHT|INNER|OUTER|FULL|CROSS|GROUP|BY|HAVING|ORDER|ASC|DESC|LIMIT|OFFSET|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|TABLE|ALTER|DROP|INDEX|VIEW|TRIGGER|FUNCTION|PROCEDURE|PRIMARY|KEY|FOREIGN|REFERENCES|UNIQUE|CHECK|DEFAULT|CONSTRAINT|CASCADE|EXISTS|BETWEEN|LIKE|CASE|WHEN|THEN|ELSE|END|UNION|ALL|DISTINCT|COUNT|SUM|AVG|MIN|MAX|COALESCE|IF|IFNULL|CONCAT|SUBSTRING|TRIM|UPPER|LOWER|LENGTH|NOW|DATE|CAST',
+                yaml: 'true|false|null|yes|no|on|off',
+                markdown: '',
+                diff: '',
+                makefile: '',
+                dockerfile: ''
+            };
+
+            // 1. 注释（先处理，避免被其他规则干扰）
+            if (lang === 'python' || lang === 'ruby' || lang === 'yaml' || lang === 'shell' || lang === 'bash') {
+                html = html.replace(/(#.*)$/gm, '<span style="color:#6a9955;">$1</span>');
+            }
+            if (['javascript','typescript','java','c','cpp','go','rust','css','json','kotlin','swift','dart'].includes(lang)) {
+                html = html.replace(/(\/\/.*)$/gm, '<span style="color:#6a9955;">$1</span>');
+                html = html.replace(/(\/\*[\s\S]*?\*\/)/g, '<span style="color:#6a9955;">$1</span>');
+            }
+            if (lang === 'html' || lang === 'xml') {
+                html = html.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span style="color:#6a9955;">$1</span>');
+            }
+            if (lang === 'sql') {
+                html = html.replace(/(--.*)$/gm, '<span style="color:#6a9955;">$1</span>');
+            }
+
+            // 2. 字符串
+            html = html.replace(/(&quot;(?:[^&]|&(?!quot;))*?&quot;)/g, '<span style="color:#ce9178;">$1</span>');
+            html = html.replace(/(&#39;(?:[^&]|&(?!#39;))*?&#39;)/g, '<span style="color:#ce9178;">$1</span>');
+            // 模板字符串
+            html = html.replace(/(`[^`]*`)/g, '<span style="color:#ce9178;">$1</span>');
+
+            // 3. 数字
+            html = html.replace(/\b(\d+\.?\d*(?:e[+-]?\d+)?)\b/gi, '<span style="color:#b5cea8;">$1</span>');
+
+            // 4. 关键词
+            const kw = keywords[lang];
+            if (kw) {
+                const kwPattern = new RegExp('\\b(' + kw + ')\\b', lang === 'sql' ? 'g' : 'g');
+                html = html.replace(kwPattern, '<span style="color:#c586c0;">$1</span>');
+            }
+
+            // 5. 函数调用
+            html = html.replace(/\b([a-zA-Z_]\w*)\s*\(/g, '<span style="color:#dcdcaa;">$1</span>(');
+
+            // 6. JSON 特殊处理
+            if (lang === 'json') {
+                html = html.replace(/(&quot;[^&]*?&quot;)\s*:/g, '<span style="color:#9cdcfe;">$1</span>:');
+                html = html.replace(/:\s*(&quot;[^&]*?&quot;)/g, ': <span style="color:#ce9178;">$1</span>');
+                html = html.replace(/:\s*(true|false|null)\b/g, ': <span style="color:#569cd6;">$1</span>');
+            }
+
+            // 7. HTML tag names
+            if (lang === 'html' || lang === 'xml') {
+                html = html.replace(/(&lt;\/?)([\w-]+)/g, '$1<span style="color:#569cd6;">$2</span>');
+                html = html.replace(/\b([\w-]+)(=)/g, '<span style="color:#9cdcfe;">$1</span>$2');
+            }
+
+            return html;
+        }
+
+        function preserveCodeLineWhitespace(lineHtml) {
+            return lineHtml
+                .replace(/^ +/, spaces => '&nbsp;'.repeat(spaces.length))
+                .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
+                .replace(/ {2}/g, '&nbsp;&nbsp;');
+        }
+
+        function formatCodeLinesForWeChat(code, language) {
+            return code.split('\n').map(line => {
+                const highlightedLine = highlightCode(line, language);
+                const preservedLine = preserveCodeLineWhitespace(highlightedLine);
+                return preservedLine || '&nbsp;';
+            }).join('<br>');
+        }
+
+        const codeKeywordMap = {
+            python: 'False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield|self|print|range|len|str|int|float|list|dict|tuple|set|type|isinstance|super',
+            javascript: 'async|await|break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|false|finally|for|function|if|import|in|instanceof|let|new|null|of|return|static|super|switch|this|throw|true|try|typeof|undefined|var|void|while|yield',
+            typescript: 'abstract|as|async|await|break|case|catch|class|const|continue|declare|default|delete|do|else|enum|export|extends|false|finally|for|from|function|if|implements|import|in|instanceof|interface|keyof|let|namespace|never|null|private|protected|public|readonly|return|static|super|switch|this|throw|true|try|type|typeof|undefined|var|void|while',
+            json: 'true|false|null',
+            bash: 'if|then|else|elif|fi|for|while|do|done|case|esac|in|function|return|exit|local|export|source|alias|cd|pwd|echo|printf|read|test|shift|set|unset',
+            shell: 'if|then|else|elif|fi|for|while|do|done|case|esac|in|function|return|exit|local|export|source|alias|cd|pwd|echo|printf|read|test|shift|set|unset'
+        };
+
+        function highlightPlainCodeSegment(text, language) {
+            const lang = (language || '').toLowerCase();
+            let html = escapeHtml(text);
+            html = html.replace(/\b(\d+\.?\d*)\b/g, '<span style="color:#b5cea8;">$1</span>');
+            const keywords = codeKeywordMap[lang] || '';
+            if (keywords) {
+                html = html.replace(new RegExp(`\\b(${keywords})\\b`, 'g'), '<span style="color:#c586c0;">$1</span>');
+            }
+            return html;
+        }
+
+        function highlightCodeLine(line, language) {
+            const lang = (language || '').toLowerCase();
+            const commentMarkers = ['python', 'ruby', 'yaml', 'bash', 'shell'].includes(lang) ? ['#'] : ['//'];
+            let html = '';
+            let i = 0;
+
+            while (i < line.length) {
+                const marker = commentMarkers.find(item => line.startsWith(item, i));
+                if (marker) {
+                    html += `<span style="color:#6a9955;">${escapeHtml(line.slice(i))}</span>`;
+                    break;
+                }
+
+                const char = line[i];
+                if (char === '"' || char === "'" || char === '`') {
+                    const quote = char;
+                    let end = i + 1;
+                    while (end < line.length) {
+                        if (line[end] === '\\') {
+                            end += 2;
+                            continue;
+                        }
+                        if (line[end] === quote) {
+                            end++;
+                            break;
+                        }
+                        end++;
+                    }
+                    const rawString = line.slice(i, end);
+                    const rest = line.slice(end).trimStart();
+                    const color = rest.startsWith(':') ? '#9cdcfe' : '#ce9178';
+                    html += `<span style="color:${color};">${escapeHtml(rawString)}</span>`;
+                    i = end;
+                    continue;
+                }
+
+                let next = i + 1;
+                while (next < line.length) {
+                    const startsComment = commentMarkers.some(item => line.startsWith(item, next));
+                    if (startsComment || ['"', "'", '`'].includes(line[next])) break;
+                    next++;
+                }
+                html += highlightPlainCodeSegment(line.slice(i, next), lang);
+                i = next;
+            }
+
+            return html;
+        }
+
+        highlightCode = function(code, language) {
+            return highlightCodeLine(code, language);
+        };
+
+        /**
+         * 生成代码块 Mac 窗口 HTML
+         */
+        function generateCodeBlockHTML(language, code) {
+            const highlighted = formatCodeLinesForWeChat(code, language);
+            const langLabel = language ? language.toUpperCase() : '';
+            return `<section style="margin: 0; border-radius: 10px; overflow: hidden; background: rgb(30, 30, 30);">
+                <section style="height: 40px; line-height: 40px; background: rgb(60, 60, 60); padding: 0 16px; box-sizing: border-box; color: rgb(140, 140, 140); font-size: 12px; font-family: Menlo, Monaco, 'Courier New', monospace;">
+                    <span style="color: rgb(255, 95, 87); font-size: 18px; line-height: 40px; vertical-align: middle;">●</span><span style="color: rgb(254, 188, 46); font-size: 18px; line-height: 40px; vertical-align: middle; margin-left: 5px;">●</span><span style="color: rgb(40, 200, 64); font-size: 18px; line-height: 40px; vertical-align: middle; margin-left: 5px;">●</span><span style="float: right; color: rgb(145, 145, 145); font-size: 12px; letter-spacing: 0.5px;">${langLabel}</span>
+                </section>
+                <section style="background: rgb(30, 30, 30); padding: 14px 16px 16px 16px; box-sizing: border-box; color: rgb(212, 212, 212); font-size: 13px; line-height: 1.7; font-family: Menlo, Monaco, Consolas, 'Courier New', monospace; word-break: break-word; overflow-wrap: break-word; white-space: normal;">${highlighted}</section>
+            </section>`;
+        }
+
+        function generateSideBySideImagesHTML(images, replaceGifWithPlaceholder = false) {
+            const count = images.length;
+            const cellWidth = count === 3 ? '33.3333%' : '50%';
+            const cellPadding = count === 3 ? '0 3px' : '0 4px';
+            const cells = images.map((img) => {
+                if (img.placeholder) {
+                    return `<td style="width: ${cellWidth}; border: 0; padding: ${cellPadding}; vertical-align: top; box-sizing: border-box;">
+                        <section style="text-align: center; padding: 18px 4px; background: rgb(245, 245, 245); border: 1px dashed rgb(192, 204, 92); color: rgb(153, 153, 153); font-size: 13px; box-sizing: border-box; overflow: hidden;">【${img.text}】</section>
+                    </td>`;
+                }
+                if (replaceGifWithPlaceholder && isGifImageBlock(img)) {
+                    const name = img.displayName || img.filename || img.alt || 'GIF动图';
+                    const placeholderSrc = createGifPlaceholderImage(name);
+                    return `<td style="width: ${cellWidth}; border: 0; padding: ${cellPadding}; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
+                        <img data-src="${placeholderSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="0.24444444" data-s="300,640" data-type="png" data-w="900" data-original-style="width: 100%;height: auto !important;" style="display: block; width: 100% !important; height: auto !important; visibility: visible !important; margin: 0 !important; padding: 0 !important;" src="${placeholderSrc}" alt="GIF待替换：${name}">
+                    </td>`;
+                }
+                return `<td style="width: ${cellWidth}; border: 0; padding: ${cellPadding}; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
+                    <img data-src="${img.dataUrl}" class="rich_pages wxw-img" style="display: block; width: 100% !important; height: auto !important; visibility: visible !important; margin: 0 !important; padding: 0 !important;" src="${img.dataUrl}" alt="${img.alt}" ${getWeChatAdaptiveImageAttrs(img)}>
+                </td>`;
+            }).join('');
+            return `<table style="width: 100%; table-layout: fixed; border: 0; border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0;"><tbody><tr>${cells}</tr></tbody></table>`;
         }
 
         function processInlineFormatting(text, skipWrapper = false) {
@@ -2471,6 +2703,26 @@ function processTextSpacing(text) {
                 const line = rawLines[i];
                 const trimmedLine = line.trim();
 
+                // 代码块（```语言 开始，``` 结束）
+                const codeBlockOpen = trimmedLine.match(/^```(\w*)$/);
+                if (codeBlockOpen) {
+                    if (inList) {
+                        contentBlocks.push({ type: 'ul', content: currentList });
+                        inList = false;
+                        currentList = [];
+                    }
+                    const lang = codeBlockOpen[1] || '';
+                    const codeLines = [];
+                    i++;
+                    while (i < rawLines.length) {
+                        if (rawLines[i].trim() === '```') { i++; break; }
+                        codeLines.push(rawLines[i]);
+                        i++;
+                    }
+                    contentBlocks.push({ type: 'code-block', language: lang, code: codeLines.join('\n') });
+                    continue;
+                }
+
                 // 多行灰色底框开始（以 ` 开头但不以 ` 结尾）
                 if (trimmedLine.startsWith('`') && !trimmedLine.endsWith('`')) {
                     // 如果正在处理列表，先结束列表
@@ -2483,11 +2735,11 @@ function processTextSpacing(text) {
                         currentList = [];
                     }
                     let boxLines = [];
-                    
+
                     // 收集开始行
                     boxLines.push(trimmedLine.slice(1).trim());
                     i++;
-                    
+
                     // 收集中间行
                     while (i < rawLines.length) {
                         const nextLine = rawLines[i].trim();
@@ -2640,6 +2892,30 @@ function processTextSpacing(text) {
                         continue;
                     }
                     
+                    // 检测并排图片：【图1】|【图2】 或 【图1】｜【图2】｜【图3】
+                    const sideBySideMatch = trimmedLine.match(/^【([^【】]+)】[|｜]【([^【】]+)】(?:[|｜]【([^【】]+)】)?$/);
+                    if (sideBySideMatch) {
+                        const images = [];
+                        for (let j = 1; j <= 3; j++) {
+                            if (!sideBySideMatch[j]) continue;
+                            const refText = sideBySideMatch[j].trim();
+                            const matched = findImageByReference(refText);
+                            if (matched) {
+                                images.push({
+                                    filename: matched.filename, dataUrl: matched.dataUrl,
+                                    width: matched.width, height: matched.height,
+                                    mimeType: matched.mimeType, displayName: matched.displayName, alt: refText
+                                });
+                                incrementImageUseCount(matched.filename);
+                            } else {
+                                images.push({ placeholder: true, text: refText });
+                            }
+                        }
+                        contentBlocks.push({ type: 'side-by-side-images', images });
+                        i++;
+                        continue;
+                    }
+
                     // 检测【图1】、【动图演示】等图片引用
                     const imageRefMatch = trimmedLine.match(/^【([^【】]+)】$/);
                     if (imageRefMatch) {
@@ -2721,6 +2997,9 @@ function processTextSpacing(text) {
             // 第二步：生成块HTML
             function generateBlockHTML(block) {
                 switch (block.type) {
+                    case 'code-block': {
+                        return generateCodeBlockHTML(block.language, block.code);
+                    }
                     case 'caption-note': {
                         return `<p style="margin: 0; padding: 0; text-align: center;"><span style="font-size: 12px; color: rgb(136, 136, 136);">${block.content}</span></p>`;
                     }
@@ -2817,6 +3096,9 @@ function processTextSpacing(text) {
                         const imageStyle = isPersonalMode ? 'width: 100% !important; height: auto !important; border: 2px solid rgb(192, 204, 92); border-style: dashed; padding: 8px; background: #ffffff; box-sizing: border-box; visibility: visible !important;' : 'width: 100% !important; height: auto !important; visibility: visible !important;';
                         const adaptiveAttrs = getWeChatAdaptiveImageAttrs(block);
                         return `<section style="text-align: center; margin: 0; padding: 0;"><img data-src="${block.dataUrl}" class="rich_pages wxw-img" style="${imageStyle}" src="${block.dataUrl}" alt="${block.alt}" ${adaptiveAttrs}>${captionHTML}</section>`;
+                    }
+                    case 'side-by-side-images': {
+                        return generateSideBySideImagesHTML(block.images, false);
                     }
                     case 'image-placeholder': {
                         return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed rgb(192, 204, 92); margin: 10px 0; color: #999; font-size: 14px;">
@@ -3098,6 +3380,26 @@ function processTextSpacing(text) {
                 const line = rawLines[i];
                 const trimmedLine = line.trim();
 
+                // 代码块（```语言 开始，``` 结束）
+                const codeBlockOpen = trimmedLine.match(/^```(\w*)$/);
+                if (codeBlockOpen) {
+                    if (inList) {
+                        contentBlocks.push({ type: 'ul', content: currentList });
+                        inList = false;
+                        currentList = [];
+                    }
+                    const lang = codeBlockOpen[1] || '';
+                    const codeLines = [];
+                    i++;
+                    while (i < rawLines.length) {
+                        if (rawLines[i].trim() === '```') { i++; break; }
+                        codeLines.push(rawLines[i]);
+                        i++;
+                    }
+                    contentBlocks.push({ type: 'code-block', language: lang, code: codeLines.join('\n') });
+                    continue;
+                }
+
                 // 多行灰色底框开始（以 ` 开头但不以 ` 结尾）
                 if (trimmedLine.startsWith('`') && !trimmedLine.endsWith('`')) {
                     // 如果正在处理列表，先结束列表
@@ -3110,11 +3412,11 @@ function processTextSpacing(text) {
                         currentList = [];
                     }
                     let boxLines = [];
-                    
+
                     // 收集开始行（去掉开头的 `）
                     boxLines.push(trimmedLine.slice(1).trim());
                     i++;
-                    
+
                     // 收集中间行，直到遇到以 ` 结尾的行
                     while (i < rawLines.length) {
                         const nextLine = rawLines[i].trim();
@@ -3248,6 +3550,29 @@ function processTextSpacing(text) {
                         continue;
                     }
                     
+                    // 检测并排图片：【图1】|【图2】 或 【图1】｜【图2】｜【图3】
+                    const sideBySideMatch = trimmedLine.match(/^【([^【】]+)】[|｜]【([^【】]+)】(?:[|｜]【([^【】]+)】)?$/);
+                    if (sideBySideMatch) {
+                        const images = [];
+                        for (let j = 1; j <= 3; j++) {
+                            if (!sideBySideMatch[j]) continue;
+                            const refText = sideBySideMatch[j].trim();
+                            const matched = findImageByReference(refText, true);
+                            if (matched) {
+                                images.push({
+                                    filename: matched.filename, dataUrl: matched.dataUrl,
+                                    width: matched.width, height: matched.height,
+                                    mimeType: matched.mimeType, displayName: matched.displayName, alt: refText
+                                });
+                            } else {
+                                images.push({ placeholder: true, text: refText });
+                            }
+                        }
+                        contentBlocks.push({ type: 'side-by-side-images', images });
+                        i++;
+                        continue;
+                    }
+
                     // 检测【图1】、【动图演示】等图片引用
                     const imageRefMatch = trimmedLine.match(/^【([^【】]+)】$/);
                     if (imageRefMatch) {
@@ -3308,6 +3633,9 @@ function processTextSpacing(text) {
             // 生成微信专用块HTML
             function generateWeChatBlockHTML(block) {
                 switch (block.type) {
+                    case 'code-block': {
+                        return generateCodeBlockHTML(block.language, block.code);
+                    }
                     case 'caption-note': {
                         return `<p style="margin: 0; padding: 0; text-align: center;"><span style="font-size: 12px; color: rgb(136, 136, 136);">${block.content}</span></p>`;
                     }
@@ -3427,6 +3755,9 @@ function processTextSpacing(text) {
                         const imageStyle = isPersonalMode ? 'width: 100% !important; height: auto !important; border: 2px solid rgb(192, 204, 92); border-style: dashed; padding: 8px; background: #ffffff; box-sizing: border-box; visibility: visible !important;' : 'width: 100% !important; height: auto !important; visibility: visible !important;';
                         const adaptiveAttrs = getWeChatAdaptiveImageAttrs(block);
                         return `<section style="text-align: center; margin: 0; padding: 0;"><img data-src="${block.dataUrl}" class="rich_pages wxw-img" style="${imageStyle}" src="${block.dataUrl}" alt="${block.alt}" ${adaptiveAttrs}>${captionHTML}</section>`;
+                    }
+                    case 'side-by-side-images': {
+                        return generateSideBySideImagesHTML(block.images, true);
                     }
                     case 'image-placeholder': {
                         return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed rgb(192, 204, 92); margin: 10px 0; color: #999; font-size: 14px;">
