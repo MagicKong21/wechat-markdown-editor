@@ -1206,6 +1206,8 @@
             cnRParenAfter: /）([\u4e00-\u9fa5])/g,
             cnLParen: /（/g,
             cnRParen: /）/g,
+            numberPlusBeforeText: /(\d+)\s*\+\s*(?=[\u4e00-\u9fa5A-Za-z])/g,
+            plusBetweenText: /([\u4e00-\u9fa5A-Za-z])\s*\+\s*(?=[\u4e00-\u9fa5A-Za-z0-9])/g,
             multiSpace: /\s+/g
         };
 
@@ -2065,17 +2067,53 @@
             qr: embeddedProductCardQrDataUrl,
             banner: embeddedProductCardBannerDataUrl
         };
+        const localFixedImageDataUrls = {
+            footer: ''
+        };
+
+        function getMimeTypeFromImageUrl(url) {
+            const cleanUrl = String(url).split('?')[0].toLowerCase();
+            if (cleanUrl.endsWith('.jpg') || cleanUrl.endsWith('.jpeg')) return 'image/jpeg';
+            if (cleanUrl.endsWith('.gif')) return 'image/gif';
+            if (cleanUrl.endsWith('.webp')) return 'image/webp';
+            return 'image/png';
+        }
+
+        function loadImageElementAsDataUrl(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.naturalWidth || img.width;
+                        canvas.height = img.naturalHeight || img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        resolve(canvas.toDataURL(getMimeTypeFromImageUrl(url)));
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                img.onerror = () => reject(new Error(`图片加载失败: ${url}`));
+                img.src = url;
+            });
+        }
 
         async function loadImageUrlAsDataUrl(url) {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`图片加载失败: ${url}`);
-            const blob = await response.blob();
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`图片加载失败: ${url}`);
+                const blob = await response.blob();
+                return await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            } catch (err) {
+                console.warn('fetch 读取图片失败，尝试用图片元素读取:', err);
+                return loadImageElementAsDataUrl(url);
+            }
         }
 
         async function ensureDefaultProductImagesForCopy() {
@@ -2102,6 +2140,19 @@
                 } catch (fallbackErr) {
                     console.warn('默认商品卡片图片内嵌失败，将回退为链接:', fallbackErr);
                 }
+            }
+        }
+
+        async function ensureLocalFixedImagesForCopy() {
+            if (localFixedImageDataUrls.footer) {
+                return;
+            }
+
+            try {
+                localFixedImageDataUrls.footer = await loadImageUrlAsDataUrl(githubImages.footer);
+            } catch (err) {
+                console.warn('本地 footer.png 内嵌失败，将回退为微信素材链接:', err);
+                showStatus('footer.png 读取失败，将使用旧素材链接', 'warning');
             }
         }
 
@@ -2257,7 +2308,7 @@
         function replaceImageLinks(html, useWechatLinks) {
             const sourceMap = useWechatLinks ? githubImages : wechatImages;
             const targetMap = useWechatLinks ? wechatImages : githubImages;
-            const skipKeys = useWechatLinks ? new Set(['productCardQr', 'productCardBanner']) : new Set();
+            const skipKeys = useWechatLinks ? new Set(['productCardQr', 'productCardBanner', 'footer']) : new Set();
             
             let result = html;
             for (const key in sourceMap) {
@@ -2265,6 +2316,11 @@
                 if (sourceMap[key] !== targetMap[key]) {
                     result = result.split(sourceMap[key]).join(targetMap[key]);
                 }
+            }
+
+            if (useWechatLinks) {
+                const footerTarget = localFixedImageDataUrls.footer || wechatImages.footer;
+                result = result.split(githubImages.footer).join(footerTarget);
             }
             
             // 复制到微信时，替换上传图片的 GitHub 链接为实际 dataURL
@@ -2403,6 +2459,10 @@ function processTextSpacing(text) {
 
             // 破折号两侧加空格
             text = text.replace(/\s*——\s*/g, ' —— ');
+
+            // 数字后的加号属于数量表达，例如「50+ 商家」；文字连接符两侧加空格，例如「暴晒 + 闷热」
+            text = text.replace(REGEX_PATTERNS.numberPlusBeforeText, '$1+ ');
+            text = text.replace(REGEX_PATTERNS.plusBetweenText, '$1 + ');
 
             // 斜杠两侧加空格（仅对普通文字，不处理已保护的 URL 和行内代码）
             text = text.replace(/\s*\/\s*/g, ' / ');
@@ -2613,7 +2673,7 @@ function processTextSpacing(text) {
             </section>`;
         }
 
-        function generateSideBySideImagesHTML(images, replaceGifWithPlaceholder = false) {
+        function generateSideBySideImagesHTML(images, replaceGifWithPlaceholder = false, withPersonalFrame = false) {
             const count = images.length;
             const cellWidth = count === 3 ? '33.3333%' : '50%';
             const cellPadding = count === 3 ? '0 3px' : '0 4px';
@@ -2634,7 +2694,11 @@ function processTextSpacing(text) {
                     <img data-src="${img.dataUrl}" class="rich_pages wxw-img" style="display: block; width: 100% !important; height: auto !important; visibility: visible !important; margin: 0 !important; padding: 0 !important;" src="${img.dataUrl}" alt="${img.alt}" ${getWeChatAdaptiveImageAttrs(img)}>
                 </td>`;
             }).join('');
-            return `<table style="width: 100%; table-layout: fixed; border: 0; border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0;"><tbody><tr>${cells}</tr></tbody></table>`;
+            const tableHTML = `<table style="width: 100%; table-layout: fixed; border: 0; border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0;"><tbody><tr>${cells}</tr></tbody></table>`;
+            if (!withPersonalFrame) {
+                return tableHTML;
+            }
+            return `<section class="personal-mode-image-group" style="width: 100% !important; border: 2px dashed rgb(192, 204, 92); padding: 8px; background: #ffffff; box-sizing: border-box; visibility: visible !important; margin: 0;">${tableHTML}</section>`;
         }
 
         function processInlineFormatting(text, skipWrapper = false) {
@@ -3143,7 +3207,7 @@ function processTextSpacing(text) {
                         return `<section style="text-align: center; margin: 0; padding: 0;"><img data-src="${block.dataUrl}" class="rich_pages wxw-img" style="${imageStyle}" src="${block.dataUrl}" alt="${block.alt}" ${adaptiveAttrs}>${captionHTML}</section>`;
                     }
                     case 'side-by-side-images': {
-                        return generateSideBySideImagesHTML(block.images, false);
+                        return generateSideBySideImagesHTML(block.images, false, isPersonalMode);
                     }
                     case 'image-placeholder': {
                         return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed rgb(192, 204, 92); margin: 10px 0; color: #999; font-size: 14px;">
@@ -3802,7 +3866,7 @@ function processTextSpacing(text) {
                         return `<section style="text-align: center; margin: 0; padding: 0;"><img data-src="${block.dataUrl}" class="rich_pages wxw-img" style="${imageStyle}" src="${block.dataUrl}" alt="${block.alt}" ${adaptiveAttrs}>${captionHTML}</section>`;
                     }
                     case 'side-by-side-images': {
-                        return generateSideBySideImagesHTML(block.images, true);
+                        return generateSideBySideImagesHTML(block.images, true, isPersonalMode);
                     }
                     case 'image-placeholder': {
                         return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed rgb(192, 204, 92); margin: 10px 0; color: #999; font-size: 14px;">
@@ -4202,6 +4266,7 @@ function processTextSpacing(text) {
          */
         async function copyToClipboard() {
             await ensureDefaultProductImagesForCopy();
+            await ensureLocalFixedImagesForCopy();
 
             // 先压缩需要压缩的图片
             const filenames = Object.keys(uploadedImages);
