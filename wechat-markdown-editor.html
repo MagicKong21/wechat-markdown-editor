@@ -411,13 +411,25 @@
             margin: 0 !important;
             padding: 0;
             line-height: 1.4;
-            color: #d6d6d6;
+            color: #888888;
             font-size: 12px;
         }
         
         .wx-article .footer-img {
             text-align: center;
-            margin: 10px 0 !important;
+            margin: 4px 0 !important;
+            line-height: 0;
+        }
+
+        .wx-article .footer-jump-image {
+            margin: 4px 0 !important;
+            font-size: 0;
+            line-height: 0;
+        }
+
+        .wx-article .footer-jump-image .ProseMirror-separator,
+        .wx-article .footer-jump-image .ProseMirror-trailingBreak {
+            display: none !important;
         }
         
         .wx-article .footer-text {
@@ -1253,6 +1265,9 @@
             <div class="controls">
                 <button class="btn btn-primary" id="copy-btn">
                     <i class="fas fa-copy"></i> 复制预览内容
+                </button>
+                <button class="btn btn-secondary" id="copy-body-btn">
+                    <i class="fas fa-file-lines"></i> 仅复制正文
                 </button>
                 <button class="btn btn-secondary" id="clear-btn">
                     <i class="fas fa-broom"></i> 清空标记符
@@ -2715,10 +2730,13 @@
                 </section>
             </section>
         </section>
-        <hr class="divider" style="border-style: solid;border-width: 1px 0 0;border-color: rgba(0,0,0,0.1);-webkit-transform-origin: 0 0;-webkit-transform: scale(1, 0.5);transform-origin: 0 0;transform: scale(1, 0.5);margin: 0 0 10px 0 !important;">
-        <p class="footer-ad" style="text-align: right;text-indent: 0em;margin: 0;padding: 0;line-height: 1.4;color: #d6d6d6;font-size: 12px;">
-            <span leaf="" style="font-family: monospace;font-size: 12px;letter-spacing: 0.578px;color: #d6d6d6;">&lt;广告&gt;</span>
+        <p class="footer-ad" style="text-align: right;text-indent: 0em;margin: 0;padding: 0;line-height: 1.4;color: #888888;font-size: 12px;">
+            <span leaf="" style="font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif;font-size: 12px;letter-spacing: 0.578px;color: #888888;">广告</span>
         </p>
+        <hr class="divider" style="border-style: solid;border-width: 1px 0 0;border-color: rgba(0,0,0,0.1);-webkit-transform-origin: 0 0;-webkit-transform: scale(1, 0.5);transform-origin: 0 0;transform: scale(1, 0.5);margin: 0 0 10px 0 !important;">
+        <section class="footer-jump-image" style="margin: 10px 0 !important;text-align: center;" nodeleaf="">
+            <span class="js_jump_icon h5_image_link"><img src="https://mmbiz.qpic.cn/mmbiz_png/ib4HLZ26hYAppNtEuoQibjjY81o42hziaibZzHqMTiaGmia8KODOeTwqprqzZ31QmQ4DiagftLqiav62hIZkTsmtajoLIMr1vmuMSEic3xJ6Guu6GX0I/640?wx_fmt=png&amp;from=appmsg&amp;tp=webp&amp;wxfrom=5&amp;wx_lazy=1#imgIndex=18" data-src="https://mmbiz.qpic.cn/mmbiz_png/ib4HLZ26hYAppNtEuoQibjjY81o42hziaibZzHqMTiaGmia8KODOeTwqprqzZ31QmQ4DiagftLqiav62hIZkTsmtajoLIMr1vmuMSEic3xJ6Guu6GX0I/640?wx_fmt=png&amp;from=appmsg#imgIndex=18" alt="图片" class="rich_pages wxw-img" data-ratio="0.425" data-s="300,640" data-type="png" data-w="1080" style="margin: 0px; padding: 0px; box-sizing: border-box; font-family: &quot;PingFang SC&quot;, -apple-system, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; width: 100% !important; height: auto !important; visibility: visible !important;" type="block" data-backw="578" data-backh="245" data-imgfileid="100092243" data-imgqrcoded="1" data-aistatus="1" contenteditable="false"><img class="ProseMirror-separator" alt=""><br class="ProseMirror-trailingBreak"></span>
+        </section>
         <section class="footer-img" style="margin: 10px 0 !important;text-align: center;" nodeleaf="">
             <img data-src="${githubImages.footer}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="0.4444444444444444" data-s="300,640" data-type="png" data-w="900" data-backw="578" data-backh="257" data-original-style="width: 100%;height: auto !important;" style="width: 100% !important; height: auto !important; visibility: visible !important;" src="${githubImages.footer}" alt="底部配图">
         </section>
@@ -2824,6 +2842,10 @@ function processTextSpacing(text) {
 
         function hasTerminalPunctuation(text) {
             return /[。；;，,\.！!？?：:]$/.test(String(text || '').trim());
+        }
+
+        function styleParentheticalNotes(text) {
+            return String(text || '').replace(/(\([^()\n]*\))/g, '<span textstyle="" style="font-size: 12px;color: #888888;letter-spacing: normal;">$1</span>');
         }
 
         /**
@@ -3041,7 +3063,7 @@ function processTextSpacing(text) {
             return `<section class="personal-mode-image-group" style="width: 100% !important; border: 2px dashed rgb(192, 204, 92); padding: 8px; background: #ffffff; box-sizing: border-box; visibility: visible !important; margin: 0;">${tableHTML}</section>`;
         }
 
-        function processInlineFormatting(text, skipWrapper = false) {
+        function processInlineFormatting(text, skipWrapper = false, styleNotes = false) {
             let processed = text || '';
             const inlineCodeTokens = [];
 
@@ -3056,6 +3078,9 @@ function processTextSpacing(text) {
 
             // 中英文混排加空格、中文引号转换
             processed = processTextSpacing(processed);
+            if (styleNotes) {
+                processed = styleParentheticalNotes(processed);
+            }
             
             // 先处理组合格式 ==**...**== 和 **==...==**（避免被后面的空格处理破坏）
             processed = processed.replace(/==\*\*(.+?)\*\*==/g, (match, content) => {
@@ -3137,7 +3162,7 @@ function processTextSpacing(text) {
          * @param {string} markdown - Markdown文本
          * @returns {string} 微信样式的HTML
          */
-        function markdownToWeChatHTML(markdown) {
+        function markdownToWeChatHTML(markdown, includeFixedContent = true) {
             let rawLines = markdown.split('\n');
             let contentBlocks = [];
             let inList = false;
@@ -3747,7 +3772,7 @@ function processTextSpacing(text) {
                         block.content.forEach((item, index) => {
                             const punct = hasTerminalPunctuation(item) ? '' : ((index === itemCount - 1) ? '。' : '；');
                             listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important; color: ${bodyStyle.color};"><p style="margin: 0px; text-align: ${bodyStyle.textAlign}; ${bodyStyle.textJustify} line-height: ${bodyStyle.lineHeight}; font-family: ${listFontFamily}; font-size: ${bodyStyle.fontSize}; letter-spacing: ${bodyStyle.letterSpacing}; color: ${bodyStyle.color};">
-                                    ${processInlineFormatting(item, true)}${punct}
+                                    ${processInlineFormatting(item, true, true)}${punct}
                             </p></li>`;
                         });
                         listHTML += '</ul>';
@@ -3757,7 +3782,7 @@ function processTextSpacing(text) {
                         const bodyStyle = getBodyTypographyStyle();
                         const pFontFamily = isPersonalMode ? "Optima, PingFangSC-light, 'PingFang SC', Georgia, serif" : "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
                         return `<p style="margin: ${bodyStyle.margin}; text-align: ${bodyStyle.textAlign}; ${bodyStyle.textJustify} line-height: ${bodyStyle.lineHeight}; font-family: ${pFontFamily}; font-size: ${bodyStyle.fontSize}; letter-spacing: ${bodyStyle.letterSpacing}; color: ${bodyStyle.color};">
-                            ${processInlineFormatting(block.content, true)}
+                            ${processInlineFormatting(block.content, true, true)}
                         </p>`;
                     }
                     case 'divider': {
@@ -3770,10 +3795,12 @@ function processTextSpacing(text) {
 
             // 第三步：拼接HTML并添加空行 - 根据模式选择不同的 header
             let html = '';
-            html += isPersonalMode ? personalHeaderHTML : headerImageHTML;
-            // 开头配图下方添加空行（个人模式不需要）
-            if (!isPersonalMode) {
-                html += singleBr;
+            if (includeFixedContent) {
+                html += isPersonalMode ? personalHeaderHTML : headerImageHTML;
+                // 开头配图下方添加空行（个人模式不需要）
+                if (!isPersonalMode) {
+                    html += singleBr;
+                }
             }
 
             contentBlocks.forEach((block, index) => {
@@ -3802,10 +3829,12 @@ function processTextSpacing(text) {
             });
 
             // 添加底部（根据模式选择）
-            if (isPersonalMode) {
-                html += personalFooterHTML;
-            } else {
-                html += footerHTML;
+            if (includeFixedContent) {
+                if (isPersonalMode) {
+                    html += personalFooterHTML;
+                } else {
+                    html += footerHTML;
+                }
             }
 
             return html;
@@ -3816,7 +3845,7 @@ function processTextSpacing(text) {
          * @param {string} markdown - Markdown文本
          * @returns {string} 适合微信编辑器的完整HTML
          */
-        function createWeChatFullHTML(markdown) {
+        function createWeChatFullHTML(markdown, includeFixedContent = true) {
             let rawLines = markdown.split('\n');
             let contentBlocks = [];
             let inList = false;
@@ -4376,7 +4405,7 @@ function processTextSpacing(text) {
                         block.content.forEach((item, index) => {
                             const punct = hasTerminalPunctuation(item) ? '' : ((index === itemCount - 1) ? '。' : '；');
                             listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important; color: ${bodyStyle.color};"><p style="margin: 0px; text-align: ${bodyStyle.textAlign}; ${bodyStyle.textJustify} line-height: ${bodyStyle.lineHeight}; font-family: ${listFontFamily}; font-size: ${bodyStyle.fontSize}; letter-spacing: ${bodyStyle.letterSpacing}; color: ${bodyStyle.color};">
-                                    ${processInlineFormatting(item, true)}${punct}
+                                    ${processInlineFormatting(item, true, true)}${punct}
                             </p></li>`;
                         });
                         listHTML += '</ul>';
@@ -4386,7 +4415,7 @@ function processTextSpacing(text) {
                         const bodyStyle = getBodyTypographyStyle();
                         const pFontFamily = isPersonalMode ? "Optima, PingFangSC-light, 'PingFang SC', Georgia, serif" : "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
                         return `<p style="margin: ${bodyStyle.margin}; text-align: ${bodyStyle.textAlign}; ${bodyStyle.textJustify} line-height: ${bodyStyle.lineHeight}; visibility: visible; font-family: ${pFontFamily}; font-size: ${bodyStyle.fontSize}; letter-spacing: ${bodyStyle.letterSpacing}; color: ${bodyStyle.color};">
-                            ${processInlineFormatting(block.content, true)}
+                            ${processInlineFormatting(block.content, true, true)}
                         </p>`;
                     }
                     case 'divider': {
@@ -4399,10 +4428,12 @@ function processTextSpacing(text) {
 
             // 拼接HTML - 根据模式选择不同的 header
             let html = '';
-            html += isPersonalMode ? personalHeaderHTML : headerImageHTML;
-            // 开头配图下方添加空行（个人模式不需要）
-            if (!isPersonalMode) {
-                html += singleBr;
+            if (includeFixedContent) {
+                html += isPersonalMode ? personalHeaderHTML : headerImageHTML;
+                // 开头配图下方添加空行（个人模式不需要）
+                if (!isPersonalMode) {
+                    html += singleBr;
+                }
             }
 
             contentBlocks.forEach((block, index) => {
@@ -4427,10 +4458,12 @@ function processTextSpacing(text) {
             });
 
             // 添加底部（根据模式选择）
-            if (isPersonalMode) {
-                html += personalFooterHTML;
-            } else {
-                html += footerHTML;
+            if (includeFixedContent) {
+                if (isPersonalMode) {
+                    html += personalFooterHTML;
+                } else {
+                    html += footerHTML;
+                }
             }
             
             return `<div class="rich_media_content js_underline_content defaultNoSetting fix_apple_default_style" id="js_content" style="text-size-adjust: var(--content-font-scale-percent, inherit); color: rgb(34, 34, 34); background-color: rgb(255, 255, 255);">${html}</div>`;
@@ -4440,7 +4473,7 @@ function processTextSpacing(text) {
          * 富文本复制到剪贴板
          * @param {string} html - 需要复制的HTML内容
          */
-        function copyAsRichText(html) {
+        function copyAsRichText(html, successMessage = '内容已复制到剪贴板，可直接粘贴到微信公众号编辑器！') {
             // 复制前将 GitHub 链接替换为微信链接
             const htmlForWeChat = replaceImageLinks(html, true);
             
@@ -4460,7 +4493,7 @@ function processTextSpacing(text) {
                 if (!successful) {
                     throw new Error('execCommand copy failed');
                 }
-                showStatus('内容已复制到剪贴板，可直接粘贴到微信公众号编辑器！', 'success');
+                showStatus(successMessage, 'success');
             } catch (err) {
                 // 降级使用Clipboard API
                 navigator.clipboard.write([
@@ -4469,7 +4502,7 @@ function processTextSpacing(text) {
                         'text/plain': new Blob([htmlForWeChat], { type: 'text/plain' })
                     })
                 ]).then(() => {
-                    showStatus('内容已复制到剪贴板，可直接粘贴到微信公众号编辑器！', 'success');
+                    showStatus(successMessage, 'success');
                 }).catch(err => {
                     console.error('复制失败: ', err);
                     showStatus('复制失败，请尝试手动复制右侧预览内容', 'error');
@@ -4522,6 +4555,13 @@ function processTextSpacing(text) {
         }
         
         /* ==================== 预览与复制 ==================== */
+
+        function tightenFooterPreviewSpacing() {
+            document.querySelectorAll('#wx-preview .footer-jump-image, #wx-preview .footer-img').forEach((el) => {
+                el.style.setProperty('margin', '4px 0', 'important');
+                el.style.setProperty('line-height', '0');
+            });
+        }
         
         /**
          * 防抖更新预览（避免输入时频繁更新导致卡顿）
@@ -4555,9 +4595,10 @@ function processTextSpacing(text) {
                  for (const filename of Object.keys(uploadedImages)) {
                      uploadedImages[filename].useCount = 0;
                  }
-                 const markdown = document.getElementById('markdown-input').value;
+                  const markdown = document.getElementById('markdown-input').value;
                   const html = markdownToWeChatHTML(markdown);
                   document.getElementById('wx-preview').innerHTML = html;
+                  tightenFooterPreviewSpacing();
 
                   // 个人模式：设置背景色
                   const previewContent = document.getElementById('preview-content');
@@ -4601,9 +4642,11 @@ function processTextSpacing(text) {
         /**
          * 复制内容到剪贴板（复制时压缩图片）
          */
-        async function copyToClipboard() {
+        async function copyToClipboard(includeFixedContent = true) {
             await ensureDefaultProductImagesForCopy();
-            await ensureLocalFixedImagesForCopy();
+            if (includeFixedContent) {
+                await ensureLocalFixedImagesForCopy();
+            }
 
             // 先压缩需要压缩的图片
             const filenames = Object.keys(uploadedImages);
@@ -4632,8 +4675,15 @@ function processTextSpacing(text) {
 
             // 复制
             const markdown = document.getElementById('markdown-input').value;
-            const fullHTML = createWeChatFullHTML(markdown);
-            copyAsRichText(fullHTML);
+            const fullHTML = createWeChatFullHTML(markdown, includeFixedContent);
+            const successMessage = includeFixedContent
+                ? '内容已复制到剪贴板，可直接粘贴到微信公众号编辑器！'
+                : '正文已复制到剪贴板，不包含文头文末固定内容！';
+            copyAsRichText(fullHTML, successMessage);
+        }
+
+        async function copyBodyToClipboard() {
+            await copyToClipboard(false);
         }
 
         /**
@@ -4910,7 +4960,8 @@ curl -fsSL https://example.com/install.sh | bash
             document.getElementById('markdown-input').addEventListener('input', function() {
                 debouncedUpdatePreview();
             });
-            document.getElementById('copy-btn').addEventListener('click', copyToClipboard);
+            document.getElementById('copy-btn').addEventListener('click', () => copyToClipboard(true));
+            document.getElementById('copy-body-btn').addEventListener('click', copyBodyToClipboard);
             document.getElementById('clear-btn').addEventListener('click', clearEditor);
             document.getElementById('example-btn').addEventListener('click', loadExample);
             document.getElementById('update-taokouling-btn').addEventListener('click', updateTaokouling);
