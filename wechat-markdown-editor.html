@@ -160,11 +160,6 @@
             flex-direction: column;
         }
 
-        .editor-container.typography-open {
-            overflow: visible;
-            z-index: 30;
-        }
-        
         /* 面板头部 */
         .panel-header {
             flex-shrink: 0;
@@ -508,7 +503,7 @@
             background:
                 linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.055)),
                 rgba(14, 17, 26, 0.94);
-            box-shadow: var(--shadow-float);
+            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
             backdrop-filter: blur(22px) saturate(1.15);
             opacity: 0;
             visibility: hidden;
@@ -942,11 +937,82 @@
             color: white !important;
         }
 
+        .more-actions {
+            position: relative;
+            margin-left: auto;
+            z-index: 40;
+        }
+
+        .more-actions-menu {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            width: max-content;
+            min-width: 0;
+            padding: 4px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-strong);
+            background:
+                linear-gradient(180deg, rgba(41, 45, 54, 0.98), rgba(26, 29, 36, 0.98));
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.30);
+            backdrop-filter: blur(18px) saturate(1.1);
+            opacity: 0;
+            transform: translateY(-4px) scale(0.98);
+            pointer-events: none;
+            transition: opacity 0.16s ease, transform 0.16s ease;
+        }
+
+        .more-actions.open .more-actions-menu {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+
+        .more-actions-menu button {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 10px;
+            border: 0;
+            border-radius: var(--radius-sm);
+            background: transparent;
+            color: #f3f6ff;
+            font-size: 12px;
+            line-height: 1.35;
+            font-weight: 700;
+            text-align: left;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .more-actions-menu button:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .more-actions-menu i {
+            width: 14px;
+            color: rgba(243, 246, 255, 0.82);
+        }
+
         #update-taokouling-btn {
             background:
                 linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.06)),
                 rgba(255, 255, 255, 0.04) !important;
             color: white !important;
+        }
+
+        .more-actions-menu #example-btn,
+        .more-actions-menu #clear-btn,
+        .more-actions-menu #update-taokouling-btn {
+            background: transparent !important;
+            color: #f3f6ff !important;
+        }
+
+        .more-actions-menu #example-btn:hover,
+        .more-actions-menu #clear-btn:hover,
+        .more-actions-menu #update-taokouling-btn:hover {
+            background: rgba(255, 255, 255, 0.08) !important;
         }
 
         #image-upload-trigger,
@@ -1254,12 +1320,25 @@
             <div class="panel-header">
                 <i class="fas fa-edit"></i>
                 <h2>Markdown 编辑区</h2>
-                <button class="btn btn-sm" id="example-btn" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; margin-left: auto;">
-                    <i class="fas fa-file-alt"></i> 加载示例
-                </button>
+                <div class="more-actions" id="more-actions">
+                    <button class="btn btn-sm" id="more-actions-btn" type="button" aria-expanded="false" aria-haspopup="menu">
+                        <i class="fas fa-ellipsis-h"></i> 更多功能
+                    </button>
+                    <div class="more-actions-menu" id="more-actions-menu" role="menu">
+                        <button type="button" id="example-btn" role="menuitem">
+                            <i class="fas fa-file-alt"></i> 加载示例
+                        </button>
+                        <button type="button" id="clear-btn" role="menuitem">
+                            <i class="fas fa-broom"></i> 清空标记符
+                        </button>
+                        <button type="button" id="update-taokouling-btn" role="menuitem">
+                            <i class="fas fa-key"></i> 更新淘口令
+                        </button>
+                    </div>
+                </div>
             </div>
             <div class="panel-content">
-                <textarea id="markdown-input" placeholder="在这里输入 Markdown 文本...（点击右上角「加载示例」查看示例）"></textarea>
+                <textarea id="markdown-input" placeholder="在这里输入 Markdown 文本...（点击右上角「更多功能」可加载示例）"></textarea>
             </div>
             <!-- ==================== 控制按钮区 ==================== -->
             <div class="controls">
@@ -1268,12 +1347,6 @@
                 </button>
                 <button class="btn btn-secondary" id="copy-body-btn">
                     <i class="fas fa-file-lines"></i> 仅复制正文
-                </button>
-                <button class="btn btn-secondary" id="clear-btn">
-                    <i class="fas fa-broom"></i> 清空标记符
-                </button>
-                <button class="btn" id="update-taokouling-btn" style="background: linear-gradient(135deg, #34a853, #2e9549); color: white;">
-                    <i class="fas fa-key"></i> 更新淘口令
                 </button>
                 <div class="image-upload-area">
                     <input type="file" id="image-upload" class="image-upload-input" multiple accept="image/*,.heic,.heif">
@@ -1397,10 +1470,10 @@
         const uploadedImages = {};
         let totalUploadedImageBytes = 0;
 
-        // 图片压缩配置
+        // 图片复制前尺寸处理配置
         const CompressionConfig = {
-            maxWidth: 1080,  // 公众号正文显示宽度有限，复制时不需要保留过大的图片
-            webpQuality: 0.82,
+            maxWidth: 1200,  // 复制前只限制横向像素，避免超大图导致粘贴失败
+            jpegResizeQuality: 0.96,
             gifSizeWarning: 6 * 1024 * 1024 // GIF 超过 6MB 提醒
         };
 
@@ -1956,37 +2029,55 @@
         /* ==================== 图片批量操作 ==================== */
 
         /**
-         * 压缩单张图片用于复制（不修改存储的原图）
+         * 调整单张图片尺寸用于复制（不改格式、不做主动压缩）
          * @param {string} dataUrl - 原始图片的 dataUrl
-         * @returns {Promise<string>} 压缩后的 dataUrl
+         * @returns {Promise<string>} 调整尺寸后的 dataUrl
          */
         async function compressImageForCopy(dataUrl, returnMeta = false) {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
-                    let { width, height } = img;
-                    if (width > CompressionConfig.maxWidth) {
-                        height = Math.round((height * CompressionConfig.maxWidth) / width);
-                        width = CompressionConfig.maxWidth;
+                    const sourceMimeType = (dataUrl.match(/^data:([^;]+);/) || [])[1] || '';
+                    if (img.width <= CompressionConfig.maxWidth) {
+                        if (returnMeta) {
+                            resolve({
+                                dataUrl,
+                                width: img.width,
+                                height: img.height,
+                                mimeType: sourceMimeType
+                            });
+                            return;
+                        }
+                        resolve(dataUrl);
+                        return;
                     }
 
-                    const canvas = document.createElement('canvas');
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
+                    let { width, height } = img;
+                    height = Math.round((height * CompressionConfig.maxWidth) / width);
+                    width = CompressionConfig.maxWidth;
 
-                    const compressedDataUrl = canvas.toDataURL('image/webp', CompressionConfig.webpQuality);
+                    const outputCanvas = document.createElement('canvas');
+                    outputCanvas.width = width;
+                    outputCanvas.height = height;
+                    const outputCtx = outputCanvas.getContext('2d');
+                    outputCtx.drawImage(img, 0, 0, width, height);
+
+                    const outputMimeType = sourceMimeType === 'image/jpeg' || sourceMimeType === 'image/png' || sourceMimeType === 'image/webp'
+                        ? sourceMimeType
+                        : 'image/png';
+                    const resizedDataUrl = outputMimeType === 'image/jpeg'
+                        ? outputCanvas.toDataURL(outputMimeType, CompressionConfig.jpegResizeQuality)
+                        : outputCanvas.toDataURL(outputMimeType);
                     if (returnMeta) {
                         resolve({
-                            dataUrl: compressedDataUrl,
+                            dataUrl: resizedDataUrl,
                             width,
                             height,
-                            mimeType: 'image/webp'
+                            mimeType: outputMimeType
                         });
                         return;
                     }
-                    resolve(compressedDataUrl);
+                    resolve(resizedDataUrl);
                 };
                 img.onerror = () => {
                     if (returnMeta) {
@@ -2414,7 +2505,8 @@
             banner: embeddedProductCardBannerDataUrl
         };
         const localFixedImageDataUrls = {
-            footer: ''
+            footer: '',
+            coverImage: ''
         };
 
         function getMimeTypeFromImageUrl(url) {
@@ -2490,15 +2582,26 @@
         }
 
         async function ensureLocalFixedImagesForCopy() {
-            if (localFixedImageDataUrls.footer) {
+            if (localFixedImageDataUrls.footer && localFixedImageDataUrls.coverImage) {
                 return;
             }
 
-            try {
-                localFixedImageDataUrls.footer = await loadImageUrlAsDataUrl(githubImages.footer);
-            } catch (err) {
-                console.warn('本地 footer.png 内嵌失败，将回退为微信素材链接:', err);
-                showStatus('footer.png 读取失败，将使用旧素材链接', 'warning');
+            if (!localFixedImageDataUrls.footer) {
+                try {
+                    localFixedImageDataUrls.footer = await loadImageUrlAsDataUrl(githubImages.footer);
+                } catch (err) {
+                    console.warn('本地 footer.png 内嵌失败，将回退为微信素材链接:', err);
+                    showStatus('footer.png 读取失败，将使用旧素材链接', 'warning');
+                }
+            }
+
+            if (!localFixedImageDataUrls.coverImage) {
+                try {
+                    localFixedImageDataUrls.coverImage = await loadImageUrlAsDataUrl(githubImages.coverImage);
+                } catch (err) {
+                    console.warn('本地 cover-image.png 内嵌失败，将回退为微信素材链接:', err);
+                    showStatus('cover-image.png 读取失败，将使用旧素材链接', 'warning');
+                }
             }
         }
 
@@ -2628,6 +2731,7 @@
             title7: localAsset('title7.png'),
             title8: localAsset('title8.png'),
             title9: localAsset('title9.png'),
+            coverImage: localAsset('cover-image.png'),
             productCardQr: localAsset('product-card-qr.png'),
             productCardBanner: localAsset('product-card-banner.png')
         };
@@ -2646,6 +2750,7 @@
             title7: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0IYdQyRticDTyn7QuDBchIMx33ELCBicLXGC4c4USdqL3Q0aUMuw3lhkQ/640?wx_fmt=png',
             title8: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JAeYJcv3OmLWcVbSVWu5HZbuuicibu0JkRbo788pnRMSiav6ZZJh9JR1kpcYuTDrweFNciaLcoF8TA7nw/640?wx_fmt=png&from=appmsg',
             title9: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JAeYJcv3OmLWcVbSVWu5HZbSb2hian4bSbKLpHZgKMZOwKVibxZgXLRg1MnHKNMzbrgwnlEMKYSX5Eg/640?wx_fmt=png&from=appmsg',
+            coverImage: 'https://mmbiz.qpic.cn/mmbiz_png/ib4HLZ26hYAppNtEuoQibjjY81o42hziaibZzHqMTiaGmia8KODOeTwqprqzZ31QmQ4DiagftLqiav62hIZkTsmtajoLIMr1vmuMSEic3xJ6Guu6GX0I/640?wx_fmt=png&from=appmsg',
             productCardQr: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JDLG2ASQGKbzL7oic13nv5BqDTyr8QD1RUfxC3xKABWBqJiaHWsJ4qxZCetAvFjKHeOF5tBKIibqeO1w/640?wx_fmt=png&from=appmsg',
             productCardBanner: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JCsIq0DsbGmkcwL1OdAzHGJcHBUdGMposOdVnpibC9MVLHEpHEG4kNyUnrcYk0Q9nTWTzmiaAwY3zjA/640?wx_fmt=png&from=appmsg'
         };
@@ -2654,7 +2759,7 @@
         function replaceImageLinks(html, useWechatLinks) {
             const sourceMap = useWechatLinks ? githubImages : wechatImages;
             const targetMap = useWechatLinks ? wechatImages : githubImages;
-            const skipKeys = useWechatLinks ? new Set(['productCardQr', 'productCardBanner', 'footer']) : new Set();
+            const skipKeys = useWechatLinks ? new Set(['productCardQr', 'productCardBanner', 'footer', 'coverImage']) : new Set();
             
             let result = html;
             for (const key in sourceMap) {
@@ -2666,7 +2771,9 @@
 
             if (useWechatLinks) {
                 const footerTarget = localFixedImageDataUrls.footer || wechatImages.footer;
+                const coverImageTarget = localFixedImageDataUrls.coverImage || wechatImages.coverImage;
                 result = result.split(githubImages.footer).join(footerTarget);
+                result = result.split(githubImages.coverImage).join(coverImageTarget);
             }
             
             // 复制到微信时，替换上传图片的 GitHub 链接为实际 dataURL
@@ -2735,7 +2842,7 @@
         </p>
         <hr class="divider" style="border-style: solid;border-width: 1px 0 0;border-color: rgba(0,0,0,0.1);-webkit-transform-origin: 0 0;-webkit-transform: scale(1, 0.5);transform-origin: 0 0;transform: scale(1, 0.5);margin: 0 0 10px 0 !important;">
         <section class="footer-jump-image" style="margin: 10px 0 !important;text-align: center;" nodeleaf="">
-            <span class="js_jump_icon h5_image_link"><img src="https://mmbiz.qpic.cn/mmbiz_png/ib4HLZ26hYAppNtEuoQibjjY81o42hziaibZzHqMTiaGmia8KODOeTwqprqzZ31QmQ4DiagftLqiav62hIZkTsmtajoLIMr1vmuMSEic3xJ6Guu6GX0I/640?wx_fmt=png&amp;from=appmsg&amp;tp=webp&amp;wxfrom=5&amp;wx_lazy=1#imgIndex=18" data-src="https://mmbiz.qpic.cn/mmbiz_png/ib4HLZ26hYAppNtEuoQibjjY81o42hziaibZzHqMTiaGmia8KODOeTwqprqzZ31QmQ4DiagftLqiav62hIZkTsmtajoLIMr1vmuMSEic3xJ6Guu6GX0I/640?wx_fmt=png&amp;from=appmsg#imgIndex=18" alt="图片" class="rich_pages wxw-img" data-ratio="0.425" data-s="300,640" data-type="png" data-w="1080" style="margin: 0px; padding: 0px; box-sizing: border-box; font-family: &quot;PingFang SC&quot;, -apple-system, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; width: 100% !important; height: auto !important; visibility: visible !important;" type="block" data-backw="578" data-backh="245" data-imgfileid="100092243" data-imgqrcoded="1" data-aistatus="1" contenteditable="false"><img class="ProseMirror-separator" alt=""><br class="ProseMirror-trailingBreak"></span>
+            <span class="js_jump_icon h5_image_link"><img src="${githubImages.coverImage}" data-src="${githubImages.coverImage}" alt="图片" class="rich_pages wxw-img" data-ratio="0.425" data-s="300,640" data-type="png" data-w="1080" style="margin: 0px; padding: 0px; box-sizing: border-box; font-family: &quot;PingFang SC&quot;, -apple-system, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; width: 100% !important; height: auto !important; visibility: visible !important;" type="block" data-backw="578" data-backh="245" data-imgfileid="100092243" data-imgqrcoded="1" data-aistatus="1" contenteditable="false"><img class="ProseMirror-separator" alt=""><br class="ProseMirror-trailingBreak"></span>
         </section>
         <section class="footer-img" style="margin: 10px 0 !important;text-align: center;" nodeleaf="">
             <img data-src="${githubImages.footer}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="0.4444444444444444" data-s="300,640" data-type="png" data-w="900" data-backw="578" data-backh="257" data-original-style="width: 100%;height: auto !important;" style="width: 100% !important; height: auto !important; visibility: visible !important;" src="${githubImages.footer}" alt="底部配图">
@@ -4640,7 +4747,7 @@ function processTextSpacing(text) {
         }
 
         /**
-         * 复制内容到剪贴板（复制时压缩图片）
+         * 复制内容到剪贴板（复制前限制图片尺寸）
          */
         async function copyToClipboard(includeFixedContent = true) {
             await ensureDefaultProductImagesForCopy();
@@ -4648,28 +4755,28 @@ function processTextSpacing(text) {
                 await ensureLocalFixedImagesForCopy();
             }
 
-            // 先压缩需要压缩的图片
+            // 先调整需要处理的图片尺寸
             const filenames = Object.keys(uploadedImages);
-            let compressed = 0;
+            let processed = 0;
             const total = filenames.length;
 
             for (const filename of filenames) {
                 const img = uploadedImages[filename];
-                // QR替换过的图片或GIF不压缩
+                // QR替换过的图片或GIF不处理
                 if (img.qrReplaced || img.displayName.toLowerCase().endsWith('.gif')) {
-                    compressed++;
+                    processed++;
                     continue;
                 }
-                // 压缩图片并更新 displayDataUrl
-                const compressedImage = await compressImageForCopy(img.originalDataUrl, true);
-                img.displayDataUrl = compressedImage.dataUrl;
-                if (compressedImage.width && compressedImage.height) {
-                    img.width = compressedImage.width;
-                    img.height = compressedImage.height;
-                    img.mimeType = compressedImage.mimeType;
+                // 仅限制图片尺寸并更新 displayDataUrl
+                const processedImage = await compressImageForCopy(img.originalDataUrl, true);
+                img.displayDataUrl = processedImage.dataUrl;
+                if (processedImage.width && processedImage.height) {
+                    img.width = processedImage.width;
+                    img.height = processedImage.height;
+                    img.mimeType = processedImage.mimeType;
                 }
-                compressed++;
-                const progress = Math.round((compressed / total) * 100);
+                processed++;
+                const progress = Math.round((processed / total) * 100);
                 showStatus(`正在处理图片：${progress}%`, 'info');
             }
 
@@ -4965,14 +5072,26 @@ curl -fsSL https://example.com/install.sh | bash
             document.getElementById('clear-btn').addEventListener('click', clearEditor);
             document.getElementById('example-btn').addEventListener('click', loadExample);
             document.getElementById('update-taokouling-btn').addEventListener('click', updateTaokouling);
+            const moreActions = document.getElementById('more-actions');
+            const moreActionsBtn = document.getElementById('more-actions-btn');
+            moreActionsBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const isOpen = moreActions.classList.toggle('open');
+                moreActionsBtn.setAttribute('aria-expanded', String(isOpen));
+            });
+            document.getElementById('more-actions-menu').addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (e.target.closest('button')) {
+                    moreActions.classList.remove('open');
+                    moreActionsBtn.setAttribute('aria-expanded', 'false');
+                }
+            });
             updateTypographyControls();
             const typographyTrigger = document.getElementById('typography-trigger');
             const typographyPopover = document.getElementById('typography-popover');
-            const editorContainer = document.querySelector('.editor-container');
             typographyTrigger.addEventListener('click', function(e) {
                 e.stopPropagation();
                 const isOpen = typographyPopover.classList.toggle('is-open');
-                editorContainer.classList.toggle('typography-open', isOpen);
                 typographyTrigger.setAttribute('aria-expanded', String(isOpen));
             });
             typographyPopover.addEventListener('click', function(e) {
@@ -5003,8 +5122,9 @@ curl -fsSL https://example.com/install.sh | bash
             });
             document.addEventListener('click', function() {
                 typographyPopover.classList.remove('is-open');
-                editorContainer.classList.remove('typography-open');
                 typographyTrigger.setAttribute('aria-expanded', 'false');
+                moreActions.classList.remove('open');
+                moreActionsBtn.setAttribute('aria-expanded', 'false');
             });
             document.getElementById('personal-mode-btn').addEventListener('click', function() {
                 isPersonalMode = !isPersonalMode;
