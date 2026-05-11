@@ -3917,7 +3917,8 @@ function processTextSpacing(text) {
                 // 添加前置空行（特殊处理：图片和说明文本之间不加空行）
                 if (index > 0) {
                     const prevBlock = contentBlocks[index - 1];
-                    const isCaptionNoteAfterImage = block.type === 'caption-note' && prevBlock.type === 'referenced-image';
+                    const isCaptionNoteAfterImage = block.type === 'caption-note'
+                        && ['referenced-image', 'side-by-side-images', 'image-placeholder'].includes(prevBlock.type);
                     
                     if (isCaptionNoteAfterImage) {
                         // 图片和说明文本之间不加空行
@@ -4550,7 +4551,8 @@ function processTextSpacing(text) {
                 // 添加前置空行（特殊处理：图片和说明文本之间不加空行）
                 if (index > 0) {
                     const prevBlock = contentBlocks[index - 1];
-                    const isCaptionNoteAfterImage = block.type === 'caption-note' && prevBlock.type === 'referenced-image';
+                    const isCaptionNoteAfterImage = block.type === 'caption-note'
+                        && ['referenced-image', 'side-by-side-images', 'image-placeholder'].includes(prevBlock.type);
                     
                     if (isCaptionNoteAfterImage) {
                         // 图片和说明文本之间不加空行
