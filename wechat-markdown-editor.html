@@ -401,12 +401,18 @@
         
         /* 底部样式 */
         .wx-article .footer-disclosure-line {
+            display: block;
             width: 100%;
             box-sizing: border-box;
+            text-align: right;
+            text-indent: 0em;
             margin: 0 !important;
-            border-collapse: collapse;
-            border-spacing: 0;
-            table-layout: fixed;
+            padding: 0 0 2px 0;
+            height: 20px;
+            line-height: 18px;
+            color: #888888;
+            font-size: 12px;
+            overflow: visible;
         }
         
         .wx-article .footer-img {
@@ -2836,15 +2842,9 @@
                 </section>
             </section>
         </section>
-        <table class="footer-disclosure-line" style="width: 100%;box-sizing: border-box;border-collapse: collapse;border-spacing: 0;table-layout: fixed;margin: 0 !important;padding: 0;" role="presentation">
-            <tbody>
-                <tr style="margin: 0;padding: 0;">
-                    <td style="margin: 0;padding: 0 0 2px 0;height: 20px;line-height: 18px;text-align: right;vertical-align: bottom;color: #888888;font-size: 12px;font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif;letter-spacing: 0.578px;white-space: nowrap;" align="right">
-                        <span leaf="" style="display: inline;color: #888888;font-size: 12px;line-height: 18px;">广告</span>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+        <section class="footer-disclosure-line" style="display: block;width: 100%;box-sizing: border-box;text-align: right;text-indent: 0em;margin: 0 !important;padding: 0 0 2px 0;height: 20px;line-height: 18px;color: #888888;font-size: 12px;overflow: visible;">
+            <span leaf="" style="display: inline-block;font-family: mp-quote, &quot;PingFang SC&quot;, -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif;font-size: 12px;line-height: 18px;letter-spacing: 0.578px;color: #888888;white-space: nowrap;">广告</span>
+        </section>
         <hr class="divider" style="border-style: solid;border-width: 1px 0 0;border-color: rgba(0,0,0,0.1);-webkit-transform-origin: 0 0;-webkit-transform: scale(1, 0.5);transform-origin: 0 0;transform: scale(1, 0.5);margin: 0 0 10px 0 !important;">
         <section class="footer-jump-image" style="margin: 10px 0 !important;text-align: center;" nodeleaf="">
             <span class="js_jump_icon h5_image_link"><img src="${githubImages.coverImage}" data-src="${githubImages.coverImage}" alt="图片" class="rich_pages wxw-img" data-ratio="0.425" data-s="300,640" data-type="png" data-w="1080" style="margin: 0px; padding: 0px; box-sizing: border-box; font-family: &quot;PingFang SC&quot;, -apple-system, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; width: 100% !important; height: auto !important; visibility: visible !important;" type="block" data-backw="578" data-backh="245" data-imgfileid="100092243" data-imgqrcoded="1" data-aistatus="1" contenteditable="false"><img class="ProseMirror-separator" alt=""><br class="ProseMirror-trailingBreak"></span>
