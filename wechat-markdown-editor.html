@@ -1009,14 +1009,16 @@
 
         .more-actions-menu #example-btn,
         .more-actions-menu #clear-btn,
-        .more-actions-menu #update-taokouling-btn {
+        .more-actions-menu #update-taokouling-btn,
+        .more-actions-menu #custom-tracking-btn {
             background: transparent !important;
             color: #f3f6ff !important;
         }
 
         .more-actions-menu #example-btn:hover,
         .more-actions-menu #clear-btn:hover,
-        .more-actions-menu #update-taokouling-btn:hover {
+        .more-actions-menu #update-taokouling-btn:hover,
+        .more-actions-menu #custom-tracking-btn:hover {
             background: rgba(255, 255, 255, 0.08) !important;
         }
 
@@ -1339,6 +1341,9 @@
                         <button type="button" id="update-taokouling-btn" role="menuitem">
                             <i class="fas fa-key"></i> 更新淘口令
                         </button>
+                        <button type="button" id="custom-tracking-btn" role="menuitem">
+                            <i class="fas fa-link"></i> 自定义跟踪参数
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1440,7 +1445,7 @@
             <span>已上传图片</span>
         </button>
         <h4>
-            <span class="image-preview-title">已上传图片 <span style="font-size: 12px; color: #999; font-weight: normal;">(自动为商品卡片添加日期参数)</span></span>
+            <span class="image-preview-title">已上传图片 <span style="font-size: 12px; color: #999; font-weight: normal;">(自动重写商品卡片二维码)</span></span>
             <button id="image-panel-toggle" class="image-panel-toggle" title="收起到侧边栏">
                 <i class="fas fa-chevron-right"></i>
             </button>
@@ -1484,6 +1489,11 @@
 
         // 当前淘口令（用于商品卡片展示）
         let currentTaoKouLing = localStorage.getItem('currentTaoKouLing') || '77《Dnd3UYMQhCh✔ https://s.tb.cn/h.77yL1DE &nbsp;CZ001';
+
+        // 商品二维码跟踪参数（只填写问号后面的部分，支持 {stamp}=pYYMMDD、{date}=YYYYMMDD）
+        const DEFAULT_TRACKING_PARAMS_TEMPLATE = 'cid=53qvofdc&hmsr=wechat&hmpl={stamp}';
+        const TRACKING_PARAMS_STORAGE_KEY = 'productQrTrackingParamsTemplate';
+        let trackingParamsTemplate = localStorage.getItem(TRACKING_PARAMS_STORAGE_KEY) || DEFAULT_TRACKING_PARAMS_TEMPLATE;
         
         // 个人模式开关
         let isPersonalMode = false;
@@ -1839,6 +1849,29 @@
             const dd = String(d.getDate()).padStart(2, '0');
             return `p${yy}${mm}${dd}`;
         }
+
+        function getTodayDateParam() {
+            const d = new Date();
+            const yyyy = String(d.getFullYear());
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}${mm}${dd}`;
+        }
+
+        function normalizeTrackingParamsTemplate(value) {
+            const raw = String(value || '').trim();
+            const queryPart = raw.includes('?') ? raw.split('?').slice(1).join('?') : raw;
+            return queryPart
+                .replace(/^\?+/, '')
+                .replace(/^&+/, '');
+        }
+
+        function getResolvedTrackingParams() {
+            const template = normalizeTrackingParamsTemplate(trackingParamsTemplate) || DEFAULT_TRACKING_PARAMS_TEMPLATE;
+            return template
+                .replace(/\{stamp\}/g, getTodayStamp())
+                .replace(/\{date\}/g, getTodayDateParam());
+        }
         
         /**
          * 更新商品二维码 URL 参数
@@ -1847,7 +1880,6 @@
          */
         function getNewQRUrl(originalUrl) {
             const todayStamp = getTodayStamp();
-            const targetCid = "53qvofdc";
             
             // Search List 模板：更新 hmpl 参数
             if (originalUrl.includes('search_list')) {
@@ -1856,9 +1888,114 @@
             // Products 模板：添加cid和hmpl参数
             if (originalUrl.includes('products')) {
                 const baseUrl = originalUrl.split('?')[0];
-                return `${baseUrl}?cid=${targetCid}&hmsr=wechat&hmpl=${todayStamp}`;
+                const trackingParams = getResolvedTrackingParams();
+                return trackingParams ? `${baseUrl}?${trackingParams}` : baseUrl;
             }
             return originalUrl;
+        }
+
+        async function reprocessUploadedProductQRCards() {
+            const entries = Object.entries(uploadedImages);
+            if (!entries.length) return 0;
+
+            let replacedCount = 0;
+            for (const [filename, img] of entries) {
+                try {
+                    const qrResult = await applyProductQrReplacement(img.originalDataUrl, img.mimeType || '');
+                    img.displayDataUrl = qrResult.displayDataUrl;
+                    img.thumbnailSrc = qrResult.thumbnailSrc;
+                    img.qrReplaced = qrResult.qrReplaced;
+                    img.originalQrUrl = qrResult.originalQrUrl;
+                    img.rewrittenQrUrl = qrResult.newQrUrl;
+                    img.width = qrResult.width;
+                    img.height = qrResult.height;
+                    if (qrResult.qrReplaced) replacedCount++;
+                    revokePreviewUrl(img);
+                } catch (err) {
+                    console.warn(`重新处理二维码失败：${filename}`, err);
+                }
+            }
+
+            updateImagePreview();
+            immediateUpdatePreview();
+            return replacedCount;
+        }
+
+        async function updateTrackingParams() {
+            const currentValue = normalizeTrackingParamsTemplate(trackingParamsTemplate) || DEFAULT_TRACKING_PARAMS_TEMPLATE;
+            const input = prompt(
+                '请输入商品二维码问号后的跟踪参数：\n\n可用变量：{stamp}=pYYMMDD，{date}=YYYYMMDD\n留空会恢复默认参数。',
+                currentValue
+            );
+            if (input === null) return;
+
+            const normalized = normalizeTrackingParamsTemplate(input) || DEFAULT_TRACKING_PARAMS_TEMPLATE;
+            trackingParamsTemplate = normalized;
+            if (normalized === DEFAULT_TRACKING_PARAMS_TEMPLATE) {
+                localStorage.removeItem(TRACKING_PARAMS_STORAGE_KEY);
+            } else {
+                localStorage.setItem(TRACKING_PARAMS_STORAGE_KEY, normalized);
+            }
+
+            const replacedCount = await reprocessUploadedProductQRCards();
+            showStatus(`跟踪参数已更新，已重写 ${replacedCount} 张商品二维码`, 'success');
+        }
+
+        async function applyProductQrReplacement(originalDataUrl, mimeType = '') {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = async () => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.drawImage(img, 0, 0);
+
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const code = jsQR(imageData.data, imageData.width, imageData.height);
+                        let displayDataUrl = originalDataUrl;
+                        let qrReplaced = false;
+                        let originalQrUrl = '';
+                        let newQrUrl = '';
+
+                        if (code) {
+                            originalQrUrl = code.data;
+                            newQrUrl = getNewQRUrl(code.data);
+                            if (newQrUrl !== code.data) {
+                                const isNewCard = img.width <= 1000 && img.height <= 420;
+                                const qrSize = isNewCard ? 203 : 216;
+                                const qrX = isNewCard ? 738 : 760;
+                                const qrY = isNewCard ? 148 : 140;
+                                const qrCanvas = document.createElement('canvas');
+                                await QRCode.toCanvas(qrCanvas, newQrUrl, {
+                                    margin: 0,
+                                    width: qrSize,
+                                    errorCorrectionLevel: 'H'
+                                });
+                                ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
+                                displayDataUrl = canvas.toDataURL('image/png');
+                                qrReplaced = true;
+                            }
+                        }
+
+                        resolve({
+                            displayDataUrl,
+                            thumbnailSrc: createImagePreviewThumbnail(canvas),
+                            qrReplaced,
+                            originalQrUrl,
+                            newQrUrl,
+                            width: img.width,
+                            height: img.height,
+                            mimeType
+                        });
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                img.onerror = () => reject(new Error('图片读取失败'));
+                img.src = originalDataUrl;
+            });
         }
         
         /**
@@ -1941,45 +2078,8 @@
                 // 保存原始图片（用于打包下载）
                 const originalDataUrl = event.target.result;
 
-                const img = new Image();
-                img.onload = async () => {
-                    try {
-                        // 创建画布处理图片
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                        ctx.drawImage(img, 0, 0);
-
-                    // 识别二维码
-                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-                    let displayDataUrl = originalDataUrl;
-                    let qrReplaced = false;
-
-                    if (code) {
-                        const newUrl = getNewQRUrl(code.data);
-                        if (newUrl !== code.data) {
-                            // 根据图片尺寸判断使用新版或旧版卡片配置
-                            const isNewCard = img.width <= 1000 && img.height <= 420;
-                            const qrSize = isNewCard ? 203 : 216;
-                            const qrX = isNewCard ? 738 : 760;
-                            const qrY = isNewCard ? 148 : 140;
-
-                            // 生成新二维码并绘制到图片上
-                            const qrCanvas = document.createElement('canvas');
-                            await QRCode.toCanvas(qrCanvas, newUrl, {
-                                margin: 0,
-                                width: qrSize,
-                                errorCorrectionLevel: 'H'
-                            });
-                            ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
-                            displayDataUrl = canvas.toDataURL('image/png');
-                            qrReplaced = true;
-                            console.log(`二维码已替换: ${file.name} (${isNewCard ? '新版' : '旧版'}卡片)`);
-                        }
-                    }
+                try {
+                    const qrResult = await applyProductQrReplacement(originalDataUrl, file.type || '');
 
                     if (uploadedImages[storageFilename]) {
                         totalUploadedImageBytes -= uploadedImages[storageFilename].originalSize || getDataUrlByteSize(uploadedImages[storageFilename].originalDataUrl);
@@ -1989,19 +2089,23 @@
 
                     // 保存图片（分离原始URL、显示URL和静态缩略图）
                     // GIF 在 img 标签中会持续播放，面板内大量 GIF 会拖慢滚动；缩略图统一用静态首帧。
-                    const thumbnailSrc = createImagePreviewThumbnail(canvas);
                     uploadedImages[storageFilename] = {
                         originalDataUrl: originalDataUrl, // 原始图片，打包下载用
-                        displayDataUrl: displayDataUrl,     // 处理后图片，预览复制用
-                        thumbnailSrc: thumbnailSrc,         // 面板静态缩略图，避免大图/GIF 影响滚动性能
+                        displayDataUrl: qrResult.displayDataUrl,     // 处理后图片，预览复制用
+                        thumbnailSrc: qrResult.thumbnailSrc,         // 面板静态缩略图，避免大图/GIF 影响滚动性能
                         useCount: 0,
-                        qrReplaced: qrReplaced,
+                        qrReplaced: qrResult.qrReplaced,
+                        originalQrUrl: qrResult.originalQrUrl,
+                        rewrittenQrUrl: qrResult.newQrUrl,
                         displayName: displayFilename,
-                        width: img.width,
-                        height: img.height,
+                        width: qrResult.width,
+                        height: qrResult.height,
                         mimeType: file.type || '',
                         originalSize: file.size || getDataUrlByteSize(originalDataUrl)
                     };
+                    if (qrResult.qrReplaced) {
+                        console.log(`二维码已替换: ${file.name}`);
+                    }
                     totalUploadedImageBytes += uploadedImages[storageFilename].originalSize;
 
                     // 如果是粘贴的图片，在编辑器中插入引用
@@ -2012,17 +2116,11 @@
 
                         // 渐进式显示：每处理完一张就刷新
                         finishImageProcessing(true);
-                    } catch (err) {
-                        console.error('图片处理失败:', err);
-                        showStatus(`【${displayFilename}】处理失败`, 'warning');
-                        finishImageProcessing(false);
-                    }
-                };
-                img.onerror = () => {
-                    showStatus(`【${displayFilename}】无法读取，请换 JPG/PNG`, 'warning');
+                } catch (err) {
+                    console.error('图片处理失败:', err);
+                    showStatus(`【${displayFilename}】处理失败`, 'warning');
                     finishImageProcessing(false);
-                };
-                img.src = event.target.result;
+                }
             };
             reader.onerror = () => {
                 showStatus(`【${displayFilename}】读取失败`, 'warning');
@@ -5079,6 +5177,7 @@ curl -fsSL https://example.com/install.sh | bash
             document.getElementById('clear-btn').addEventListener('click', clearEditor);
             document.getElementById('example-btn').addEventListener('click', loadExample);
             document.getElementById('update-taokouling-btn').addEventListener('click', updateTaokouling);
+            document.getElementById('custom-tracking-btn').addEventListener('click', updateTrackingParams);
             const moreActions = document.getElementById('more-actions');
             const moreActionsBtn = document.getElementById('more-actions-btn');
             moreActionsBtn.addEventListener('click', function(e) {
