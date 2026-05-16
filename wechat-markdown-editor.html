@@ -1492,6 +1492,7 @@
 
         // 商品二维码跟踪参数（只填写问号后面的部分，支持 {stamp}=pYYMMDD、{date}=YYYYMMDD）
         const DEFAULT_TRACKING_PARAMS_TEMPLATE = 'cid=53qvofdc&hmsr=wechat&hmpl={stamp}';
+        const PERSONAL_MODE_CID = '0jf1pgot';
         const TRACKING_PARAMS_STORAGE_KEY = 'productQrTrackingParamsTemplate';
         let trackingParamsTemplate = localStorage.getItem(TRACKING_PARAMS_STORAGE_KEY) || DEFAULT_TRACKING_PARAMS_TEMPLATE;
         
@@ -1868,9 +1869,16 @@
 
         function getResolvedTrackingParams() {
             const template = normalizeTrackingParamsTemplate(trackingParamsTemplate) || DEFAULT_TRACKING_PARAMS_TEMPLATE;
-            return template
+            const resolved = template
                 .replace(/\{stamp\}/g, getTodayStamp())
                 .replace(/\{date\}/g, getTodayDateParam());
+            if (!isPersonalMode) {
+                return resolved;
+            }
+
+            const params = new URLSearchParams(resolved);
+            params.set('cid', PERSONAL_MODE_CID);
+            return params.toString();
         }
         
         /**
@@ -1896,7 +1904,10 @@
 
         async function reprocessUploadedProductQRCards() {
             const entries = Object.entries(uploadedImages);
-            if (!entries.length) return 0;
+            if (!entries.length) {
+                immediateUpdatePreview();
+                return 0;
+            }
 
             let replacedCount = 0;
             for (const [filename, img] of entries) {
@@ -2607,11 +2618,6 @@
             qr: embeddedProductCardQrDataUrl,
             banner: embeddedProductCardBannerDataUrl
         };
-        const localFixedImageDataUrls = {
-            footer: '',
-            coverImage: ''
-        };
-
         function getMimeTypeFromImageUrl(url) {
             const cleanUrl = String(url).split('?')[0].toLowerCase();
             if (cleanUrl.endsWith('.jpg') || cleanUrl.endsWith('.jpeg')) return 'image/jpeg';
@@ -2680,30 +2686,6 @@
                     }
                 } catch (fallbackErr) {
                     console.warn('默认商品卡片图片内嵌失败，将回退为链接:', fallbackErr);
-                }
-            }
-        }
-
-        async function ensureLocalFixedImagesForCopy() {
-            if (localFixedImageDataUrls.footer && localFixedImageDataUrls.coverImage) {
-                return;
-            }
-
-            if (!localFixedImageDataUrls.footer) {
-                try {
-                    localFixedImageDataUrls.footer = await loadImageUrlAsDataUrl(githubImages.footer);
-                } catch (err) {
-                    console.warn('本地 footer.png 内嵌失败，将回退为微信素材链接:', err);
-                    showStatus('footer.png 读取失败，将使用旧素材链接', 'warning');
-                }
-            }
-
-            if (!localFixedImageDataUrls.coverImage) {
-                try {
-                    localFixedImageDataUrls.coverImage = await loadImageUrlAsDataUrl(githubImages.coverImage);
-                } catch (err) {
-                    console.warn('本地 cover-image.png 内嵌失败，将回退为微信素材链接:', err);
-                    showStatus('cover-image.png 读取失败，将使用旧素材链接', 'warning');
                 }
             }
         }
@@ -2842,7 +2824,7 @@
         // 微信原始链接（用于复制到微信编辑器）
         const wechatImages = {
             header: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JAOBIkhshOkLAQzpHiarLm7MYSAictXPZgJNd6Yel2Bia7CyW3Id78ICibeywxPPiclllOZhGmGP4KusvQ/640?wx_fmt=png',
-            footer: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JA9PRiaUibW3XyibONLPibefw2jwwLBic4uoBlZp4WiaLQfqZr9n5tJkPyic2B8I5jUE4gRdnUMrepCiaO9Qg/640?wx_fmt=png',
+            footer: 'https://mmbiz.qpic.cn/sz_mmbiz_png/ib4HLZ26hYAqsk0YcPLoaJsNP51XTIWLzcOz6YQ29wpzrt6ib7THy2e3WNvMH66yAJ20YqwOCynCVd38bDza2icStDJzZRZ9mCgXWDlk3YDdyI/640?wx_fmt=png',
             heart: 'https://mmbiz.qpic.cn/mmbiz_gif/aFXaQ2oY6JAbmS3wc8fxt3Lemribiaz5FbJWN9K3GTB1OeJtBE3au0xdUsQTVVVyOuERx44KVcl1kDXgbEvib2TtQ/640?wx_fmt=gif',
             title1: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0u4CHiaMhAdl8MT33E9ByxnhpYuMGja3h82BzeYpzJQ90iaTxpsibR2Qlg/640?wx_fmt=png',
             title2: 'https://mmbiz.qpic.cn/mmbiz_png/aFXaQ2oY6JBKwShvcSd8gIJqox7aK7I0xU9Fvm3ILCw745js1LmpsibFNyvia4QsicUbKwqeibUyrYvx0N4CN2trBw/640?wx_fmt=png',
@@ -2862,7 +2844,7 @@
         function replaceImageLinks(html, useWechatLinks) {
             const sourceMap = useWechatLinks ? githubImages : wechatImages;
             const targetMap = useWechatLinks ? wechatImages : githubImages;
-            const skipKeys = useWechatLinks ? new Set(['productCardQr', 'productCardBanner', 'footer', 'coverImage']) : new Set();
+            const skipKeys = useWechatLinks ? new Set(['productCardQr', 'productCardBanner']) : new Set();
             
             let result = html;
             for (const key in sourceMap) {
@@ -2870,13 +2852,6 @@
                 if (sourceMap[key] !== targetMap[key]) {
                     result = result.split(sourceMap[key]).join(targetMap[key]);
                 }
-            }
-
-            if (useWechatLinks) {
-                const footerTarget = localFixedImageDataUrls.footer || wechatImages.footer;
-                const coverImageTarget = localFixedImageDataUrls.coverImage || wechatImages.coverImage;
-                result = result.split(githubImages.footer).join(footerTarget);
-                result = result.split(githubImages.coverImage).join(coverImageTarget);
             }
             
             // 复制到微信时，替换上传图片的 GitHub 链接为实际 dataURL
@@ -3365,6 +3340,33 @@ function processTextSpacing(text) {
             // 平台标签：15px 黑色
             processed = processed.replace(/\[([^\]]+)\]/g, '<span style="font-size: 15px; color: rgb(0, 0, 0);">[$1]</span>');
             return processed;
+        }
+
+        function shouldSkipSpacingBetweenBlocks(prevBlock, block) {
+            return block.type === 'caption-note'
+                && ['referenced-image', 'side-by-side-images', 'image-placeholder'].includes(prevBlock.type);
+        }
+
+        function appendRenderedContentBlocks(contentBlocks, renderBlock, spacing) {
+            let html = '';
+            contentBlocks.forEach((block, index) => {
+                const blockHTML = renderBlock(block);
+                if (!blockHTML) return;
+
+                if (index > 0) {
+                    const prevBlock = contentBlocks[index - 1];
+                    if (shouldSkipSpacingBetweenBlocks(prevBlock, block)) {
+                        // 图片和说明文本之间不加空行
+                    } else if ((block.type === 'h1' || block.type === 'h2') && !isPersonalMode) {
+                        html += spacing.doubleBr;
+                    } else {
+                        html += spacing.singleBr;
+                    }
+                }
+
+                html += blockHTML;
+            });
+            return html;
         }
         
         /**
@@ -4013,31 +4015,7 @@ function processTextSpacing(text) {
                 }
             }
 
-            contentBlocks.forEach((block, index) => {
-                const blockHTML = generateBlockHTML(block);
-                if (!blockHTML) return;
-
-                // 添加前置空行（特殊处理：图片和说明文本之间不加空行）
-                if (index > 0) {
-                    const prevBlock = contentBlocks[index - 1];
-                    const isCaptionNoteAfterImage = block.type === 'caption-note'
-                        && ['referenced-image', 'side-by-side-images', 'image-placeholder'].includes(prevBlock.type);
-                    
-                    if (isCaptionNoteAfterImage) {
-                        // 图片和说明文本之间不加空行
-                    } else if ((block.type === 'h1' || block.type === 'h2') && !isPersonalMode) {
-                        // 个人模式：标题上方1个空行；数码荔枝模式：标题上方2个空行
-                        html += doubleBr;
-                    } else {
-                        html += singleBr;
-                    }
-                }
-
-                // 添加块内容
-                html += blockHTML;
-
-                // 移除标题下方的空行
-            });
+            html += appendRenderedContentBlocks(contentBlocks, generateBlockHTML, { singleBr, doubleBr });
 
             // 添加底部（根据模式选择）
             if (includeFixedContent) {
@@ -4647,27 +4625,7 @@ function processTextSpacing(text) {
                 }
             }
 
-            contentBlocks.forEach((block, index) => {
-                const blockHTML = generateWeChatBlockHTML(block);
-                if (!blockHTML) return;
-
-                // 添加前置空行（特殊处理：图片和说明文本之间不加空行）
-                if (index > 0) {
-                    const prevBlock = contentBlocks[index - 1];
-                    const isCaptionNoteAfterImage = block.type === 'caption-note'
-                        && ['referenced-image', 'side-by-side-images', 'image-placeholder'].includes(prevBlock.type);
-                    
-                    if (isCaptionNoteAfterImage) {
-                        // 图片和说明文本之间不加空行
-                    } else if ((block.type === 'h1' || block.type === 'h2') && !isPersonalMode) {
-                        html += doubleBr;
-                    } else {
-                        html += singleBr;
-                    }
-                }
-
-                html += blockHTML;
-            });
+            html += appendRenderedContentBlocks(contentBlocks, generateWeChatBlockHTML, { singleBr, doubleBr });
 
             // 添加底部（根据模式选择）
             if (includeFixedContent) {
@@ -4856,9 +4814,6 @@ function processTextSpacing(text) {
          */
         async function copyToClipboard(includeFixedContent = true) {
             await ensureDefaultProductImagesForCopy();
-            if (includeFixedContent) {
-                await ensureLocalFixedImagesForCopy();
-            }
 
             // 先调整需要处理的图片尺寸
             const filenames = Object.keys(uploadedImages);
@@ -5236,7 +5191,7 @@ curl -fsSL https://example.com/install.sh | bash
                 isPersonalMode = !isPersonalMode;
                 this.classList.toggle('is-active', isPersonalMode);
                 this.innerHTML = isPersonalMode ? '<i class="fas fa-star"></i> 默认模式' : '<i class="far fa-star"></i> 个人模式';
-                immediateUpdatePreview();
+                reprocessUploadedProductQRCards();
             });
             
             // 绑定粘贴事件
