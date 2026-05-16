@@ -501,7 +501,7 @@
             position: absolute;
             left: 50%;
             bottom: calc(100% + 10px);
-            width: 230px;
+            width: 260px;
             padding: 12px;
             border: 1px solid var(--border-strong);
             border-radius: var(--radius-lg);
@@ -555,7 +555,7 @@
 
         .typography-style-row {
             display: grid;
-            grid-template-columns: 42px auto;
+            grid-template-columns: 54px auto;
             align-items: center;
             justify-content: start;
             column-gap: 8px;
@@ -566,7 +566,7 @@
             color: rgba(255, 255, 255, 0.68);
             font-size: 12px;
             white-space: nowrap;
-            min-width: 42px;
+            min-width: 54px;
         }
 
         .typography-stepper {
@@ -1412,6 +1412,13 @@
                                 <button type="button" data-typography-align="justify">两端对齐</button>
                             </div>
                         </div>
+                        <div class="typography-style-row" data-typography-row="imageAlign">
+                            <span class="typography-style-label">图片对齐</span>
+                            <div class="typography-segmented" role="group" aria-label="并排图片对齐方式">
+                                <button type="button" data-typography-image-align="height">等高</button>
+                                <button type="button" data-typography-image-align="width">等宽</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1452,10 +1459,10 @@
         </h4>
         <div id="image-preview-actions" style="display: flex; gap: 6px; margin-bottom: 6px;">
             <button id="btn-download-all" class="btn btn-sm btn-primary" style="flex: 1; padding: 4px 8px; font-size: 11px; justify-content: center;">
-                <span style="display: flex; align-items: center; gap: 6px;"><i class="fas fa-download"></i> 原图打包</span>
+                <span style="display: flex; align-items: center; gap: 6px;"><i class="fas fa-download"></i> 改名打包</span>
             </button>
             <button id="btn-download-compressed" class="btn btn-sm" style="flex: 1; padding: 4px 8px; font-size: 11px; background: linear-gradient(135deg, #28a745, #218823); color: white; justify-content: center;">
-                <span style="display: flex; align-items: center; gap: 6px;"><i class="fas fa-compress-alt"></i> 压缩打包</span>
+                <span style="display: flex; align-items: center; gap: 6px;"><i class="fas fa-file-archive"></i> 原名打包</span>
             </button>
             <button id="btn-delete-all" class="btn btn-sm btn-danger" style="flex: 1; padding: 4px 8px; font-size: 11px; justify-content: center;">
                 <span style="display: flex; align-items: center; gap: 6px;"><i class="fas fa-trash"></i> 清空图片</span>
@@ -1512,7 +1519,8 @@
             lineHeight: 1.6,
             marginX: 16,
             letterSpacing: 0,
-            align: 'left'
+            align: 'left',
+            imageAlign: 'height'
         };
         const TYPOGRAPHY_CONTROLS = {
             fontSize: { min: 12, max: 22, step: 1, precision: 0 },
@@ -1577,7 +1585,8 @@
                         lineHeight: 1.75,
                         marginX: 8,
                         letterSpacing: 1,
-                        align: 'left'
+                        align: 'left',
+                        imageAlign: 'height'
                     };
                 }
                 if (saved.fontSize === 'default') {
@@ -1588,7 +1597,8 @@
                     lineHeight: normalizeTypographyValue('lineHeight', saved.lineHeight, defaults.lineHeight),
                     marginX: normalizeTypographyValue('marginX', saved.marginX, defaults.marginX),
                     letterSpacing: normalizeTypographyValue('letterSpacing', saved.letterSpacing, defaults.letterSpacing),
-                    align: saved.align === 'justify' ? 'justify' : 'left'
+                    align: saved.align === 'justify' ? 'justify' : 'left',
+                    imageAlign: saved.imageAlign === 'width' ? 'width' : 'height'
                 };
             } catch (err) {
                 return defaults;
@@ -1644,6 +1654,13 @@
             immediateUpdatePreview();
         }
 
+        function setTypographyImageAlign(imageAlign) {
+            typographySettings.imageAlign = imageAlign === 'width' ? 'width' : 'height';
+            saveTypographySettings();
+            updateTypographyControls();
+            immediateUpdatePreview();
+        }
+
         function stepTypographyValue(key, direction) {
             const config = TYPOGRAPHY_CONTROLS[key];
             if (!config) return;
@@ -1666,6 +1683,9 @@
             });
             document.querySelectorAll('[data-typography-align]').forEach((btn) => {
                 btn.classList.toggle('is-active', btn.dataset.typographyAlign === typographySettings.align);
+            });
+            document.querySelectorAll('[data-typography-image-align]').forEach((btn) => {
+                btn.classList.toggle('is-active', btn.dataset.typographyImageAlign === typographySettings.imageAlign);
             });
         }
         
@@ -2252,45 +2272,82 @@
             showStatus(`已清空 ${filenames.length} 张图片`, 'success');
         }
 
-        /**
-         * 打包下载所有已上传的图片（按 markdown 顺序重命名）
-         */
-        async function downloadAllImagesAsZip() {
-            try {
-                // 从 markdown 文本中按顺序提取图片引用
-                const markdown = textarea.value;
-                const lines = markdown.split('\n');
-                const imageOrder = [];
+        function collectReferencedImagesInMarkdown() {
+            const lines = textarea.value.split('\n');
+            const imageOrder = [];
 
-                for (const line of lines) {
-                    // 并排图片：【图1】|【图2】 或 【图1】｜【图2】｜【图3】
-                    const sideMatch = line.match(/^【([^【】]+)】[|｜]【([^【】]+)】(?:[|｜]【([^【】]+)】)?$/);
-                    if (sideMatch) {
-                        for (let j = 1; j <= 3; j++) {
-                            if (!sideMatch[j]) continue;
-                            const refText = sideMatch[j].trim();
-                            const matched = findImageByReference(refText);
-                            if (matched && !uploadedImages[matched.filename].qrReplaced) {
-                                imageOrder.push({ refText, filename: matched.filename });
-                            }
-                        }
-                        continue;
-                    }
-                    const match = line.match(/^【([^【】]+)】$/);
-                    if (match) {
-                        const refText = match[1].trim();
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                const sideMatch = trimmedLine.match(/^【([^【】]+)】[|｜]【([^【】]+)】(?:[|｜]【([^【】]+)】)?$/);
+                if (sideMatch) {
+                    for (let j = 1; j <= 3; j++) {
+                        if (!sideMatch[j]) continue;
+                        const refText = sideMatch[j].trim();
                         const matched = findImageByReference(refText);
-                        if (matched && !uploadedImages[matched.filename].qrReplaced) {
-                            imageOrder.push({
-                                refText,
-                                filename: matched.filename
-                            });
-                        }
+                        if (matched) imageOrder.push({ refText, filename: matched.filename });
                     }
+                    continue;
                 }
 
+                const match = trimmedLine.match(/^【([^【】]+)】$/);
+                if (match) {
+                    const refText = match[1].trim();
+                    const matched = findImageByReference(refText);
+                    if (matched) imageOrder.push({ refText, filename: matched.filename });
+                }
+            }
+
+            return imageOrder;
+        }
+
+        function getDataUrlExtension(dataUrl, fallbackName = '') {
+            const mimeType = (dataUrl.match(/^data:([^;]+);/) || [])[1] || '';
+            if (mimeType === 'image/jpeg') return 'jpg';
+            if (mimeType === 'image/png') return 'png';
+            if (mimeType === 'image/gif') return 'gif';
+            if (mimeType === 'image/webp') return 'webp';
+            const ext = String(fallbackName).split('.').pop();
+            return ext && ext !== fallbackName ? ext.toLowerCase() : 'png';
+        }
+
+        function makeUniqueZipFilename(filename, usedNames) {
+            const normalized = filename || 'image.png';
+            if (!usedNames.has(normalized)) {
+                usedNames.add(normalized);
+                return normalized;
+            }
+
+            const dotIndex = normalized.lastIndexOf('.');
+            const name = dotIndex > 0 ? normalized.slice(0, dotIndex) : normalized;
+            const ext = dotIndex > 0 ? normalized.slice(dotIndex) : '';
+            let index = 2;
+            let candidate = `${name}-${index}${ext}`;
+            while (usedNames.has(candidate)) {
+                index++;
+                candidate = `${name}-${index}${ext}`;
+            }
+            usedNames.add(candidate);
+            return candidate;
+        }
+
+        async function getImageDataUrlForWeChatPackage(img) {
+            if (!img) return '';
+            const displayName = (img.displayName || '').toLowerCase();
+            if (displayName.endsWith('.gif') || (img.mimeType || '').toLowerCase() === 'image/gif') {
+                return img.originalDataUrl || img.displayDataUrl;
+            }
+            if (img.qrReplaced) {
+                return img.displayDataUrl || img.originalDataUrl;
+            }
+            return await compressImageForCopy(img.originalDataUrl || img.displayDataUrl);
+        }
+
+        async function downloadImagesAsZip(renameByOrder = true) {
+            try {
+                const imageOrder = collectReferencedImagesInMarkdown();
+
                 if (imageOrder.length === 0) {
-                    showStatus('没有可下载的图片（QR替换的图片不下载）', 'error');
+                    showStatus('没有可打包的图片', 'error');
                     return;
                 }
 
@@ -2298,98 +2355,18 @@
 
                 const zip = new JSZip();
                 const folder = zip.folder('uploaded-images');
-
-                imageOrder.forEach((item, index) => {
-                    const img = uploadedImages[item.filename];
-                    const base64 = img.originalDataUrl.split(',')[1];
-                    const ext = img.displayName.split('.').pop();
-                    const zipFilename = `图 ${index + 1}.${ext}`;
-                    folder.file(zipFilename, base64, { base64: true });
-                });
-
-                const content = await zip.generateAsync({
-                    type: 'blob',
-                    compression: 'DEFLATE',
-                    compressionOptions: { level: 6 }
-                });
-
-                const timestamp = new Date().toISOString().slice(0, 10);
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(content);
-                link.download = `wechat-images-${timestamp}.zip`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(link.href);
-
-                showStatus(`已打包下载 ${imageOrder.length} 张图片（已跳过QR替换图片）`, 'success');
-            } catch (err) {
-                console.error('打包下载失败:', err);
-                showStatus('打包下载失败: ' + err.message, 'error');
-            }
-        }
-
-        /**
-         * 压缩并打包下载所有已上传的图片（按 markdown 顺序重命名）
-         */
-        async function downloadCompressedImagesAsZip() {
-            try {
-                // 从 markdown 文本中按顺序提取图片引用
-                const markdown = textarea.value;
-                const lines = markdown.split('\n');
-                const imageOrder = [];
-
-                for (const line of lines) {
-                    // 并排图片：【图1】|【图2】 或 【图1】｜【图2】｜【图3】
-                    const sideMatch = line.match(/^【([^【】]+)】[|｜]【([^【】]+)】(?:[|｜]【([^【】]+)】)?$/);
-                    if (sideMatch) {
-                        for (let j = 1; j <= 3; j++) {
-                            if (!sideMatch[j]) continue;
-                            const refText = sideMatch[j].trim();
-                            const matched = findImageByReference(refText);
-                            if (matched && !uploadedImages[matched.filename].qrReplaced) {
-                                imageOrder.push({ refText, filename: matched.filename });
-                            }
-                        }
-                        continue;
-                    }
-                    const match = line.match(/^【([^【】]+)】$/);
-                    if (match) {
-                        const refText = match[1].trim();
-                        const matched = findImageByReference(refText);
-                        if (matched && !uploadedImages[matched.filename].qrReplaced) {
-                            imageOrder.push({
-                                refText,
-                                filename: matched.filename
-                            });
-                        }
-                    }
-                }
-
-                if (imageOrder.length === 0) {
-                    showStatus('没有可下载的图片（QR替换的图片不下载）', 'error');
-                    return;
-                }
-
-                const zip = new JSZip();
-                const folder = zip.folder('uploaded-images');
+                const usedNames = new Set();
 
                 for (let i = 0; i < imageOrder.length; i++) {
                     const item = imageOrder[i];
                     const img = uploadedImages[item.filename];
+                    const dataUrl = await getImageDataUrlForWeChatPackage(img);
+                    if (!dataUrl) continue;
 
-                    let base64, ext;
-                    if (img.displayName.toLowerCase().endsWith('.gif')) {
-                        // GIF 不压缩，直接用原图
-                        base64 = img.originalDataUrl.split(',')[1];
-                        ext = img.displayName.split('.').pop();
-                    } else {
-                        // 压缩非GIF图片
-                        const compressedDataUrl = await compressImageForCopy(img.originalDataUrl);
-                        base64 = compressedDataUrl.split(',')[1];
-                        ext = 'webp';
-                    }
-                    const zipFilename = `图 ${i + 1}.${ext}`;
+                    const ext = getDataUrlExtension(dataUrl, img.displayName);
+                    const baseName = renameByOrder ? `图 ${i + 1}.${ext}` : (img.displayName || item.filename || `image-${i + 1}.${ext}`);
+                    const zipFilename = makeUniqueZipFilename(baseName, usedNames);
+                    const base64 = dataUrl.split(',')[1];
                     folder.file(zipFilename, base64, { base64: true });
                 }
 
@@ -2402,17 +2379,25 @@
                 const timestamp = new Date().toISOString().slice(0, 10);
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(content);
-                link.download = `wechat-images-compressed-${timestamp}.zip`;
+                link.download = renameByOrder ? `wechat-images-renamed-${timestamp}.zip` : `wechat-images-original-names-${timestamp}.zip`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 URL.revokeObjectURL(link.href);
 
-                showStatus(`已压缩打包下载 ${imageOrder.length} 张图片`, 'success');
+                showStatus(`已${renameByOrder ? '改名' : '原名'}打包下载 ${imageOrder.length} 张图片`, 'success');
             } catch (err) {
-                console.error('压缩打包失败:', err);
-                showStatus('压缩打包失败: ' + err.message, 'error');
+                console.error('图片打包失败:', err);
+                showStatus('图片打包失败: ' + err.message, 'error');
             }
+        }
+
+        function downloadAllImagesAsZip() {
+            return downloadImagesAsZip(true);
+        }
+
+        function downloadCompressedImagesAsZip() {
+            return downloadImagesAsZip(false);
         }
 
         /**
@@ -2657,7 +2642,8 @@
         }
 
         async function ensureDefaultProductImagesForCopy() {
-            if (defaultProductImageDataUrls.qr && defaultProductImageDataUrls.banner) {
+            const needsBanner = !isPersonalMode;
+            if (defaultProductImageDataUrls.qr && (!needsBanner || defaultProductImageDataUrls.banner)) {
                 return;
             }
 
@@ -2665,7 +2651,7 @@
                 if (!defaultProductImageDataUrls.qr) {
                     defaultProductImageDataUrls.qr = await loadImageUrlAsDataUrl('images/product-card-qr.png');
                 }
-                if (!defaultProductImageDataUrls.banner) {
+                if (needsBanner && !defaultProductImageDataUrls.banner) {
                     defaultProductImageDataUrls.banner = await loadImageUrlAsDataUrl('images/product-card-banner.png');
                 }
             } catch (err) {
@@ -2674,7 +2660,7 @@
                     if (!defaultProductImageDataUrls.qr) {
                         defaultProductImageDataUrls.qr = await loadImageUrlAsDataUrl(githubImages.productCardQr);
                     }
-                    if (!defaultProductImageDataUrls.banner) {
+                    if (needsBanner && !defaultProductImageDataUrls.banner) {
                         defaultProductImageDataUrls.banner = await loadImageUrlAsDataUrl(githubImages.productCardBanner);
                     }
                 } catch (fallbackErr) {
@@ -3215,30 +3201,92 @@ function processTextSpacing(text) {
 
         function generateSideBySideImagesHTML(images, replaceGifWithPlaceholder = false, withPersonalFrame = false) {
             const count = images.length;
-            const cellWidth = count === 3 ? '33.3333%' : '50%';
-            const cellPadding = count === 3 ? '0 3px' : '0 4px';
-            const cells = images.map((img) => {
+            const equalHeight = typographySettings.imageAlign !== 'width';
+            const widthWeights = images.map((img) => {
+                const width = Number(img.width) || 0;
+                const height = Number(img.height) || 0;
+                return width > 0 && height > 0 ? width / height : 1;
+            });
+            const totalWeight = widthWeights.reduce((sum, weight) => sum + weight, 0) || count;
+            const getCellWidth = (index) => {
+                if (!equalHeight) return count === 3 ? '33.3333%' : '50%';
+                return `${((widthWeights[index] / totalWeight) * 100).toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}%`;
+            };
+            const cellGap = count === 3 ? '6px' : '8px';
+            const colgroup = images.map((_, index) => `<col style="width: ${getCellWidth(index)};">`).join('');
+            const cells = images.map((img, index) => {
+                const cellWidth = getCellWidth(index);
                 if (img.placeholder) {
-                    return `<td style="width: ${cellWidth}; border: 0; padding: ${cellPadding}; vertical-align: top; box-sizing: border-box;">
+                    return `<td style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; box-sizing: border-box;">
                         <section style="text-align: center; padding: 18px 4px; background: rgb(245, 245, 245); border: 1px dashed rgb(192, 204, 92); color: rgb(153, 153, 153); font-size: 13px; box-sizing: border-box; overflow: hidden;">【${img.text}】</section>
                     </td>`;
                 }
                 if (replaceGifWithPlaceholder && isGifImageBlock(img)) {
                     const name = img.displayName || img.filename || img.alt || 'GIF动图';
                     const placeholderSrc = createGifPlaceholderImage(name);
-                    return `<td style="width: ${cellWidth}; border: 0; padding: ${cellPadding}; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
+                    return `<td style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
                         <img data-src="${placeholderSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="0.24444444" data-s="300,640" data-type="png" data-w="900" data-original-style="width: 100%;height: auto !important;" style="display: block; width: 100% !important; height: auto !important; visibility: visible !important; margin: 0 !important; padding: 0 !important;" src="${placeholderSrc}" alt="GIF待替换：${name}">
                     </td>`;
                 }
-                return `<td style="width: ${cellWidth}; border: 0; padding: ${cellPadding}; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
+                return `<td style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
                     <img data-src="${img.dataUrl}" class="rich_pages wxw-img" style="display: block; width: 100% !important; height: auto !important; visibility: visible !important; margin: 0 !important; padding: 0 !important;" src="${img.dataUrl}" alt="${img.alt}" ${getWeChatAdaptiveImageAttrs(img)}>
                 </td>`;
             }).join('');
-            const tableHTML = `<table style="width: 100%; table-layout: fixed; border: 0; border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0;"><tbody><tr>${cells}</tr></tbody></table>`;
+            const tableHTML = `<table style="width: 100%; table-layout: fixed; border: 0; border-collapse: separate; border-spacing: ${cellGap} 0; margin: 0; padding: 0;"><colgroup>${colgroup}</colgroup><tbody><tr>${cells}</tr></tbody></table>`;
             if (!withPersonalFrame) {
                 return tableHTML;
             }
             return `<section class="personal-mode-image-group" style="width: 100% !important; border: 2px dashed rgb(192, 204, 92); padding: 8px; background: #ffffff; box-sizing: border-box; visibility: visible !important; margin: 0;">${tableHTML}</section>`;
+        }
+
+        function generateProductCardHTML(block) {
+            const matchedImg = findMatchingImage(block.productName);
+            let qrImageSrc = getDefaultProductCardQrSrc();
+            let qrDataType = 'jpeg';
+            let qrDataW = 1000;
+            let qrRatio = '0.416';
+            let qrBackh = 240;
+
+            if (matchedImg) {
+                qrImageSrc = matchedImg.dataUrl;
+                qrDataType = (matchedImg.mimeType || '').split('/')[1] || 'png';
+                qrDataW = matchedImg.width || 1024;
+                qrRatio = matchedImg.width && matchedImg.height ? (matchedImg.height / matchedImg.width).toFixed(8).replace(/0+$/, '').replace(/\.$/, '') : '0.39453125';
+                qrBackh = matchedImg.width && matchedImg.height ? Math.round((matchedImg.height / matchedImg.width) * 578) : 228;
+                incrementImageUseCount(matchedImg.filename);
+            }
+
+            const qrSection = `<section style="text-align: center;margin-top: 0;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
+	                <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
+	                    <span leaf="">
+	                        <img data-src="${qrImageSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="${qrRatio}" data-s="300,640" data-type="${qrDataType}" data-w="${qrDataW}" data-backw="578" data-backh="${qrBackh}" data-original-style="vertical-align:middle;box-sizing:border-box;width:100%;height:auto !important;" style="vertical-align: middle; box-sizing: border-box; width: 100% !important; height: auto !important; visibility: visible !important;" src="${qrImageSrc}" alt="${block.productName}">
+	                    </span>
+	                </section>
+            </section>`;
+
+            if (isPersonalMode) {
+                return `<section class="product-card-section" style="box-sizing: border-box;font-size: 16px;margin-bottom: 0;">${qrSection}</section>`;
+            }
+
+            const bannerImageSrc = getDefaultProductCardBannerSrc();
+            return `<section class="product-card-section" style="box-sizing: border-box;font-size: 16px;margin-bottom: 0;">
+                ${qrSection}
+                <section style="text-align: center;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
+	                <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
+	                    <span leaf="">
+	                        <img data-src="${bannerImageSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="0.125" data-s="300,640" data-type="png" data-w="1000" data-backw="578" data-backh="72" data-aistatus="1" data-original-style="vertical-align:middle;box-sizing:border-box;width:100%;height:auto !important;" style="vertical-align: middle; box-sizing: border-box; width: 100% !important; height: auto !important; visibility: visible !important;" src="${bannerImageSrc}" alt="长条配图">
+	                    </span>
+	                </section>
+                </section>
+                <section style="display: inline-block;width: 100%;vertical-align: top;padding-right: 10px;padding-left: 10px;border-width: 0px;background-color: rgb(246, 251, 253);box-sizing: border-box;">
+                    <section style="margin: 10px 0%;box-sizing: border-box;">
+                        <section style="text-align: center;color: rgb(0, 0, 0);font-size: 12px;box-sizing: border-box;">
+                             <p><span style="font-size: 10px;"><span leaf="">${currentTaoKouLing}</span></span></p>
+                            <p><span style="font-size: 10px;"><span leaf="">电脑直接访问链接，手机复制本段所有内容</span></span></p>
+                        </section>
+                    </section>
+                </section>
+            </section>`;
         }
 
         function processInlineFormatting(text, skipWrapper = false, styleNotes = false) {
@@ -3729,48 +3777,7 @@ function processTextSpacing(text) {
                         </div>`;
                     }
                     case 'product-card': {
-                        // 查找匹配的图片
-                        const matchedImg = findMatchingImage(block.productName);
-                        let qrImageSrc = getDefaultProductCardQrSrc();
-                        const bannerImageSrc = getDefaultProductCardBannerSrc();
-                        let qrDataType = 'jpeg';
-                        let qrDataW = 1000;
-                        let qrRatio = '0.416';
-                        let qrBackh = 240;
-                        
-                        if (matchedImg) {
-                            qrImageSrc = matchedImg.dataUrl;
-                            qrDataType = (matchedImg.mimeType || '').split('/')[1] || 'png';
-                            qrDataW = matchedImg.width || 1024;
-                            qrRatio = matchedImg.width && matchedImg.height ? (matchedImg.height / matchedImg.width).toFixed(8).replace(/0+$/, '').replace(/\.$/, '') : '0.39453125';
-                            qrBackh = matchedImg.width && matchedImg.height ? Math.round((matchedImg.height / matchedImg.width) * 578) : 228;
-                            incrementImageUseCount(matchedImg.filename);
-                        }
-                        
-                        return `<section class="product-card-section" style="box-sizing: border-box;font-size: 16px;margin-bottom: 0;">
-                            <section style="text-align: center;margin-top: 0;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
-	                                <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
-	                                    <span leaf="">
-	                                        <img data-src="${qrImageSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="${qrRatio}" data-s="300,640" data-type="${qrDataType}" data-w="${qrDataW}" data-backw="578" data-backh="${qrBackh}" data-original-style="vertical-align:middle;box-sizing:border-box;width:100%;height:auto !important;" style="vertical-align: middle; box-sizing: border-box; width: 100% !important; height: auto !important; visibility: visible !important;" src="${qrImageSrc}" alt="${block.productName}">
-	                                    </span>
-	                                </section>
-                            </section>
-                            <section style="text-align: center;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
-	                                <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
-	                                    <span leaf="">
-	                                        <img data-src="${bannerImageSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="0.125" data-s="300,640" data-type="png" data-w="1000" data-backw="578" data-backh="72" data-aistatus="1" data-original-style="vertical-align:middle;box-sizing:border-box;width:100%;height:auto !important;" style="vertical-align: middle; box-sizing: border-box; width: 100% !important; height: auto !important; visibility: visible !important;" src="${bannerImageSrc}" alt="长条配图">
-	                                    </span>
-	                                </section>
-                            </section>
-                            <section style="display: inline-block;width: 100%;vertical-align: top;padding-right: 10px;padding-left: 10px;border-width: 0px;background-color: rgb(246, 251, 253);box-sizing: border-box;">
-                                <section style="margin: 10px 0%;box-sizing: border-box;">
-                                    <section style="text-align: center;color: rgb(0, 0, 0);font-size: 12px;box-sizing: border-box;">
-                                         <p><span style="font-size: 10px;"><span leaf="">${currentTaoKouLing}</span></span></p>
-                                        <p><span style="font-size: 10px;"><span leaf="">电脑直接访问链接，手机复制本段所有内容</span></span></p>
-                                    </section>
-                                </section>
-                            </section>
-                        </section>`;
+                        return generateProductCardHTML(block);
                     }
                     case 'referenced-image': {
                         const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center;"><span style="font-size: 12px; color: rgb(136, 136, 136);">${block.caption}</span></p>` : '';
@@ -4361,48 +4368,7 @@ function processTextSpacing(text) {
                         return titleHTML;
                     }
                     case 'product-card': {
-                        // 查找匹配的图片
-                        const matchedImg = findMatchingImage(block.productName, true);
-                        let qrImageSrc = getDefaultProductCardQrSrc();
-                        const bannerImageSrc = getDefaultProductCardBannerSrc();
-                        let qrDataType = 'jpeg';
-                        let qrDataW = 1000;
-                        let qrRatio = '0.416';
-                        let qrBackh = 240;
-                        
-                        if (matchedImg) {
-                            qrImageSrc = matchedImg.dataUrl;
-                            qrDataType = (matchedImg.mimeType || '').split('/')[1] || 'png';
-                            qrDataW = matchedImg.width || 1024;
-                            qrRatio = matchedImg.width && matchedImg.height ? (matchedImg.height / matchedImg.width).toFixed(8).replace(/0+$/, '').replace(/\.$/, '') : '0.39453125';
-                            qrBackh = matchedImg.width && matchedImg.height ? Math.round((matchedImg.height / matchedImg.width) * 578) : 228;
-                            incrementImageUseCount(matchedImg.filename);
-                        }
-                        
-                        return `<section class="product-card-section" style="box-sizing: border-box;font-size: 16px;margin-bottom: 0;">
-                            <section style="text-align: center;margin-top: 0;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
-	                                <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
-	                                    <span leaf="">
-	                                        <img data-src="${qrImageSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="${qrRatio}" data-s="300,640" data-type="${qrDataType}" data-w="${qrDataW}" data-backw="578" data-backh="${qrBackh}" data-original-style="vertical-align:middle;box-sizing:border-box;width:100%;height:auto !important;" style="vertical-align: middle; box-sizing: border-box; width: 100% !important; height: auto !important; visibility: visible !important;" src="${qrImageSrc}" alt="${block.productName}">
-	                                    </span>
-	                                </section>
-                            </section>
-                            <section style="text-align: center;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
-	                                <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
-	                                    <span leaf="">
-	                                        <img data-src="${bannerImageSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="0.125" data-s="300,640" data-type="png" data-w="1000" data-backw="578" data-backh="72" data-original-style="vertical-align:middle;box-sizing:border-box;width:100%;height:auto !important;" style="vertical-align: middle; box-sizing: border-box; width: 100% !important; height: auto !important; visibility: visible !important;" src="${bannerImageSrc}" alt="长条配图">
-	                                    </span>
-	                                </section>
-                            </section>
-                            <section style="display: inline-block;width: 100%;vertical-align: top;padding-right: 10px;padding-left: 10px;border-width: 0px;background-color: rgb(246, 251, 253);box-sizing: border-box;">
-                                <section style="margin: 10px 0%;box-sizing: border-box;">
-                                    <section style="text-align: center;color: rgb(0, 0, 0);font-size: 12px;box-sizing: border-box;">
-                                         <p><span style="font-size: 10px;"><span leaf="">${currentTaoKouLing}</span></span></p>
-                                        <p><span style="font-size: 10px;"><span leaf="">电脑直接访问链接，手机复制本段所有内容</span></span></p>
-                                    </section>
-                                </section>
-                            </section>
-                        </section>`;
+                        return generateProductCardHTML(block);
                     }
                     case 'referenced-image': {
                         if (isGifImageBlock(block)) {
@@ -5172,6 +5138,11 @@ curl -fsSL https://example.com/install.sh | bash
             document.querySelectorAll('[data-typography-align]').forEach((btn) => {
                 btn.addEventListener('click', function() {
                     setTypographyAlign(this.dataset.typographyAlign);
+                });
+            });
+            document.querySelectorAll('[data-typography-image-align]').forEach((btn) => {
+                btn.addEventListener('click', function() {
+                    setTypographyImageAlign(this.dataset.typographyImageAlign);
                 });
             });
             document.addEventListener('click', function() {
