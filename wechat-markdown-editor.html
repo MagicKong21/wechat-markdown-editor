@@ -1010,7 +1010,9 @@
         .more-actions-menu #example-btn,
         .more-actions-menu #clear-btn,
         .more-actions-menu #update-taokouling-btn,
-        .more-actions-menu #custom-tracking-btn {
+        .more-actions-menu #custom-tracking-btn,
+        .more-actions-menu #bold-to-highlight-btn,
+        .more-actions-menu #highlight-to-bold-btn {
             background: transparent !important;
             color: #f3f6ff !important;
         }
@@ -1018,7 +1020,9 @@
         .more-actions-menu #example-btn:hover,
         .more-actions-menu #clear-btn:hover,
         .more-actions-menu #update-taokouling-btn:hover,
-        .more-actions-menu #custom-tracking-btn:hover {
+        .more-actions-menu #custom-tracking-btn:hover,
+        .more-actions-menu #bold-to-highlight-btn:hover,
+        .more-actions-menu #highlight-to-bold-btn:hover {
             background: rgba(255, 255, 255, 0.08) !important;
         }
 
@@ -1337,6 +1341,12 @@
                         </button>
                         <button type="button" id="clear-btn" role="menuitem">
                             <i class="fas fa-broom"></i> 清空标记符
+                        </button>
+                        <button type="button" id="bold-to-highlight-btn" role="menuitem">
+                            <i class="fas fa-bold"></i> 加粗转高亮
+                        </button>
+                        <button type="button" id="highlight-to-bold-btn" role="menuitem">
+                            <i class="fas fa-highlighter"></i> 高亮转加粗
                         </button>
                         <button type="button" id="update-taokouling-btn" role="menuitem">
                             <i class="fas fa-key"></i> 更新淘口令
@@ -1746,27 +1756,11 @@
          */
         function insertImageReference(filename) {
             const textarea = document.getElementById('markdown-input');
-            const cursorPos = textarea.selectionStart;
-            const textBefore = textarea.value.substring(0, cursorPos);
-            const textAfter = textarea.value.substring(cursorPos);
-            
-            // 查找当前行的开始位置
-            const lineStart = textBefore.lastIndexOf('\n') + 1;
-            const currentLine = textBefore.substring(lineStart);
-            
-            // 如果当前行为空，直接插入图片引用
-            if (!currentLine.trim()) {
-                const imageRef = `\n【${filename}】\n`;
-                const newText = textBefore + imageRef + textAfter;
-                textarea.value = newText;
-                textarea.selectionStart = textarea.selectionEnd = cursorPos + imageRef.length;
-            } else {
-                // 如果当前行不为空，在下一行插入图片引用
-                const imageRef = `\n\n【${filename}】\n`;
-                const newText = textBefore + imageRef + textAfter;
-                textarea.value = newText;
-                textarea.selectionStart = textarea.selectionEnd = cursorPos + imageRef.length;
-            }
+            const selectionStart = textarea.selectionStart;
+            const selectionEnd = textarea.selectionEnd;
+            const imageRef = `【${filename}】`;
+            textarea.value = textarea.value.substring(0, selectionStart) + imageRef + textarea.value.substring(selectionEnd);
+            textarea.selectionStart = textarea.selectionEnd = selectionStart + imageRef.length;
             
             // 触发input事件更新预览
             textarea.dispatchEvent(new Event('input'));
@@ -2932,6 +2926,15 @@
           * @returns {string} 处理后的HTML
           */
 function processTextSpacing(text) {
+            // 保护微信小程序链接，避免「://」和路径斜杠被空格规则拆开
+            const miniProgramTokens = [];
+            const miniProgramPattern = /#小程序:\/\/[^\s]+/g;
+            text = text.replace(miniProgramPattern, (match) => {
+                const token = `__MINI_PROGRAM_TOKEN_${miniProgramTokens.length}__`;
+                miniProgramTokens.push(match);
+                return token;
+            });
+
             // 保护 URL 避免被斜杠规则影响
             const urlTokens = [];
             const urlPattern = /https?:\/\/[^\s]+/g;
@@ -2992,6 +2995,12 @@ function processTextSpacing(text) {
                 text = text.replace(token, url);
             });
 
+            // 恢复微信小程序链接令牌
+            miniProgramTokens.forEach((link, index) => {
+                const token = `__MINI_PROGRAM_TOKEN_${index}__`;
+                text = text.replace(token, link);
+            });
+
             return text;
         }
 
@@ -3010,6 +3019,48 @@ function processTextSpacing(text) {
 
         function styleParentheticalNotes(text) {
             return String(text || '').replace(/(\([^()\n]*\))/g, '<span textstyle="" style="font-size: 12px;color: #888888;letter-spacing: normal;">$1</span>');
+        }
+
+        function applyInlineHtmlBoundarySpacing(html) {
+            return String(html || '')
+                .replace(/([\u4e00-\u9fa5])((?:<(?:span|em|code)\b[^>]*>)+)(?=[A-Za-z0-9])/g, '$1 $2')
+                .replace(/([A-Za-z0-9])((?:<\/(?:span|em|code)>)+)(?=[\u4e00-\u9fa5])/g, '$1$2 ');
+        }
+
+        function isYuanPriceText(text) {
+            return /^\s*(?:￥|¥)?\d+(?:\.\d+)?\s*元\s*$/.test(String(text || ''));
+        }
+
+        function createAutoPriceHTML(content, isOriginalPrice = false) {
+            if (isOriginalPrice) {
+                return `<span textstyle="" style="letter-spacing: normal; color: #888888; text-decoration: line-through;">${content}</span>`;
+            }
+            if (isPersonalMode) {
+                return `<em style="letter-spacing: normal; background: linear-gradient(transparent 50%, rgb(255, 242, 168) 0px); padding: 0px 2px; color: rgb(51, 51, 51); font-style: normal !important;"><span leaf="" style="font-weight: bold; color: rgb(0, 0, 0);">${content}</span></em>`;
+            }
+            return `<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255); font-weight: bold;">${content}</span>`;
+        }
+
+        function protectAutoPriceStyles(text, priceTokens) {
+            const pricePattern = '(?:￥|¥)?\\d+(?:\\.\\d+)?\\s*元';
+            const markerPattern = '(?:\\*\\*|==){0,2}';
+            const tokenFor = (html) => {
+                const token = `%%AUTO_PRICE_${priceTokens.length}%%`;
+                priceTokens.push(html);
+                return token;
+            };
+
+            let result = String(text || '').replace(
+                new RegExp(`(原价\\s*)${markerPattern}\\s*(${pricePattern})\\s*${markerPattern}`, 'g'),
+                (match, prefix, price) => prefix + tokenFor(createAutoPriceHTML(price, true))
+            );
+
+            result = result.replace(
+                new RegExp(`${markerPattern}\\s*(${pricePattern})\\s*${markerPattern}`, 'g'),
+                (match, price) => tokenFor(createAutoPriceHTML(price, false))
+            );
+
+            return result;
         }
 
         /**
@@ -3292,6 +3343,7 @@ function processTextSpacing(text) {
         function processInlineFormatting(text, skipWrapper = false, styleNotes = false) {
             let processed = text || '';
             const inlineCodeTokens = [];
+            const priceTokens = [];
 
             // 先保护行内代码（反引号 ` ` 包裹的内容），避免内部内容被自动加空格等规则改写
             processed = processed.replace(/`([^`\n]+)`/g, (match, content) => {
@@ -3304,6 +3356,7 @@ function processTextSpacing(text) {
 
             // 中英文混排加空格、中文引号转换
             processed = processTextSpacing(processed);
+            processed = protectAutoPriceStyles(processed, priceTokens);
             if (styleNotes) {
                 processed = styleParentheticalNotes(processed);
             }
@@ -3338,10 +3391,11 @@ function processTextSpacing(text) {
             
             // 处理 ==文本== - 高亮/标蓝
             processed = processed.replace(/==([^=]+)==/g, (match, content) => {
+                const fontWeight = isYuanPriceText(content) ? ' font-weight: bold;' : '';
                 if (isPersonalMode) {
-                    return `<em style="letter-spacing: normal; background: linear-gradient(transparent 50%, rgb(255, 242, 168) 0px); padding: 0px 2px; color: rgb(51, 51, 51); font-style: normal !important;"><span leaf="" style="color: rgb(0, 0, 0);">${content}</span></em>`;
+                    return `<em style="letter-spacing: normal; background: linear-gradient(transparent 50%, rgb(255, 242, 168) 0px); padding: 0px 2px; color: rgb(51, 51, 51); font-style: normal !important;"><span leaf="" style="color: rgb(0, 0, 0);${fontWeight}">${content}</span></em>`;
                 }
-                return `<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255);">${content}</span>`;
+                return `<span textstyle="" style="letter-spacing: normal; color: rgb(51, 173, 255);${fontWeight}">${content}</span>`;
             });
             
             // 处理 **文本** - 加粗
@@ -3356,6 +3410,12 @@ function processTextSpacing(text) {
                     return `<span textstyle="" style="letter-spacing: normal; font-weight: bold;">${content}</span>`;
                 });
             }
+            // 恢复自动价格样式
+            processed = processed.replace(/%%AUTO_PRICE_(\d+)%%/g, (match, index) => {
+                return priceTokens[Number(index)] || match;
+            });
+            processed = applyInlineHtmlBoundarySpacing(processed);
+
             // 恢复行内代码原文
             processed = processed.replace(/%%INLINE_CODE_(\d+)%%/g, (match, index) => {
                 return inlineCodeTokens[Number(index)] || match;
@@ -4830,6 +4890,20 @@ function processTextSpacing(text) {
             showStatus('已清空加粗、高亮、分割线标记符', 'success');
         }
 
+        function replaceMarkdownMarker(fromMarker, toMarker, label) {
+            const textarea = document.getElementById('markdown-input');
+            const original = textarea.value;
+            const replaced = original.split(fromMarker).join(toMarker);
+            if (replaced === original) {
+                showStatus(`没有找到 ${fromMarker} 标记`, 'warning');
+                return;
+            }
+            textarea.value = replaced;
+            saveDraftNow();
+            immediateUpdatePreview();
+            showStatus(`已完成${label}`, 'success');
+        }
+
         /**
           * 更新淘口令
           */
@@ -5090,6 +5164,8 @@ curl -fsSL https://example.com/install.sh | bash
             document.getElementById('copy-body-btn').addEventListener('click', copyBodyToClipboard);
             document.getElementById('clear-btn').addEventListener('click', clearEditor);
             document.getElementById('example-btn').addEventListener('click', loadExample);
+            document.getElementById('bold-to-highlight-btn').addEventListener('click', () => replaceMarkdownMarker('**', '==', '加粗转高亮'));
+            document.getElementById('highlight-to-bold-btn').addEventListener('click', () => replaceMarkdownMarker('==', '**', '高亮转加粗'));
             document.getElementById('update-taokouling-btn').addEventListener('click', updateTaokouling);
             document.getElementById('custom-tracking-btn').addEventListener('click', updateTrackingParams);
             const moreActions = document.getElementById('more-actions');
