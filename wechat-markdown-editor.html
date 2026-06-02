@@ -262,7 +262,8 @@
             font-size: 14px;
         }
         
-        .wx-article .product-card-section p {
+        .wx-article .product-card-section p,
+        .wx-article .activity-card-section p {
             margin: 4px 0;
             line-height: 1.5;
         }
@@ -1493,7 +1494,7 @@
         const undoStack = [];
         const redoStack = [];
         
-        // 上传的图片管理 { filename: { originalDataUrl, displayDataUrl, thumbnailSrc, useCount, qrReplaced, displayName, width, height, mimeType } }
+        // 上传的图片管理 { filename: { originalDataUrl, displayDataUrl, thumbnailSrc, useCount, qrReplaced, displayName, width, height, mimeType, activityCard } }
         const uploadedImages = {};
         let totalUploadedImageBytes = 0;
 
@@ -1932,6 +1933,7 @@
                     img.rewrittenQrUrl = qrResult.newQrUrl;
                     img.width = qrResult.width;
                     img.height = qrResult.height;
+                    img.activityCard = await buildActivityCardAssets(img.originalDataUrl);
                     if (qrResult.qrReplaced) replacedCount++;
                     revokePreviewUrl(img);
                 } catch (err) {
@@ -2014,6 +2016,90 @@
                 img.onerror = () => reject(new Error('图片读取失败'));
                 img.src = originalDataUrl;
             });
+        }
+
+        async function splitActivityCardImage(cardDataUrl, stripHeight = 115) {
+            const img = await loadImageFromDataUrl(cardDataUrl);
+            const sourceWidth = img.naturalWidth || img.width;
+            const sourceHeight = img.naturalHeight || img.height;
+            const cutHeight = Math.min(stripHeight, Math.max(1, sourceHeight - 1));
+            const cardHeight = sourceHeight - cutHeight;
+            const sourceCanvas = document.createElement('canvas');
+            const sourceCtx = sourceCanvas.getContext('2d');
+            sourceCanvas.width = sourceWidth;
+            sourceCanvas.height = sourceHeight;
+            sourceCtx.drawImage(img, 0, 0);
+
+            const cardCanvas = document.createElement('canvas');
+            const cardCtx = cardCanvas.getContext('2d');
+            cardCanvas.width = sourceWidth;
+            cardCanvas.height = cardHeight;
+            cardCtx.drawImage(sourceCanvas, 0, 0, sourceWidth, cardHeight, 0, 0, sourceWidth, cardHeight);
+
+            const stripCanvas = document.createElement('canvas');
+            const stripCtx = stripCanvas.getContext('2d');
+            stripCanvas.width = sourceWidth;
+            stripCanvas.height = cutHeight;
+            stripCtx.drawImage(sourceCanvas, 0, cardHeight, sourceWidth, cutHeight, 0, 0, sourceWidth, cutHeight);
+
+            // 淘口令区域紧贴小长条底边，底色应匹配小长条最底部的视觉颜色，而不是整条图的全局主色。
+            const edgeHeight = Math.max(8, Math.min(32, Math.round(cutHeight * 0.16)));
+            const edgeY = Math.max(0, cutHeight - edgeHeight);
+            const stripEdgeImageData = stripCtx.getImageData(0, edgeY, sourceWidth, edgeHeight);
+            const backgroundColor = colorToCss(getDominantColorFromImageData(stripEdgeImageData));
+
+            return {
+                cardDataUrl: cardCanvas.toDataURL('image/png'),
+                cardWidth: sourceWidth,
+                cardHeight,
+                stripDataUrl: stripCanvas.toDataURL('image/png'),
+                stripWidth: sourceWidth,
+                stripHeight: cutHeight,
+                backgroundColor,
+                topColor: backgroundColor,
+                textColor: getReadableTextColor(backgroundColor),
+                splitFromSingleImage: true
+            };
+        }
+
+        async function getImageBottomEdgeColor(imageDataUrl) {
+            const img = await loadImageFromDataUrl(imageDataUrl);
+            const width = img.naturalWidth || img.width;
+            const height = img.naturalHeight || img.height;
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0);
+
+            const edgeHeight = Math.max(8, Math.min(32, Math.round(height * 0.16)));
+            const edgeY = Math.max(0, height - edgeHeight);
+            const edgeImageData = ctx.getImageData(0, edgeY, width, edgeHeight);
+            return colorToCss(getDominantColorFromImageData(edgeImageData));
+        }
+
+        async function buildActivityCardAssets(cardDataUrl) {
+            try {
+                return await splitActivityCardImage(cardDataUrl, 115);
+            } catch (err) {
+                console.warn('活动卡片配色生成失败，将使用默认浅色背景:', err);
+                return {
+                    stripDataUrl: '',
+                    backgroundColor: 'rgb(246, 251, 253)',
+                    topColor: 'rgb(246, 251, 253)',
+                    textColor: 'rgb(0, 0, 0)'
+                };
+            }
+        }
+
+        async function ensureActivityCardForImageRecord(image) {
+            if (!image) return;
+            image.activityCard = await buildActivityCardAssets(image.originalDataUrl || image.displayDataUrl);
+        }
+
+        async function ensureStripColorForImageRecord(image) {
+            if (!image || image.stripBackgroundColor) return;
+            image.stripBackgroundColor = await getImageBottomEdgeColor(image.originalDataUrl || image.displayDataUrl);
         }
         
         /**
@@ -2098,6 +2184,9 @@
 
                 try {
                     const qrResult = await applyProductQrReplacement(originalDataUrl, file.type || '');
+                    // 活动卡片的二维码位置不固定，上传前已手动处理；切图必须基于原图，不能使用商品二维码替换后的图。
+                    const activityCard = await buildActivityCardAssets(originalDataUrl);
+                    const stripBackgroundColor = await getImageBottomEdgeColor(originalDataUrl);
 
                     if (uploadedImages[storageFilename]) {
                         totalUploadedImageBytes -= uploadedImages[storageFilename].originalSize || getDataUrlByteSize(uploadedImages[storageFilename].originalDataUrl);
@@ -2119,6 +2208,8 @@
                         width: qrResult.width,
                         height: qrResult.height,
                         mimeType: file.type || '',
+                        activityCard,
+                        stripBackgroundColor,
                         originalSize: file.size || getDataUrlByteSize(originalDataUrl)
                     };
                     if (qrResult.qrReplaced) {
@@ -2272,6 +2363,16 @@
 
             for (const line of lines) {
                 const trimmedLine = line.trim();
+                const activityCardMatch = trimmedLine.match(/^活动卡片：(.*)$/);
+                if (activityCardMatch) {
+                    const spec = parseActivityCardSpec(activityCardMatch[1]);
+                    const matched = findMatchingImage(spec.imageName);
+                    if (matched) imageOrder.push({ refText: spec.imageName, filename: matched.filename });
+                    const stripMatched = spec.stripName ? findMatchingImage(spec.stripName) : null;
+                    if (stripMatched) imageOrder.push({ refText: spec.stripName, filename: stripMatched.filename });
+                    continue;
+                }
+
                 const sideMatch = trimmedLine.match(/^【([^【】]+)】[|｜]【([^【】]+)】(?:[|｜]【([^【】]+)】)?$/);
                 if (sideMatch) {
                     for (let j = 1; j <= 3; j++) {
@@ -2545,6 +2646,84 @@
             return null;
         }
 
+        function getActivityCardRefsFromMarkdown(markdown) {
+            const refs = [];
+            String(markdown || '').split('\n').forEach((line) => {
+                const match = line.trim().match(/^活动卡片：(.*)$/);
+                if (!match) return;
+                const spec = parseActivityCardSpec(match[1]);
+                if (spec.imageName) refs.push(spec.imageName);
+                if (spec.stripName) refs.push(spec.stripName);
+            });
+            return refs;
+        }
+
+        function getSafeLocalImageCandidates(refText) {
+            const name = String(refText || '').trim().replace(/^【|】$/g, '');
+            if (!name || /[\\/]/.test(name) || name.includes('..')) return [];
+            const hasExt = /\.(png|jpg|jpeg|webp)$/i.test(name);
+            return hasExt ? [name] : [`${name}.png`, `${name}.jpg`, `${name}.jpeg`, `${name}.webp`];
+        }
+
+        async function loadLocalActivityImageIfNeeded(refText) {
+            if (findMatchingImage(refText)) return;
+
+            for (const candidate of getSafeLocalImageCandidates(refText)) {
+                try {
+                    const dataUrl = await loadImageUrlAsDataUrl(`images/${encodeURIComponent(candidate)}`);
+                    const img = await loadImageFromDataUrl(dataUrl);
+                    const activityCard = await buildActivityCardAssets(dataUrl);
+                    const stripBackgroundColor = await getImageBottomEdgeColor(dataUrl);
+                    uploadedImages[candidate] = {
+                        originalDataUrl: dataUrl,
+                        displayDataUrl: dataUrl,
+                        thumbnailSrc: dataUrl,
+                        useCount: 0,
+                        qrReplaced: false,
+                        originalQrUrl: '',
+                        rewrittenQrUrl: '',
+                        displayName: candidate,
+                        width: img.naturalWidth || img.width,
+                        height: img.naturalHeight || img.height,
+                        mimeType: getMimeTypeFromImageUrl(candidate),
+                        activityCard,
+                        stripBackgroundColor,
+                        originalSize: getDataUrlByteSize(dataUrl),
+                        localActivityAsset: true
+                    };
+                    totalUploadedImageBytes += uploadedImages[candidate].originalSize;
+                    updateImagePreview();
+                    return;
+                } catch (err) {
+                    // 继续尝试其他常见扩展名。
+                }
+            }
+        }
+
+        async function ensureActivityCardsForMarkdown(markdown) {
+            const lines = String(markdown || '').split('\n');
+            for (const line of lines) {
+                const match = line.trim().match(/^活动卡片：(.*)$/);
+                if (!match) continue;
+                const spec = parseActivityCardSpec(match[1]);
+
+                if (spec.imageName) await loadLocalActivityImageIfNeeded(spec.imageName);
+                if (spec.stripName) await loadLocalActivityImageIfNeeded(spec.stripName);
+
+                // 两图语法只负责拼接；单图语法才会把底部 115px 切成小长条。
+                if (spec.stripName) {
+                    const stripMatched = findMatchingImage(spec.stripName);
+                    if (stripMatched) await ensureStripColorForImageRecord(uploadedImages[stripMatched.filename]);
+                    continue;
+                }
+
+                const matched = spec.imageName ? findMatchingImage(spec.imageName) : null;
+                if (!matched) continue;
+                const image = uploadedImages[matched.filename];
+                await ensureActivityCardForImageRecord(image);
+            }
+        }
+
         function getUploadedImageInfo(filename, useCopyDataUrl = false) {
             const image = uploadedImages[filename];
             return {
@@ -2553,7 +2732,9 @@
                 width: image.width,
                 height: image.height,
                 mimeType: image.mimeType || '',
-                displayName: image.displayName || filename
+                displayName: image.displayName || filename,
+                activityCard: image.activityCard || null,
+                stripBackgroundColor: image.stripBackgroundColor || ''
             };
         }
 
@@ -2633,6 +2814,148 @@
                 console.warn('fetch 读取图片失败，尝试用图片元素读取:', err);
                 return loadImageElementAsDataUrl(url);
             }
+        }
+
+        function loadImageFromDataUrl(dataUrl) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error('图片读取失败'));
+                img.src = dataUrl;
+            });
+        }
+
+        function colorToCss(color) {
+            return `rgb(${color.r}, ${color.g}, ${color.b})`;
+        }
+
+        function parseCssRgb(cssColor) {
+            const match = String(cssColor || '').match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+            if (!match) return { r: 246, g: 251, b: 253 };
+            return {
+                r: Number(match[1]),
+                g: Number(match[2]),
+                b: Number(match[3])
+            };
+        }
+
+        function getRelativeLuminance(color) {
+            const rgb = [color.r, color.g, color.b].map((value) => {
+                const normalized = value / 255;
+                return normalized <= 0.03928
+                    ? normalized / 12.92
+                    : Math.pow((normalized + 0.055) / 1.055, 2.4);
+            });
+            return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+        }
+
+        function getReadableTextColor(cssColor) {
+            const luminance = getRelativeLuminance(parseCssRgb(cssColor));
+            return luminance > 0.48 ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)';
+        }
+
+        function normalizeActivityColor(value, fallback = 'rgb(246, 251, 253)') {
+            const text = String(value || '').trim();
+            const hex = text.match(/#([0-9a-f]{6}|[0-9a-f]{3})\b/i);
+            if (hex) {
+                let raw = hex[1];
+                if (raw.length === 3) raw = raw.split('').map(ch => ch + ch).join('');
+                const r = parseInt(raw.slice(0, 2), 16);
+                const g = parseInt(raw.slice(2, 4), 16);
+                const b = parseInt(raw.slice(4, 6), 16);
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+
+            const rgb = text.match(/rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+(?:\s*,\s*(?:0|1|0?\.\d+))?\s*\)/i);
+            return rgb ? rgb[0] : fallback;
+        }
+
+        function parseActivityCardSpec(rawSpec) {
+            const spec = String(rawSpec || '').trim();
+            const refs = Array.from(spec.matchAll(/【([^【】]+)】/g)).map(match => match[1].trim());
+            const color = normalizeActivityColor(spec, '');
+            const parts = spec.split(/[|｜,，]/).map(part => part.trim()).filter(Boolean);
+            const fallbackName = normalizeProductImageName(parts[0] || spec);
+
+            return {
+                imageName: normalizeProductImageName(refs[0] || fallbackName),
+                stripName: refs[1] ? normalizeProductImageName(refs[1]) : '',
+                backgroundColor: color || ''
+            };
+        }
+
+        function averagePixels(imageData, options = {}) {
+            const data = imageData.data;
+            const stride = options.stride || 4;
+            let r = 0;
+            let g = 0;
+            let b = 0;
+            let count = 0;
+
+            for (let i = 0; i < data.length; i += 4 * stride) {
+                const alpha = data[i + 3];
+                if (alpha < 128) continue;
+                r += data[i];
+                g += data[i + 1];
+                b += data[i + 2];
+                count++;
+            }
+
+            if (!count) return { r: 246, g: 251, b: 253 };
+            return {
+                r: Math.round(r / count),
+                g: Math.round(g / count),
+                b: Math.round(b / count)
+            };
+        }
+
+        function getDominantColorFromImageData(imageData) {
+            const data = imageData.data;
+            const buckets = new Map();
+            const bucketSize = 24;
+            const sampleStep = Math.max(1, Math.floor((imageData.width * imageData.height) / 18000));
+
+            for (let i = 0; i < data.length; i += 4 * sampleStep) {
+                const alpha = data[i + 3];
+                if (alpha < 128) continue;
+
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const max = Math.max(r, g, b);
+                const min = Math.min(r, g, b);
+                const brightness = (r + g + b) / 3;
+                const saturation = max === 0 ? 0 : (max - min) / max;
+
+                // 活动卡片常见的白底、黑字、二维码黑块不适合作为底色，优先统计有色区域。
+                if ((brightness > 232 && saturation < 0.18) || brightness < 34) continue;
+
+                const key = [
+                    Math.round(r / bucketSize),
+                    Math.round(g / bucketSize),
+                    Math.round(b / bucketSize)
+                ].join(',');
+
+                const bucket = buckets.get(key) || { r: 0, g: 0, b: 0, count: 0, score: 0 };
+                bucket.r += r;
+                bucket.g += g;
+                bucket.b += b;
+                bucket.count++;
+                bucket.score += 1 + saturation;
+                buckets.set(key, bucket);
+            }
+
+            let best = null;
+            for (const bucket of buckets.values()) {
+                if (!best || bucket.score > best.score) best = bucket;
+            }
+
+            if (!best || !best.count) return averagePixels(imageData, { stride: sampleStep });
+            return {
+                r: Math.round(best.r / best.count),
+                g: Math.round(best.g / best.count),
+                b: Math.round(best.b / best.count)
+            };
         }
 
         async function ensureDefaultProductImagesForCopy() {
@@ -2791,7 +3114,8 @@
             title9: localAsset('title9.png'),
             coverImage: localAsset('cover-image.png'),
             productCardQr: localAsset('product-card-qr.png'),
-            productCardBanner: localAsset('product-card-banner.png')
+            productCardBanner: localAsset('product-card-banner.png'),
+            activityStrip: ''
         };
 
         // 微信原始链接（用于复制到微信编辑器）
@@ -3315,17 +3639,17 @@ function processTextSpacing(text) {
 	                </section>
             </section>`;
 
-            if (isPersonalMode) {
+            if (isPersonalMode || block.compact) {
                 return `<section class="product-card-section" style="box-sizing: border-box;font-size: 16px;margin-bottom: 0;">${qrSection}</section>`;
             }
 
             const bannerImageSrc = getDefaultProductCardBannerSrc();
             return `<section class="product-card-section" style="box-sizing: border-box;font-size: 16px;margin-bottom: 0;">
                 ${qrSection}
-                <section style="text-align: center;margin-right: 0%;margin-left: 0%;box-sizing: border-box;">
-	                <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;">
-	                    <span leaf="">
-	                        <img data-src="${bannerImageSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="0.125" data-s="300,640" data-type="png" data-w="1000" data-backw="578" data-backh="72" data-aistatus="1" data-original-style="vertical-align:middle;box-sizing:border-box;width:100%;height:auto !important;" style="vertical-align: middle; box-sizing: border-box; width: 100% !important; height: auto !important; visibility: visible !important;" src="${bannerImageSrc}" alt="长条配图">
+                <section aria-hidden="true" style="text-align: center;margin-right: 0%;margin-left: 0%;box-sizing: border-box;pointer-events: none;user-select: none;-webkit-user-select: none;">
+	                <section style="max-width: 100%;vertical-align: middle;display: inline-block;line-height: 0;box-sizing: border-box;pointer-events: none;user-select: none;-webkit-user-select: none;">
+	                    <span leaf="" style="pointer-events: none;user-select: none;-webkit-user-select: none;">
+	                        <img data-src="${bannerImageSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="0.125" data-s="300,640" data-type="png" data-w="1000" data-backw="578" data-backh="72" data-aistatus="1" data-original-style="vertical-align:middle;box-sizing:border-box;width:100%;height:auto !important;" style="vertical-align: middle; box-sizing: border-box; width: 100% !important; height: auto !important; visibility: visible !important; pointer-events: none; user-select: none; -webkit-user-select: none;" src="${bannerImageSrc}" alt="">
 	                    </span>
 	                </section>
                 </section>
@@ -3334,6 +3658,73 @@ function processTextSpacing(text) {
                         <section style="text-align: center;color: rgb(0, 0, 0);font-size: 12px;box-sizing: border-box;">
                              <p><span style="font-size: 10px;"><span leaf="">${currentTaoKouLing}</span></span></p>
                             <p><span style="font-size: 10px;"><span leaf="">电脑直接访问链接，手机复制本段所有内容</span></span></p>
+                        </section>
+                    </section>
+                </section>
+            </section>`;
+        }
+
+        function generateActivityCardHTML(block) {
+            const matchedImg = findMatchingImage(block.imageName);
+            if (!matchedImg) {
+                return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed #ddd; margin: 10px 0; color: #999; font-size: 14px;">
+                    【未找到活动卡片图片：${block.imageName}】
+                </div>`;
+            }
+
+            const stripImg = block.stripName ? findMatchingImage(block.stripName) : null;
+            if (block.stripName && !stripImg) {
+                return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed #ddd; margin: 10px 0; color: #999; font-size: 14px;">
+                    【未找到活动小长条图片：${block.stripName}】
+                </div>`;
+            }
+
+            const activityMeta = matchedImg.activityCard || {
+                stripDataUrl: '',
+                backgroundColor: 'rgb(246, 251, 253)',
+                textColor: 'rgb(0, 0, 0)'
+            };
+            const inferredBackground = (stripImg && stripImg.stripBackgroundColor) || activityMeta.backgroundColor || 'rgb(246, 251, 253)';
+            const cardBackground = normalizeActivityColor(block.backgroundColor, inferredBackground);
+            const textColor = getReadableTextColor(cardBackground);
+            const cardImageSrc = stripImg ? matchedImg.dataUrl : (activityMeta.cardDataUrl || matchedImg.dataUrl);
+            const cardImageWidth = stripImg ? matchedImg.width : (activityMeta.cardWidth || matchedImg.width);
+            const cardImageHeight = stripImg ? matchedImg.height : (activityMeta.cardHeight || matchedImg.height);
+            const stripImageSrc = stripImg ? stripImg.dataUrl : (activityMeta.stripDataUrl || '');
+            const qrRatio = cardImageWidth && cardImageHeight ? (cardImageHeight / cardImageWidth).toFixed(8).replace(/0+$/, '').replace(/\.$/, '') : '0.416';
+            const qrDataType = (matchedImg.mimeType || '').split('/')[1] || 'png';
+            const qrDataW = cardImageWidth || 1000;
+            const qrBackh = cardImageWidth && cardImageHeight ? Math.round((cardImageHeight / cardImageWidth) * 578) : 240;
+            const stripWidth = stripImg && stripImg.width ? stripImg.width : (activityMeta.stripWidth || 1000);
+            const stripHeight = stripImg && stripImg.height ? stripImg.height : (activityMeta.stripHeight || 125);
+            const stripRatio = stripWidth && stripHeight ? stripHeight / stripWidth : 0.125;
+            const stripDataW = stripWidth || 1000;
+            const stripBackh = Math.round(stripRatio * 578);
+            const activityImageStyle = 'display: block; vertical-align: top; box-sizing: border-box; width: 100% !important; height: auto !important; visibility: visible !important; margin: 0 !important; padding: 0 !important;';
+
+            incrementImageUseCount(matchedImg.filename);
+            if (stripImg) incrementImageUseCount(stripImg.filename);
+
+            return `<section class="activity-card-section" style="box-sizing: border-box;font-size: 0;line-height: 0;margin: 0 !important;padding: 0 !important;background-color: ${cardBackground};">
+                <section style="text-align: center;margin: 0 !important;padding: 0 !important;box-sizing: border-box;font-size: 0;line-height: 0;background-color: ${cardBackground};">
+	                <section style="max-width: 100%;width: 100%;vertical-align: top;display: block;line-height: 0;font-size: 0;box-sizing: border-box;margin: 0 !important;padding: 0 !important;">
+	                    <span leaf="" style="display: block;line-height: 0;font-size: 0;margin: 0 !important;padding: 0 !important;">
+	                        <img data-src="${cardImageSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="${qrRatio}" data-s="300,640" data-type="${qrDataType}" data-w="${qrDataW}" data-backw="578" data-backh="${qrBackh}" data-original-style="${activityImageStyle}" style="${activityImageStyle}" src="${cardImageSrc}" alt="${block.imageName}">
+	                    </span>
+	                </section>
+                </section>
+                <section aria-hidden="true" style="text-align: center;margin: 0 !important;padding: 0 !important;box-sizing: border-box;font-size: 0;line-height: 0;background-color: ${cardBackground};pointer-events: none;user-select: none;-webkit-user-select: none;">
+	                <section style="max-width: 100%;width: 100%;vertical-align: top;display: block;line-height: 0;font-size: 0;box-sizing: border-box;margin: 0 !important;padding: 0 !important;pointer-events: none;user-select: none;-webkit-user-select: none;">
+	                    <span leaf="" style="display: block;line-height: 0;font-size: 0;margin: 0 !important;padding: 0 !important;pointer-events: none;user-select: none;-webkit-user-select: none;">
+	                        <img data-src="${stripImageSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="${stripRatio.toFixed(8).replace(/0+$/, '').replace(/\.$/, '')}" data-s="300,640" data-type="png" data-w="${stripDataW}" data-backw="578" data-backh="${stripBackh}" data-original-style="${activityImageStyle}" style="${activityImageStyle} pointer-events: none; user-select: none; -webkit-user-select: none;" src="${stripImageSrc}" alt="">
+	                    </span>
+	                </section>
+                </section>
+                <section style="display: inline-block;width: 100%;vertical-align: top;padding-right: 10px;padding-left: 10px;border-width: 0px;background-color: ${cardBackground};box-sizing: border-box;font-size: 16px;line-height: normal;">
+                    <section style="margin: 10px 0%;box-sizing: border-box;">
+                        <section style="text-align: center;color: ${textColor};font-size: 12px;box-sizing: border-box;">
+                            <p><span style="font-size: 10px;color: ${textColor};"><span leaf="">${currentTaoKouLing}</span></span></p>
+                            <p><span style="font-size: 10px;color: ${textColor};"><span leaf="">电脑直接访问链接，手机复制本段所有内容</span></span></p>
                         </section>
                     </section>
                 </section>
@@ -3657,6 +4048,31 @@ function processTextSpacing(text) {
 
                 // 普通段落
                 if (trimmedLine) {
+                    // 检测活动卡片：二维码卡片 + 渐变小长条 + 淘口令
+                    const activityCardMatch = trimmedLine.match(/^活动卡片：(.*)$/);
+                    if (activityCardMatch) {
+                        const activitySpec = parseActivityCardSpec(activityCardMatch[1]);
+                        contentBlocks.push({
+                            type: 'activity-card',
+                            ...activitySpec
+                        });
+                        i++;
+                        continue;
+                    }
+
+                    // 检测商品小卡片：仅保留二维码卡片
+                    const compactProductCardMatch = trimmedLine.match(/^商品小卡片：(.*)$/);
+                    if (compactProductCardMatch) {
+                        const productName = normalizeProductImageName(compactProductCardMatch[1]);
+                        contentBlocks.push({
+                            type: 'product-card',
+                            productName: productName,
+                            compact: true
+                        });
+                        i++;
+                        continue;
+                    }
+
                     // 检测商品卡片
                     const productCardMatch = trimmedLine.match(/^商品卡片：(.*)$/);
                     if (productCardMatch) {
@@ -3838,6 +4254,9 @@ function processTextSpacing(text) {
                     }
                     case 'product-card': {
                         return generateProductCardHTML(block);
+                    }
+                    case 'activity-card': {
+                        return generateActivityCardHTML(block);
                     }
                     case 'referenced-image': {
                         const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center;"><span style="font-size: 12px; color: rgb(136, 136, 136);">${block.caption}</span></p>` : '';
@@ -4260,6 +4679,31 @@ function processTextSpacing(text) {
                 }
 
                 if (trimmedLine) {
+                    // 检测活动卡片：二维码卡片 + 渐变小长条 + 淘口令
+                    const activityCardMatch = trimmedLine.match(/^活动卡片：(.*)$/);
+                    if (activityCardMatch) {
+                        const activitySpec = parseActivityCardSpec(activityCardMatch[1]);
+                        contentBlocks.push({
+                            type: 'activity-card',
+                            ...activitySpec
+                        });
+                        i++;
+                        continue;
+                    }
+
+                    // 检测商品小卡片：仅保留二维码卡片
+                    const compactProductCardMatch = trimmedLine.match(/^商品小卡片：(.*)$/);
+                    if (compactProductCardMatch) {
+                        const productName = normalizeProductImageName(compactProductCardMatch[1]);
+                        contentBlocks.push({
+                            type: 'product-card',
+                            productName: productName,
+                            compact: true
+                        });
+                        i++;
+                        continue;
+                    }
+
                     // 检测商品卡片（支持冒号后无内容的情况）
                     const productCardMatch = trimmedLine.match(/^商品卡片：(.*)$/);
                     if (productCardMatch) {
@@ -4429,6 +4873,9 @@ function processTextSpacing(text) {
                     }
                     case 'product-card': {
                         return generateProductCardHTML(block);
+                    }
+                    case 'activity-card': {
+                        return generateActivityCardHTML(block);
                     }
                     case 'referenced-image': {
                         if (isGifImageBlock(block)) {
@@ -4778,13 +5225,14 @@ function processTextSpacing(text) {
         /**
          * 更新预览区域内容
          */
-          function updatePreview() {
+          async function updatePreview() {
              try {
                  // 先清零所有图片的使用计数
                  for (const filename of Object.keys(uploadedImages)) {
                      uploadedImages[filename].useCount = 0;
                  }
                   const markdown = document.getElementById('markdown-input').value;
+                  await ensureActivityCardsForMarkdown(markdown);
                   const html = markdownToWeChatHTML(markdown);
                   document.getElementById('wx-preview').innerHTML = html;
                   tightenFooterPreviewSpacing();
@@ -4861,6 +5309,7 @@ function processTextSpacing(text) {
 
             // 复制
             const markdown = document.getElementById('markdown-input').value;
+            await ensureActivityCardsForMarkdown(markdown);
             const fullHTML = createWeChatFullHTML(markdown, includeFixedContent);
             const successMessage = includeFixedContent
                 ? '内容已复制到剪贴板，可直接粘贴到微信公众号编辑器！'
