@@ -3146,8 +3146,14 @@
             let result = html;
             for (const key in sourceMap) {
                 if (skipKeys.has(key)) continue;
-                if (sourceMap[key] !== targetMap[key]) {
-                    result = result.split(sourceMap[key]).join(targetMap[key]);
+                const sourceUrl = sourceMap[key];
+                const targetUrl = targetMap[key];
+                // 空字符串会触发 split('')，再 join(undefined) 会把整篇 HTML 变成逗号分隔字符。
+                if (typeof sourceUrl !== 'string' || !sourceUrl || typeof targetUrl !== 'string' || !targetUrl) {
+                    continue;
+                }
+                if (sourceUrl !== targetUrl) {
+                    result = result.split(sourceUrl).join(targetUrl);
                 }
             }
             
@@ -5106,12 +5112,44 @@ function processTextSpacing(text) {
         }
 
         /**
+         * 剪贴板只接受字符串；如果误传数组，浏览器会把它转成逗号分隔字符，粘贴后就会变成乱码。
+         */
+        function normalizeClipboardHtml(content) {
+            if (Array.isArray(content)) {
+                console.warn('复制内容被传入数组，已自动合并为 HTML 字符串。', content);
+                return content.join('');
+            }
+            if (content === null || content === undefined) return '';
+            return String(content);
+        }
+
+        function decodeHtmlEntities(text) {
+            const parser = document.createElement('textarea');
+            parser.innerHTML = text;
+            return parser.value;
+        }
+
+        function createClipboardPlainText(html) {
+            const lightText = normalizeClipboardHtml(html)
+                .replace(/<img\b[^>]*>/gi, '[图片]')
+                .replace(/<br\s*\/?>/gi, '\n')
+                .replace(/<\/(?:p|div|section|li|tr|h[1-6])>/gi, '\n')
+                .replace(/<[^>]+>/g, '')
+                .replace(/\n[ \t]+/g, '\n')
+                .replace(/[ \t]+\n/g, '\n')
+                .replace(/\n{3,}/g, '\n\n')
+                .trim();
+            return decodeHtmlEntities(lightText);
+        }
+
+        /**
          * 富文本复制到剪贴板
          * @param {string} html - 需要复制的HTML内容
          */
         function copyAsRichText(html, successMessage = '内容已复制到剪贴板，可直接粘贴到微信公众号编辑器！') {
             // 复制前将 GitHub 链接替换为微信链接
-            const htmlForWeChat = replaceImageLinks(html, true);
+            const htmlForWeChat = normalizeClipboardHtml(replaceImageLinks(normalizeClipboardHtml(html), true));
+            const plainTextForClipboard = createClipboardPlainText(htmlForWeChat);
             
             const container = document.getElementById('copy-container');
             container.innerHTML = htmlForWeChat;
@@ -5135,7 +5173,7 @@ function processTextSpacing(text) {
                 navigator.clipboard.write([
                     new ClipboardItem({
                         'text/html': new Blob([htmlForWeChat], { type: 'text/html' }),
-                        'text/plain': new Blob([htmlForWeChat], { type: 'text/plain' })
+                        'text/plain': new Blob([plainTextForClipboard], { type: 'text/plain' })
                     })
                 ]).then(() => {
                     showStatus(successMessage, 'success');
