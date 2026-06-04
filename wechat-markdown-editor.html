@@ -1525,12 +1525,20 @@
         const DRAFT_STORAGE_KEY = 'wechatMarkdownEditorDraft';
         const DRAFT_SAVED_AT_KEY = 'wechatMarkdownEditorDraftSavedAt';
         const TYPOGRAPHY_STORAGE_KEY = 'wechatMarkdownEditorTypography';
-        const DEFAULT_TYPOGRAPHY_SETTINGS = {
+        const LEGACY_DEFAULT_TYPOGRAPHY_SETTINGS = {
             fontSize: 14,
             lineHeight: 1.6,
             marginX: 16,
             letterSpacing: 0,
             align: 'left',
+            imageAlign: 'height'
+        };
+        const DEFAULT_TYPOGRAPHY_SETTINGS = {
+            fontSize: 15,
+            lineHeight: 2,
+            marginX: 16,
+            letterSpacing: 0.5,
+            align: 'justify',
             imageAlign: 'height'
         };
         const TYPOGRAPHY_CONTROLS = {
@@ -1590,6 +1598,9 @@
 
             try {
                 const saved = JSON.parse(localStorage.getItem(TYPOGRAPHY_STORAGE_KEY) || '{}');
+                if (!saved || Object.keys(saved).length === 0) {
+                    return defaults;
+                }
                 if (saved.fontSize === 'large') {
                     return {
                         fontSize: 16,
@@ -1603,13 +1614,19 @@
                 if (saved.fontSize === 'default') {
                     return defaults;
                 }
+                const isLegacyDefault = Object.keys(LEGACY_DEFAULT_TYPOGRAPHY_SETTINGS).every((key) => {
+                    return saved[key] === LEGACY_DEFAULT_TYPOGRAPHY_SETTINGS[key];
+                });
+                if (isLegacyDefault) {
+                    return defaults;
+                }
                 return {
                     fontSize: normalizeTypographyValue('fontSize', saved.fontSize, defaults.fontSize),
                     lineHeight: normalizeTypographyValue('lineHeight', saved.lineHeight, defaults.lineHeight),
                     marginX: normalizeTypographyValue('marginX', saved.marginX, defaults.marginX),
                     letterSpacing: normalizeTypographyValue('letterSpacing', saved.letterSpacing, defaults.letterSpacing),
-                    align: saved.align === 'justify' ? 'justify' : 'left',
-                    imageAlign: saved.imageAlign === 'width' ? 'width' : 'height'
+                    align: saved.align === undefined ? defaults.align : (saved.align === 'justify' ? 'justify' : 'left'),
+                    imageAlign: saved.imageAlign === undefined ? defaults.imageAlign : (saved.imageAlign === 'width' ? 'width' : 'height')
                 };
             } catch (err) {
                 return defaults;
