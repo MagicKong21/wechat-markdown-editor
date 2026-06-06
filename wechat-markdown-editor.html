@@ -3001,21 +3001,27 @@
             };
         }
 
-        function getWeChatAdaptiveImageAttrs(block) {
+        function formatCssNumber(value, digits = 3) {
+            return Number(value).toFixed(digits).replace(/0+$/, '').replace(/\.$/, '');
+        }
+
+        function getWeChatAdaptiveImageAttrs(block, options = {}) {
             const width = Number(block.width) || 0;
             const height = Number(block.height) || 0;
             const ratio = width > 0 && height > 0 ? (height / width).toFixed(8).replace(/0+$/, '').replace(/\.$/, '') : '';
             const type = (block.mimeType || '').split('/')[1] || (block.filename || '').split('.').pop() || 'png';
+            const backWidth = Math.max(1, Math.round(Number(options.backWidth) || 578));
+            const originalStyle = options.originalStyle || 'width: 100%;height: auto !important;';
             const attrs = [
                 'width="100%"',
                 '_width="100%"',
-                'data-original-style="width: 100%;height: auto !important;"',
+                `data-original-style="${originalStyle}"`,
                 'data-s="300,640"',
                 `data-type="${type.toLowerCase()}"`
             ];
             if (width > 0) attrs.push(`data-w="${width}"`);
-            if (width > 0) attrs.push('data-backw="578"');
-            if (width > 0 && height > 0) attrs.push(`data-backh="${Math.round((height / width) * 578)}"`);
+            if (width > 0) attrs.push(`data-backw="${backWidth}"`);
+            if (width > 0 && height > 0) attrs.push(`data-backh="${Math.round((height / width) * backWidth)}"`);
             if (ratio) attrs.push(`data-ratio="${ratio}"`);
             return attrs.join(' ');
         }
@@ -3846,6 +3852,8 @@ function processTextSpacing(text) {
         function generateSideBySideImagesHTML(images, replaceGifWithPlaceholder = false, withPersonalFrame = false) {
             const count = images.length;
             const equalHeight = typographySettings.imageAlign !== 'width';
+            const wechatEditorWidth = 677;
+            const wechatBackWidth = 578;
             const widthWeights = images.map((img) => {
                 const width = Number(img.width) || 0;
                 const height = Number(img.height) || 0;
@@ -3857,23 +3865,40 @@ function processTextSpacing(text) {
                 return `${((widthWeights[index] / totalWeight) * 100).toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}%`;
             };
             const cellGap = count === 3 ? '6px' : '8px';
-            const colgroup = images.map((_, index) => `<col style="width: ${getCellWidth(index)};">`).join('');
+            const gapWidth = parseFloat(cellGap) * (count + 1);
+            const getImageWidthRatio = (index) => equalHeight ? widthWeights[index] / totalWeight : 1 / count;
+            const getFallbackImageWidth = (index) => Math.max(1, (wechatEditorWidth - gapWidth) * getImageWidthRatio(index));
+            const getFallbackBackWidth = (index) => Math.max(1, Math.round(wechatBackWidth * getImageWidthRatio(index)));
+            const colgroup = images.map((_, index) => {
+                const cellWidth = getCellWidth(index);
+                return `<col width="${cellWidth}" style="width: ${cellWidth};">`;
+            }).join('');
             const cells = images.map((img, index) => {
                 const cellWidth = getCellWidth(index);
+                const fallbackImageWidth = `${formatCssNumber(getFallbackImageWidth(index))}px`;
+                const fallbackImageStyle = equalHeight
+                    ? `display: block; width: ${fallbackImageWidth} !important; height: auto !important; visibility: visible !important; margin: 0 !important; padding: 0 !important;`
+                    : 'display: block; width: 100% !important; height: auto !important; visibility: visible !important; margin: 0 !important; padding: 0 !important;';
                 if (img.placeholder) {
-                    return `<td style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; box-sizing: border-box;">
+                    return `<td width="${cellWidth}" style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; box-sizing: border-box;">
                         <section style="text-align: center; padding: 18px 4px; background: rgb(245, 245, 245); border: 1px dashed rgb(192, 204, 92); color: rgb(153, 153, 153); font-size: 13px; box-sizing: border-box; overflow: hidden;">【${img.text}】</section>
                     </td>`;
                 }
                 if (replaceGifWithPlaceholder && isGifImageBlock(img)) {
                     const name = img.displayName || img.filename || img.alt || 'GIF动图';
                     const placeholderSrc = createGifPlaceholderImage(name);
-                    return `<td style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
-                        <img data-src="${placeholderSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="0.24444444" data-s="300,640" data-type="png" data-w="900" data-original-style="width: 100%;height: auto !important;" style="display: block; width: 100% !important; height: auto !important; visibility: visible !important; margin: 0 !important; padding: 0 !important;" src="${placeholderSrc}" alt="GIF待替换：${name}">
+                    const gifAdaptiveAttrs = equalHeight
+                        ? `data-backw="${getFallbackBackWidth(index)}" data-backh="${Math.round(getFallbackBackWidth(index) * 0.24444444)}" data-original-style="${fallbackImageStyle}"`
+                        : 'data-original-style="width: 100%;height: auto !important;"';
+                    return `<td width="${cellWidth}" style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
+                        <img data-src="${placeholderSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="0.24444444" data-s="300,640" data-type="png" data-w="900" ${gifAdaptiveAttrs} style="${fallbackImageStyle}" src="${placeholderSrc}" alt="GIF待替换：${name}">
                     </td>`;
                 }
-                return `<td style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
-                    <img data-src="${img.dataUrl}" class="rich_pages wxw-img" style="display: block; width: 100% !important; height: auto !important; visibility: visible !important; margin: 0 !important; padding: 0 !important;" src="${img.dataUrl}" alt="${img.alt}" ${getWeChatAdaptiveImageAttrs(img)}>
+                const adaptiveAttrs = equalHeight
+                    ? getWeChatAdaptiveImageAttrs(img, { backWidth: getFallbackBackWidth(index), originalStyle: fallbackImageStyle })
+                    : getWeChatAdaptiveImageAttrs(img);
+                return `<td width="${cellWidth}" style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
+                    <img data-src="${img.dataUrl}" class="rich_pages wxw-img" style="${fallbackImageStyle}" src="${img.dataUrl}" alt="${img.alt}" ${adaptiveAttrs}>
                 </td>`;
             }).join('');
             const tableHTML = `<table style="width: 100%; table-layout: fixed; border: 0; border-collapse: separate; border-spacing: ${cellGap} 0; margin: 0; padding: 0;"><colgroup>${colgroup}</colgroup><tbody><tr>${cells}</tr></tbody></table>`;
