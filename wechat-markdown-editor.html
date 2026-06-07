@@ -335,11 +335,19 @@
         }
         
         /* 列表样式 */
-        .wx-article ul {
-            list-style-type: disc !important;
+        .wx-article ul,
+        .wx-article ol {
             class: "list-paddingleft-1" !important;
             margin: 10px 0 !important;
             padding-left: 20px !important;
+        }
+
+        .wx-article ul {
+            list-style-type: disc !important;
+        }
+
+        .wx-article ol {
+            list-style-type: decimal !important;
         }
         
         .wx-article li {
@@ -1574,7 +1582,7 @@
         };
         const DEFAULT_TYPOGRAPHY_SETTINGS = {
             fontSize: 15,
-            lineHeight: 2,
+            lineHeight: 1.75,
             marginX: 16,
             letterSpacing: 0.5,
             align: 'justify',
@@ -3459,8 +3467,8 @@
             <img data-src="${githubImages.header}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="0.2" data-s="300,640" data-type="png" data-w="900" data-backw="578" data-backh="116" data-original-style="width: 100%;height: auto !important;" style="width: 100% !important; height: auto !important; visibility: visible !important;" src="${githubImages.header}" alt="开头配图">
         </section>`;
 
-        // 个人模式：开头虚线（模仿大标题的虚线实现方式）
-        const personalHeaderHTML = '<section style="border-top: 1.5px dashed rgb(192, 204, 92); margin: 2px 0px; padding: 0; text-align: center; width: 100%;">&nbsp;</section>';
+        // 个人模式不再固定添加文头虚线，避免正文首尾出现多余装饰。
+        const personalHeaderHTML = '';
 
         // 个人模式：文章背景网格底纹
         const personalBackgroundStyle = 'background-color: #fafafa;';
@@ -3506,8 +3514,8 @@
             <img data-src="${githubImages.heart}" class="rich_pages wxw-img __bg_gif" data-ratio="0.20673076923076922" data-s="300,640" data-type="gif" data-w="208" style="width: 72px !important; height: auto !important; visibility: visible !important; float: right;" src="${githubImages.heart}" _width="72px" alt="底部GIF">
         </section>`;
 
-        // 个人模式底部：末尾虚线（模仿大标题的虚线实现方式）
-        const personalFooterHTML = '<section style="border-bottom: 1.5px dashed rgb(192, 204, 92); margin: 2px 0px; padding: 0; text-align: center; width: 100%;">&nbsp;</section>';
+        // 个人模式不再固定添加文末虚线。
+        const personalFooterHTML = '';
 
         // 标准空行模板（用于段落间距）- 根据模式动态生成
         function getBrHtml(isPersonal) {
@@ -4154,6 +4162,38 @@ function processTextSpacing(text) {
             });
             return html;
         }
+
+        function getListItemMatch(trimmedLine) {
+            const unorderedMatch = trimmedLine.match(/^[-*]\s+(.+)$/);
+            if (unorderedMatch) {
+                return { type: 'ul', content: unorderedMatch[1].trim() };
+            }
+
+            const orderedMatch = trimmedLine.match(/^\d+(?:[.)]\s+|[、）]\s*)(.+)$/);
+            if (orderedMatch) {
+                return { type: 'ol', content: orderedMatch[1].trim() };
+            }
+
+            return null;
+        }
+
+        function renderListBlockHTML(block, includePreviewId = false) {
+            const itemCount = block.content.length;
+            const tagName = block.type === 'ol' ? 'ol' : 'ul';
+            const listStyleType = block.type === 'ol' ? 'decimal' : 'disc';
+            const listFontFamily = "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
+            const bodyStyle = getBodyTypographyStyle();
+            const idAttr = includePreviewId ? ' id="wechat-list"' : '';
+            let listHTML = `<${tagName} style="list-style-type: ${listStyleType}; padding-left: 20px !important; margin: 10px ${typographySettings.marginX}px 10px 0 !important; box-sizing: border-box;" class="list-paddingleft-1"${idAttr}>`;
+            block.content.forEach((item, index) => {
+                const punct = hasTerminalPunctuation(item) ? '' : ((index === itemCount - 1) ? '。' : '；');
+                listHTML += `<li style="list-style-type: ${listStyleType}; margin-bottom: 6px !important; color: ${bodyStyle.color};"><p style="margin: 0px; padding: 0px; box-sizing: border-box; text-align: ${bodyStyle.textAlign}; ${bodyStyle.textJustify} line-height: ${bodyStyle.lineHeight}; font-family: ${listFontFamily}; font-size: ${bodyStyle.fontSize}; letter-spacing: ${bodyStyle.letterSpacing}; color: ${bodyStyle.color};">
+                        ${processInlineFormatting(item, true, true)}${punct}
+                </p></li>`;
+            });
+            listHTML += `</${tagName}>`;
+            return listHTML;
+        }
         
         /**
          * Markdown转微信预览HTML
@@ -4165,6 +4205,7 @@ function processTextSpacing(text) {
             let contentBlocks = [];
             let inList = false;
             let currentList = [];
+            let currentListType = 'ul';
             let i = 0;
             
             // 获取当前模式对应的空行HTML
@@ -4179,9 +4220,10 @@ function processTextSpacing(text) {
                 const codeBlockOpen = trimmedLine.match(/^```(\w*)$/);
                 if (codeBlockOpen) {
                     if (inList) {
-                        contentBlocks.push({ type: 'ul', content: currentList });
+                        contentBlocks.push({ type: currentListType, content: currentList });
                         inList = false;
                         currentList = [];
+                        currentListType = 'ul';
                     }
                     const lang = codeBlockOpen[1] || '';
                     const codeLines = [];
@@ -4200,11 +4242,12 @@ function processTextSpacing(text) {
                     // 如果正在处理列表，先结束列表
                     if (inList) {
                         contentBlocks.push({
-                            type: 'ul',
+                            type: currentListType,
                             content: currentList
                         });
                         inList = false;
                         currentList = [];
+                        currentListType = 'ul';
                     }
                     let boxLines = [];
 
@@ -4239,11 +4282,12 @@ function processTextSpacing(text) {
                     // 如果正在处理列表，先结束列表
                     if (inList) {
                         contentBlocks.push({
-                            type: 'ul',
+                            type: currentListType,
                             content: currentList
                         });
                         inList = false;
                         currentList = [];
+                        currentListType = 'ul';
                     }
                     // 保留反引号标记，让渲染时的 processInlineFormatting 能正确处理斜杠保护
                     contentBlocks.push({
@@ -4259,11 +4303,12 @@ function processTextSpacing(text) {
                     // 如果正在处理列表，先结束列表
                     if (inList) {
                         contentBlocks.push({
-                            type: 'ul',
+                            type: currentListType,
                             content: currentList
                         });
                         inList = false;
                         currentList = [];
+                        currentListType = 'ul';
                     }
                     contentBlocks.push({
                         type: 'h1',
@@ -4278,11 +4323,12 @@ function processTextSpacing(text) {
                     // 如果正在处理列表，先结束列表
                     if (inList) {
                         contentBlocks.push({
-                            type: 'ul',
+                            type: currentListType,
                             content: currentList
                         });
                         inList = false;
                         currentList = [];
+                        currentListType = 'ul';
                     }
                     contentBlocks.push({
                         type: 'h2',
@@ -4297,11 +4343,12 @@ function processTextSpacing(text) {
                     // 如果正在处理列表，先结束列表
                     if (inList) {
                         contentBlocks.push({
-                            type: 'ul',
+                            type: currentListType,
                             content: currentList
                         });
                         inList = false;
                         currentList = [];
+                        currentListType = 'ul';
                     }
                     contentBlocks.push({
                         type: 'divider'
@@ -4310,15 +4357,21 @@ function processTextSpacing(text) {
                     continue;
                 }
 
-                // 无序列表项
-                if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
-                    if (!inList) {
+                // 列表项：支持无序列表（- / *）和有序列表（1. / 1、/ 1)）
+                const listItem = getListItemMatch(trimmedLine);
+                if (listItem) {
+                    if (!inList || currentListType !== listItem.type) {
+                        if (inList) {
+                            contentBlocks.push({
+                                type: currentListType,
+                                content: currentList
+                            });
+                        }
                         inList = true;
                         currentList = [];
+                        currentListType = listItem.type;
                     }
-                    // 清理末尾标点后再存入
-                    const cleanItem = trimmedLine.substring(2).trim();
-                    currentList.push(cleanItem);
+                    currentList.push(listItem.content);
                     i++;
                     continue;
                 }
@@ -4332,11 +4385,12 @@ function processTextSpacing(text) {
                 // 结束列表
                 if (inList) {
                     contentBlocks.push({
-                        type: 'ul',
+                        type: currentListType,
                         content: currentList
                     });
                     inList = false;
                     currentList = [];
+                    currentListType = 'ul';
                     // 不 continue，让当前行继续被其他块类型处理
                 }
 
@@ -4483,7 +4537,7 @@ function processTextSpacing(text) {
             // 处理最后一个列表
             if (inList) {
                 contentBlocks.push({
-                    type: 'ul',
+                    type: currentListType,
                     content: currentList
                 });
             }
@@ -4749,20 +4803,9 @@ function processTextSpacing(text) {
                         boxHTML += '</div>';
                         return boxHTML;
                     }
-                    case 'ul': {
-                        const itemCount = block.content.length;
-                        const listFontFamily = "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
-                        const bodyStyle = getBodyTypographyStyle();
-                        let listHTML = `<ul style="list-style-type: disc; padding-left: 20px !important; margin: 10px ${typographySettings.marginX}px 10px 0 !important; box-sizing: border-box;" class="list-paddingleft-1" id="wechat-list">`;
-                        block.content.forEach((item, index) => {
-                            const punct = hasTerminalPunctuation(item) ? '' : ((index === itemCount - 1) ? '。' : '；');
-                            listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important; color: ${bodyStyle.color};"><p style="margin: 0px; text-align: ${bodyStyle.textAlign}; ${bodyStyle.textJustify} line-height: ${bodyStyle.lineHeight}; font-family: ${listFontFamily}; font-size: ${bodyStyle.fontSize}; letter-spacing: ${bodyStyle.letterSpacing}; color: ${bodyStyle.color};">
-                                    ${processInlineFormatting(item, true, true)}${punct}
-                            </p></li>`;
-                        });
-                        listHTML += '</ul>';
-                        return listHTML;
-                    }
+                    case 'ul':
+                    case 'ol':
+                        return renderListBlockHTML(block, true);
                     case 'p': {
                         const bodyStyle = getBodyTypographyStyle();
                         const pFontFamily = isPersonalMode ? "Optima, PingFangSC-light, 'PingFang SC', Georgia, serif" : "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
@@ -4812,6 +4855,7 @@ function processTextSpacing(text) {
             let contentBlocks = [];
             let inList = false;
             let currentList = [];
+            let currentListType = 'ul';
             let i = 0;
             
             // 获取当前模式对应的空行HTML
@@ -4826,9 +4870,10 @@ function processTextSpacing(text) {
                 const codeBlockOpen = trimmedLine.match(/^```(\w*)$/);
                 if (codeBlockOpen) {
                     if (inList) {
-                        contentBlocks.push({ type: 'ul', content: currentList });
+                        contentBlocks.push({ type: currentListType, content: currentList });
                         inList = false;
                         currentList = [];
+                        currentListType = 'ul';
                     }
                     const lang = codeBlockOpen[1] || '';
                     const codeLines = [];
@@ -4847,11 +4892,12 @@ function processTextSpacing(text) {
                     // 如果正在处理列表，先结束列表
                     if (inList) {
                         contentBlocks.push({
-                            type: 'ul',
+                            type: currentListType,
                             content: currentList
                         });
                         inList = false;
                         currentList = [];
+                        currentListType = 'ul';
                     }
                     let boxLines = [];
 
@@ -4884,11 +4930,12 @@ function processTextSpacing(text) {
                     // 如果正在处理列表，先结束列表
                     if (inList) {
                         contentBlocks.push({
-                            type: 'ul',
+                            type: currentListType,
                             content: currentList
                         });
                         inList = false;
                         currentList = [];
+                        currentListType = 'ul';
                     }
                     // 保留反引号标记，让渲染时的处理逻辑能正确识别并保护斜杠
                     contentBlocks.push({
@@ -4904,11 +4951,12 @@ function processTextSpacing(text) {
                     // 如果正在处理列表，先结束列表
                     if (inList) {
                         contentBlocks.push({
-                            type: 'ul',
+                            type: currentListType,
                             content: currentList
                         });
                         inList = false;
                         currentList = [];
+                        currentListType = 'ul';
                     }
                     contentBlocks.push({
                         type: 'h1',
@@ -4923,11 +4971,12 @@ function processTextSpacing(text) {
                     // 如果正在处理列表，先结束列表
                     if (inList) {
                         contentBlocks.push({
-                            type: 'ul',
+                            type: currentListType,
                             content: currentList
                         });
                         inList = false;
                         currentList = [];
+                        currentListType = 'ul';
                     }
                     contentBlocks.push({ type: 'h2', content: trimmedLine.substring(4) });
                     i++;
@@ -4939,22 +4988,29 @@ function processTextSpacing(text) {
                     // 如果正在处理列表，先结束列表
                     if (inList) {
                         contentBlocks.push({
-                            type: 'ul',
+                            type: currentListType,
                             content: currentList
                         });
                         inList = false;
                         currentList = [];
+                        currentListType = 'ul';
                     }
                     contentBlocks.push({ type: 'divider' });
                     i++;
                     continue;
                 }
 
-                if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
-                    if (!inList) { inList = true; currentList = []; }
-                    // 清理末尾标点后再存入
-                    const cleanItem = trimmedLine.substring(2).trim();
-                    currentList.push(cleanItem);
+                const listItem = getListItemMatch(trimmedLine);
+                if (listItem) {
+                    if (!inList || currentListType !== listItem.type) {
+                        if (inList) {
+                            contentBlocks.push({ type: currentListType, content: currentList });
+                        }
+                        inList = true;
+                        currentList = [];
+                        currentListType = listItem.type;
+                    }
+                    currentList.push(listItem.content);
                     i++;
                     continue;
                 }
@@ -4966,9 +5022,10 @@ function processTextSpacing(text) {
                 }
 
                 if (inList) {
-                    contentBlocks.push({ type: 'ul', content: currentList });
+                    contentBlocks.push({ type: currentListType, content: currentList });
                     inList = false;
                     currentList = [];
+                    currentListType = 'ul';
                     // 不 continue，让当前行继续被其他块类型处理
                 }
 
@@ -5092,7 +5149,7 @@ function processTextSpacing(text) {
                 i++;
             }
             
-            if (inList) contentBlocks.push({ type: 'ul', content: currentList });
+            if (inList) contentBlocks.push({ type: currentListType, content: currentList });
             
             // 统计一级标题数量
             let h1Counter = 0;
@@ -5346,20 +5403,9 @@ function processTextSpacing(text) {
                             </section>
                         </section>`;
                     }
-                    case 'ul': {
-                        const itemCount = block.content.length;
-                        const listFontFamily = "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
-                        const bodyStyle = getBodyTypographyStyle();
-                        let listHTML = `<ul style="list-style-type: disc; padding-left: 20px !important; margin: 10px ${typographySettings.marginX}px 10px 0 !important; box-sizing: border-box;" class="list-paddingleft-1">`;
-                        block.content.forEach((item, index) => {
-                            const punct = hasTerminalPunctuation(item) ? '' : ((index === itemCount - 1) ? '。' : '；');
-                            listHTML += `<li style="list-style-type: disc; margin-bottom: 6px !important; color: ${bodyStyle.color};"><p style="margin: 0px; text-align: ${bodyStyle.textAlign}; ${bodyStyle.textJustify} line-height: ${bodyStyle.lineHeight}; font-family: ${listFontFamily}; font-size: ${bodyStyle.fontSize}; letter-spacing: ${bodyStyle.letterSpacing}; color: ${bodyStyle.color};">
-                                    ${processInlineFormatting(item, true, true)}${punct}
-                            </p></li>`;
-                        });
-                        listHTML += '</ul>';
-                        return listHTML;
-                    }                    
+                    case 'ul':
+                    case 'ol':
+                        return renderListBlockHTML(block, false);
                     case 'p': {
                         const bodyStyle = getBodyTypographyStyle();
                         const pFontFamily = isPersonalMode ? "Optima, PingFangSC-light, 'PingFang SC', Georgia, serif" : "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
