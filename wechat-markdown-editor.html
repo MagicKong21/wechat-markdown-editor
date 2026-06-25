@@ -3034,6 +3034,83 @@
             return attrs.join(' ');
         }
 
+        function parseSpecialImageSyntax(trimmedLine) {
+            const text = String(trimmedLine || '').trim();
+            const seamlessMatch = text.match(/^无缝拼接[:：]\s*(.+)$/);
+            if (seamlessMatch) {
+                const refs = Array.from(seamlessMatch[1].matchAll(/【([^【】]+)】/g))
+                    .map(match => match[1].trim())
+                    .filter(Boolean);
+                return refs.length ? { mode: 'seamless', label: '无缝拼接', refs } : null;
+            }
+
+            const match = text.match(/^不可选中[:：]\s*(?:【([^【】]+)】|(.+))$/);
+            if (!match) return null;
+            return {
+                mode: 'non-selectable',
+                label: '不可选中',
+                refText: (match[1] || match[2] || '').trim()
+            };
+        }
+
+        function buildReferencedImageBlock(matchedImg, refText, options = {}) {
+            return {
+                type: 'referenced-image',
+                filename: matchedImg.filename,
+                dataUrl: matchedImg.dataUrl,
+                width: matchedImg.width,
+                height: matchedImg.height,
+                mimeType: matchedImg.mimeType,
+                displayName: matchedImg.displayName,
+                alt: refText,
+                caption: options.caption || null,
+                specialMode: options.specialMode || ''
+            };
+        }
+
+        function getReferencedImageStyles(block) {
+            const isSeamless = block.specialMode === 'seamless';
+            const isNonSelectable = block.specialMode === 'non-selectable';
+            const personalFrame = isPersonalMode && !isSeamless;
+            const frameStyle = personalFrame ? 'border: 2px solid rgb(192, 204, 92); border-style: dashed; padding: 8px; background: #ffffff; box-sizing: border-box; ' : '';
+            const seamStyle = isSeamless ? 'display: block; margin: 0 !important; padding: 0 !important; vertical-align: top; ' : '';
+            const selectStyle = isNonSelectable ? 'pointer-events: none; user-select: none; -webkit-user-select: none; ' : '';
+            const imageStyle = `width: 100% !important; height: auto !important; ${frameStyle}${seamStyle}${selectStyle}visibility: visible !important;`;
+            const originalStyle = `width: 100%;height: auto !important;${frameStyle.replace(/\s*!important/g, '').replace(/\s+/g, ' ').trim()}${isSeamless ? 'display: block;margin: 0;padding: 0;vertical-align: top;' : ''}${isNonSelectable ? 'pointer-events: none;user-select: none;-webkit-user-select: none;' : ''}`;
+            const sectionStyle = isSeamless
+                ? 'text-align: center; margin: 0; padding: 0; font-size: 0; line-height: 0; display: block;'
+                : 'text-align: center; margin: 0; padding: 0;';
+            return { imageStyle, originalStyle, sectionStyle };
+        }
+
+        function generateReferencedImageHTML(block) {
+            const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center;"><span style="font-size: 12px; color: rgb(136, 136, 136);">${block.caption}</span></p>` : '';
+            const { imageStyle, originalStyle, sectionStyle } = getReferencedImageStyles(block);
+            const adaptiveAttrs = getWeChatAdaptiveImageAttrs(block, { originalStyle });
+            return `<section style="${sectionStyle}"><img data-src="${block.dataUrl}" class="rich_pages wxw-img" style="${imageStyle}" src="${block.dataUrl}" alt="${block.alt}" ${adaptiveAttrs}>${captionHTML}</section>`;
+        }
+
+        function generateSeamlessImagesHTML(images, replaceGifWithPlaceholder = false) {
+            const imageHTML = images.map((img) => {
+                if (img.placeholder) {
+                    return `<section style="text-align: center; padding: 18px 4px; background: rgb(245, 245, 245); border: 1px dashed rgb(192, 204, 92); color: rgb(153, 153, 153); font-size: 13px; line-height: 1.4; box-sizing: border-box;">【${img.text}】未找到匹配图片</section>`;
+                }
+
+                const block = { ...img, specialMode: 'seamless' };
+                const { imageStyle, originalStyle } = getReferencedImageStyles(block);
+                if (replaceGifWithPlaceholder && isGifImageBlock(block)) {
+                    const name = block.displayName || block.filename || block.alt || 'GIF动图';
+                    const placeholderSrc = createGifPlaceholderImage(name);
+                    return `<img data-src="${placeholderSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="0.24444444" data-s="300,640" data-type="png" data-w="900" data-backw="578" data-backh="141" data-original-style="${originalStyle}" style="${imageStyle}" src="${placeholderSrc}" alt="GIF待替换：${name}">`;
+                }
+
+                const adaptiveAttrs = getWeChatAdaptiveImageAttrs(block, { originalStyle });
+                return `<img data-src="${block.dataUrl}" class="rich_pages wxw-img" style="${imageStyle}" src="${block.dataUrl}" alt="${block.alt}" ${adaptiveAttrs}>`;
+            }).join('');
+
+            return `<section style="text-align: center; margin: 0; padding: 0; font-size: 0; line-height: 0; display: block;">${imageHTML}</section>`;
+        }
+
         function getDefaultProductCardQrSrc() {
             return defaultProductImageDataUrls.qr || githubImages.productCardQr;
         }
@@ -4194,6 +4271,119 @@ function processTextSpacing(text) {
             listHTML += `</${tagName}>`;
             return listHTML;
         }
+
+        function splitMarkdownTableRow(line) {
+            let text = String(line || '').trim();
+            if (text.startsWith('|')) text = text.slice(1);
+            if (text.endsWith('|')) text = text.slice(0, -1);
+
+            const cells = [];
+            let current = '';
+            let escaped = false;
+            for (const char of text) {
+                if (escaped) {
+                    current += char;
+                    escaped = false;
+                    continue;
+                }
+                if (char === '\\') {
+                    escaped = true;
+                    continue;
+                }
+                if (char === '|') {
+                    cells.push(current.trim());
+                    current = '';
+                    continue;
+                }
+                current += char;
+            }
+            cells.push(current.trim());
+            return cells;
+        }
+
+        function parseMarkdownTableAlignments(separatorLine) {
+            const cells = splitMarkdownTableRow(separatorLine);
+            const alignments = cells.map((cell) => {
+                const normalized = cell.replace(/\s+/g, '');
+                if (!/^:?-{3,}:?$/.test(normalized)) return null;
+                if (normalized.startsWith(':') && normalized.endsWith(':')) return 'center';
+                if (normalized.endsWith(':')) return 'right';
+                return 'left';
+            });
+            return alignments.every(Boolean) ? alignments : null;
+        }
+
+        function isMarkdownTableStart(rawLines, index) {
+            if (index + 1 >= rawLines.length) return false;
+            const headerLine = String(rawLines[index] || '').trim();
+            const separatorLine = String(rawLines[index + 1] || '').trim();
+            if (!headerLine.includes('|') || !separatorLine.includes('|')) return false;
+            const headerCells = splitMarkdownTableRow(headerLine);
+            const alignments = parseMarkdownTableAlignments(separatorLine);
+            return Boolean(alignments && headerCells.length >= 2 && alignments.length >= 2);
+        }
+
+        function parseMarkdownTableBlock(rawLines, startIndex) {
+            const headers = splitMarkdownTableRow(rawLines[startIndex]);
+            const alignments = parseMarkdownTableAlignments(rawLines[startIndex + 1]) || [];
+            const columnCount = Math.max(headers.length, alignments.length);
+            const rows = [];
+            let index = startIndex + 2;
+
+            while (index < rawLines.length) {
+                const line = String(rawLines[index] || '').trim();
+                if (!line || !line.includes('|') || parseMarkdownTableAlignments(line)) break;
+                rows.push(splitMarkdownTableRow(line));
+                index++;
+            }
+
+            return {
+                block: {
+                    type: 'markdown-table',
+                    headers,
+                    alignments,
+                    rows,
+                    columnCount
+                },
+                nextIndex: index
+            };
+        }
+
+        function normalizeTableCell(cells, index) {
+            return typeof cells[index] === 'string' ? cells[index] : '';
+        }
+
+        function renderMarkdownTableHTML(block) {
+            const bodyStyle = getBodyTypographyStyle();
+            const fontFamily = isPersonalMode ? "Optima, PingFangSC-light, 'PingFang SC', Georgia, serif" : "mp-quote, 'PingFang SC', -apple-system-font, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif";
+            const borderColor = isPersonalMode ? 'rgb(192, 204, 92)' : 'rgb(226, 232, 240)';
+            const headerBg = isPersonalMode ? 'rgb(247, 250, 232)' : 'rgb(247, 249, 252)';
+            const textColor = bodyStyle.color || 'rgb(34, 34, 34)';
+            const columnCount = Math.max(1, Number(block.columnCount) || block.headers.length || 1);
+            const colWidth = `${formatCssNumber(100 / columnCount, 4)}%`;
+
+            const renderCell = (content, index, tagName) => {
+                const align = block.alignments[index] || 'left';
+                const isHeader = tagName === 'th';
+                const background = isHeader ? `background-color: ${headerBg};` : 'background-color: rgb(255, 255, 255);';
+                const fontWeight = isHeader ? 'font-weight: bold;' : 'font-weight: normal;';
+                const cellContent = processInlineFormatting(content || '&nbsp;', true, true);
+                return `<${tagName} width="${colWidth}" style="width: ${colWidth}; border: 1px solid ${borderColor}; padding: 8px 10px; ${background} ${fontWeight} text-align: ${align}; vertical-align: top; box-sizing: border-box; color: ${textColor}; font-family: ${fontFamily}; font-size: ${bodyStyle.fontSize}; line-height: 1.6; letter-spacing: ${bodyStyle.letterSpacing}; word-break: break-word; overflow-wrap: break-word;">${cellContent}</${tagName}>`;
+            };
+
+            const headerHTML = Array.from({ length: columnCount }, (_, index) => renderCell(normalizeTableCell(block.headers, index), index, 'th')).join('');
+            const bodyHTML = block.rows.map((row) => {
+                const cells = Array.from({ length: columnCount }, (_, index) => renderCell(normalizeTableCell(row, index), index, 'td')).join('');
+                return `<tr>${cells}</tr>`;
+            }).join('');
+
+            return `<section style="margin: 10px ${typographySettings.marginX}px 10px 0; padding: 0; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+                <table width="100%" style="width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0; padding: 0; border: 1px solid ${borderColor}; box-sizing: border-box;">
+                    <thead><tr>${headerHTML}</tr></thead>
+                    <tbody>${bodyHTML}</tbody>
+                </table>
+            </section>`;
+        }
         
         /**
          * Markdown转微信预览HTML
@@ -4338,6 +4528,23 @@ function processTextSpacing(text) {
                     continue;
                 }
 
+                // Markdown 表格：表头行 + 分隔行
+                if (isMarkdownTableStart(rawLines, i)) {
+                    if (inList) {
+                        contentBlocks.push({
+                            type: currentListType,
+                            content: currentList
+                        });
+                        inList = false;
+                        currentList = [];
+                        currentListType = 'ul';
+                    }
+                    const tableResult = parseMarkdownTableBlock(rawLines, i);
+                    contentBlocks.push(tableResult.block);
+                    i = tableResult.nextIndex;
+                    continue;
+                }
+
                 // 分隔线（>=3个连续短横线）
                 if (/^-{3,}$/.test(trimmedLine)) {
                     // 如果正在处理列表，先结束列表
@@ -4442,7 +4649,50 @@ function processTextSpacing(text) {
                         i++;
                         continue;
                     }
-                    
+
+                    // 检测特殊图片语法：不可选中：【图1】、无缝拼接：【图1】｜【图2】｜……
+                    const specialImageSyntax = parseSpecialImageSyntax(trimmedLine);
+                    if (specialImageSyntax) {
+                        if (specialImageSyntax.mode === 'seamless') {
+                            const images = specialImageSyntax.refs.map((refText) => {
+                                const matched = findImageByReference(refText);
+                                if (!matched) return { placeholder: true, text: refText };
+                                incrementImageUseCount(matched.filename);
+                                return {
+                                    filename: matched.filename, dataUrl: matched.dataUrl,
+                                    width: matched.width, height: matched.height,
+                                    mimeType: matched.mimeType, displayName: matched.displayName, alt: refText
+                                };
+                            });
+                            contentBlocks.push({ type: 'seamless-images', images });
+                        } else {
+                            const matchedImg = findImageByReference(specialImageSyntax.refText);
+                            if (matchedImg) {
+                                let caption = null;
+                                if (i + 1 < rawLines.length) {
+                                    const nextLine = rawLines[i + 1].trim();
+                                    const captionMatch = nextLine.match(/^｜｜(.+)｜｜$/);
+                                    if (captionMatch) {
+                                        caption = captionMatch[1].trim();
+                                        i++;
+                                    }
+                                }
+                                contentBlocks.push(buildReferencedImageBlock(matchedImg, specialImageSyntax.refText, {
+                                    caption,
+                                    specialMode: specialImageSyntax.mode
+                                }));
+                                incrementImageUseCount(matchedImg.filename);
+                            } else {
+                                contentBlocks.push({
+                                    type: 'image-placeholder',
+                                    text: `${specialImageSyntax.label}：${specialImageSyntax.refText}`
+                                });
+                            }
+                        }
+                        i++;
+                        continue;
+                    }
+
                     // 检测并排图片：【图1】|【图2】 或 【图1】｜【图2】｜【图3】
                     const sideBySideMatch = trimmedLine.match(/^【([^【】]+)】[|｜]【([^【】]+)】(?:[|｜]【([^【】]+)】)?$/);
                     if (sideBySideMatch) {
@@ -4484,15 +4734,7 @@ function processTextSpacing(text) {
                                 }
                             }
                             contentBlocks.push({
-                                type: 'referenced-image',
-                                filename: matchedImg.filename,
-                                dataUrl: matchedImg.dataUrl,
-                                width: matchedImg.width,
-                                height: matchedImg.height,
-                                mimeType: matchedImg.mimeType,
-                                displayName: matchedImg.displayName,
-                                alt: refText,
-                                caption: caption
+                                ...buildReferencedImageBlock(matchedImg, refText, { caption })
                             });
                             incrementImageUseCount(matchedImg.filename);
                         } else {
@@ -4606,11 +4848,14 @@ function processTextSpacing(text) {
                     case 'activity-card': {
                         return generateActivityCardHTML(block);
                     }
+                    case 'markdown-table': {
+                        return renderMarkdownTableHTML(block);
+                    }
                     case 'referenced-image': {
-                        const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center;"><span style="font-size: 12px; color: rgb(136, 136, 136);">${block.caption}</span></p>` : '';
-                        const imageStyle = isPersonalMode ? 'width: 100% !important; height: auto !important; border: 2px solid rgb(192, 204, 92); border-style: dashed; padding: 8px; background: #ffffff; box-sizing: border-box; visibility: visible !important;' : 'width: 100% !important; height: auto !important; visibility: visible !important;';
-                        const adaptiveAttrs = getWeChatAdaptiveImageAttrs(block);
-                        return `<section style="text-align: center; margin: 0; padding: 0;"><img data-src="${block.dataUrl}" class="rich_pages wxw-img" style="${imageStyle}" src="${block.dataUrl}" alt="${block.alt}" ${adaptiveAttrs}>${captionHTML}</section>`;
+                        return generateReferencedImageHTML(block);
+                    }
+                    case 'seamless-images': {
+                        return generateSeamlessImagesHTML(block.images, false);
                     }
                     case 'side-by-side-images': {
                         return generateSideBySideImagesHTML(block.images, false, isPersonalMode);
@@ -4983,6 +5228,23 @@ function processTextSpacing(text) {
                     continue;
                 }
 
+                // Markdown 表格：表头行 + 分隔行
+                if (isMarkdownTableStart(rawLines, i)) {
+                    if (inList) {
+                        contentBlocks.push({
+                            type: currentListType,
+                            content: currentList
+                        });
+                        inList = false;
+                        currentList = [];
+                        currentListType = 'ul';
+                    }
+                    const tableResult = parseMarkdownTableBlock(rawLines, i);
+                    contentBlocks.push(tableResult.block);
+                    i = tableResult.nextIndex;
+                    continue;
+                }
+
                 // 分隔线（>=3个连续短横线）
                 if (/^-{3,}$/.test(trimmedLine)) {
                     // 如果正在处理列表，先结束列表
@@ -5073,6 +5335,47 @@ function processTextSpacing(text) {
                         i++;
                         continue;
                     }
+
+                    // 检测特殊图片语法：不可选中：【图1】、无缝拼接：【图1】｜【图2】｜……
+                    const specialImageSyntax = parseSpecialImageSyntax(trimmedLine);
+                    if (specialImageSyntax) {
+                        if (specialImageSyntax.mode === 'seamless') {
+                            const images = specialImageSyntax.refs.map((refText) => {
+                                const matched = findImageByReference(refText, true);
+                                if (!matched) return { placeholder: true, text: refText };
+                                return {
+                                    filename: matched.filename, dataUrl: matched.dataUrl,
+                                    width: matched.width, height: matched.height,
+                                    mimeType: matched.mimeType, displayName: matched.displayName, alt: refText
+                                };
+                            });
+                            contentBlocks.push({ type: 'seamless-images', images });
+                        } else {
+                            const matchedImg = findImageByReference(specialImageSyntax.refText, true);
+                            if (matchedImg) {
+                                let caption = null;
+                                if (i + 1 < rawLines.length) {
+                                    const nextLine = rawLines[i + 1].trim();
+                                    const captionMatch = nextLine.match(/^｜｜(.+)｜｜$/);
+                                    if (captionMatch) {
+                                        caption = captionMatch[1].trim();
+                                        i++;
+                                    }
+                                }
+                                contentBlocks.push(buildReferencedImageBlock(matchedImg, specialImageSyntax.refText, {
+                                    caption,
+                                    specialMode: specialImageSyntax.mode
+                                }));
+                            } else {
+                                contentBlocks.push({
+                                    type: 'image-placeholder',
+                                    text: `${specialImageSyntax.label}：${specialImageSyntax.refText}`
+                                });
+                            }
+                        }
+                        i++;
+                        continue;
+                    }
                     
                     // 检测并排图片：【图1】|【图2】 或 【图1】｜【图2】｜【图3】
                     const sideBySideMatch = trimmedLine.match(/^【([^【】]+)】[|｜]【([^【】]+)】(?:[|｜]【([^【】]+)】)?$/);
@@ -5114,15 +5417,7 @@ function processTextSpacing(text) {
                                 }
                             }
                             contentBlocks.push({
-                                type: 'referenced-image',
-                                filename: matchedImg.filename,
-                                dataUrl: matchedImg.dataUrl,
-                                width: matchedImg.width,
-                                height: matchedImg.height,
-                                mimeType: matchedImg.mimeType,
-                                displayName: matchedImg.displayName,
-                                alt: refText,
-                                caption: caption
+                                ...buildReferencedImageBlock(matchedImg, refText, { caption })
                             });
                         } else {
                             contentBlocks.push({
@@ -5228,14 +5523,17 @@ function processTextSpacing(text) {
                     case 'activity-card': {
                         return generateActivityCardHTML(block);
                     }
+                    case 'markdown-table': {
+                        return renderMarkdownTableHTML(block);
+                    }
                     case 'referenced-image': {
                         if (isGifImageBlock(block)) {
                             return createGifPlaceholderHTML(block);
                         }
-                        const captionHTML = block.caption ? `<p style="margin: 0; padding: 0; text-align: center;"><span style="font-size: 12px; color: rgb(136, 136, 136);">${block.caption}</span></p>` : '';
-                        const imageStyle = isPersonalMode ? 'width: 100% !important; height: auto !important; border: 2px solid rgb(192, 204, 92); border-style: dashed; padding: 8px; background: #ffffff; box-sizing: border-box; visibility: visible !important;' : 'width: 100% !important; height: auto !important; visibility: visible !important;';
-                        const adaptiveAttrs = getWeChatAdaptiveImageAttrs(block);
-                        return `<section style="text-align: center; margin: 0; padding: 0;"><img data-src="${block.dataUrl}" class="rich_pages wxw-img" style="${imageStyle}" src="${block.dataUrl}" alt="${block.alt}" ${adaptiveAttrs}>${captionHTML}</section>`;
+                        return generateReferencedImageHTML(block);
+                    }
+                    case 'seamless-images': {
+                        return generateSeamlessImagesHTML(block.images, true);
                     }
                     case 'side-by-side-images': {
                         return generateSideBySideImagesHTML(block.images, true, isPersonalMode);
