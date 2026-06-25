@@ -1,6 +1,7 @@
 # macOS 系统文件
 .DS_Store
 *.DS_Store
+Icon?
 
 # Python
 __pycache__/
@@ -27,3 +28,6 @@ ehthumbs.db
 
 # 本地活动卡片实验工具（包含可能临时输入 API Key 的本地页面，不同步）
 activity-card-lab/
+
+# 本地参考资料
+参考资料/
