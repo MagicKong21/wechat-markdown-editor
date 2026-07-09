@@ -3977,7 +3977,7 @@ function processTextSpacing(text) {
             const getFallbackBackWidth = (index) => Math.max(1, Math.round(wechatBackWidth * getImageWidthRatio(index)));
             const colgroup = images.map((_, index) => {
                 const cellWidth = getCellWidth(index);
-                return `<col width="${cellWidth}" style="width: ${cellWidth};">`;
+                return `<col style="width: ${cellWidth};">`;
             }).join('');
             const cells = images.map((img, index) => {
                 const cellWidth = getCellWidth(index);
@@ -3986,7 +3986,7 @@ function processTextSpacing(text) {
                     ? `display: block; width: ${fallbackImageWidth} !important; height: auto !important; visibility: visible !important; margin: 0 !important; padding: 0 !important;`
                     : 'display: block; width: 100% !important; height: auto !important; visibility: visible !important; margin: 0 !important; padding: 0 !important;';
                 if (img.placeholder) {
-                    return `<td width="${cellWidth}" style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; box-sizing: border-box;">
+                    return `<td style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; box-sizing: border-box;">
                         <section style="text-align: center; padding: 18px 4px; background: rgb(245, 245, 245); border: 1px dashed rgb(192, 204, 92); color: rgb(153, 153, 153); font-size: 13px; box-sizing: border-box; overflow: hidden;">【${img.text}】</section>
                     </td>`;
                 }
@@ -3996,14 +3996,14 @@ function processTextSpacing(text) {
                     const gifAdaptiveAttrs = equalHeight
                         ? `data-backw="${getFallbackBackWidth(index)}" data-backh="${Math.round(getFallbackBackWidth(index) * 0.24444444)}" data-original-style="${fallbackImageStyle}"`
                         : 'data-original-style="width: 100%;height: auto !important;"';
-                    return `<td width="${cellWidth}" style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
+                    return `<td style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
                         <img data-src="${placeholderSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="0.24444444" data-s="300,640" data-type="png" data-w="900" ${gifAdaptiveAttrs} style="${fallbackImageStyle}" src="${placeholderSrc}" alt="GIF待替换：${name}">
                     </td>`;
                 }
                 const adaptiveAttrs = equalHeight
                     ? getWeChatAdaptiveImageAttrs(img, { backWidth: getFallbackBackWidth(index), originalStyle: fallbackImageStyle })
                     : getWeChatAdaptiveImageAttrs(img);
-                return `<td width="${cellWidth}" style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
+                return `<td style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
                     <img data-src="${img.dataUrl}" class="rich_pages wxw-img" style="${fallbackImageStyle}" src="${img.dataUrl}" alt="${img.alt}" ${adaptiveAttrs}>
                 </td>`;
             }).join('');
