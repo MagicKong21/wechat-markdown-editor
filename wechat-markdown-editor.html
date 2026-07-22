@@ -698,11 +698,15 @@
         .image-backdrop-option.is-disabled .typography-segmented,
         .image-backdrop-option.is-disabled .typography-stepper { pointer-events: none; }
         .image-backdrop-scale-control { width: 135px; justify-self: start; }
+        .image-backdrop-gap-control { width: 135px; justify-self: start; }
         .image-backdrop-aspect-control { width: 135px; justify-self: start; }
         .image-backdrop-scale-value { display: inline-flex; flex: 1; align-items: center; height: 28px; min-width: 0; border-radius: calc(var(--radius-sm) - 2px); background: rgba(255,255,255,.10); }
         .image-backdrop-scale-control input { flex: 1; width: 0; min-width: 0; height: 100%; padding: 0 2px 0 6px; border: 0; outline: 0; color: #fff; background: transparent; font: inherit; font-size: 13px; font-weight: 700; text-align: right; }
         .image-backdrop-scale-control input::-webkit-inner-spin-button, .image-backdrop-scale-control input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         .image-backdrop-scale-value span { padding: 0 6px 0 2px; color: rgba(255,255,255,.68); font-size: 12px; font-weight: 700; }
+        .image-backdrop-gap-control input { flex: 1; width: 0; min-width: 0; height: 100%; padding: 0 2px 0 6px; border: 0; outline: 0; color: #fff; background: transparent; font: inherit; font-size: 13px; font-weight: 700; text-align: right; }
+        .image-backdrop-gap-control input::-webkit-inner-spin-button, .image-backdrop-gap-control input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        .image-backdrop-option[hidden] { display: none; }
         .image-backdrop-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 30px; }
         .image-backdrop-actions .btn { min-height: 32px; padding: 7px 12px; font-size: 12px; }
 
@@ -807,8 +811,8 @@
             padding-bottom: 8px;
             border-bottom: 1px solid var(--border-subtle);
             display: grid !important;
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-            gap: 6px;
+            grid-template-columns: max-content minmax(0, 1fr);
+            gap: 4px;
             align-items: start;
         }
 
@@ -831,11 +835,12 @@
             width: 100%;
             height: 34px;
             flex-shrink: 0;
+            justify-self: stretch;
         }
 
         .image-package-download-group {
             display: flex;
-            min-width: 0;
+            width: max-content;
             flex-direction: column;
             gap: 4px;
         }
@@ -844,7 +849,7 @@
             display: inline-flex;
             flex-direction: row;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             gap: 8px;
             min-height: 16px;
             padding: 0;
@@ -1199,8 +1204,8 @@
 
         #btn-delete-all {
             background:
-                linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.06)),
-                rgba(255, 255, 255, 0.04) !important;
+                linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(185, 28, 28, 0.95)),
+                #dc2626 !important;
             color: white !important;
         }
 
@@ -1558,10 +1563,17 @@
                             </div>
                         </div>
                         <div class="typography-style-row" data-typography-row="align">
-                            <span class="typography-style-label">对齐</span>
+                            <span class="typography-style-label">文字对齐</span>
                             <div class="typography-segmented" role="group" aria-label="正文对齐方式">
-                                <button type="button" data-typography-align="left">左对齐</button>
-                                <button type="button" data-typography-align="justify">两端对齐</button>
+                                <button type="button" data-typography-align="left">左</button>
+                                <button type="button" data-typography-align="justify">两端</button>
+                            </div>
+                        </div>
+                        <div class="typography-style-row" data-typography-row="tableAlign">
+                            <span class="typography-style-label">表格对齐</span>
+                            <div class="typography-segmented" role="group" aria-label="表格内容对齐方式">
+                                <button type="button" data-typography-table-align="left">左</button>
+                                <button type="button" data-typography-table-align="center">中间</button>
                             </div>
                         </div>
                         <div class="typography-style-row" data-typography-row="imageAlign">
@@ -1573,16 +1585,9 @@
                         </div>
                         <div class="typography-style-row" data-typography-row="imageBackdrop">
                             <span class="typography-style-label">图片加底</span>
-                            <div class="typography-segmented" role="group" aria-label="图片加底开关">
-                                <button type="button" data-typography-image-backdrop="on">开</button>
-                                <button type="button" data-typography-image-backdrop="off">关</button>
-                            </div>
-                        </div>
-                        <div class="typography-style-row" data-typography-row="tableAlign">
-                            <span class="typography-style-label">表格对齐</span>
-                            <div class="typography-segmented" role="group" aria-label="表格内容对齐方式">
-                                <button type="button" data-typography-table-align="left">居左</button>
-                                <button type="button" data-typography-table-align="center">居中</button>
+                            <div class="typography-segmented" role="group" aria-label="图片加底模式">
+                                <button type="button" data-typography-image-backdrop="on">自动</button>
+                                <button type="button" data-typography-image-backdrop="off">关闭</button>
                             </div>
                         </div>
                     </div>
@@ -1631,10 +1636,11 @@
                 <div class="image-package-options" aria-label="打包下载选项">
                     <label><input id="package-keep-original-name" type="checkbox">保留原名</label>
                     <label><input id="package-include-cards" type="checkbox">包含卡片</label>
+                    <label><input id="package-merge-side-by-side" type="checkbox" checked>并排图合并</label>
                 </div>
             </div>
             <button id="btn-delete-all" class="btn btn-sm btn-danger" style="padding: 5px 8px; font-size: 12px; justify-content: center;">
-                <span style="display: flex; align-items: center; gap: 6px;"><i class="fas fa-trash"></i> 清空图片</span>
+                <span style="display: flex; align-items: center; gap: 6px;"><i class="fas fa-trash"></i> 清空</span>
             </button>
         </div>
         <div id="image-preview-grid" class="image-preview-grid"></div>
@@ -1648,7 +1654,8 @@
             <h3 id="image-backdrop-title">图片加底设置</h3>
             <div class="image-backdrop-options">
                 <div class="image-backdrop-option"><span>图片加底</span><div class="typography-segmented" role="group" aria-label="当前图片加底"><button type="button" data-backdrop-dialog-option="enabled" data-value="on">开</button><button type="button" data-backdrop-dialog-option="enabled" data-value="off">关</button></div></div>
-                <div class="image-backdrop-option" data-backdrop-dependent="true"><span>缩放比例</span><div class="typography-stepper image-backdrop-scale-control"><button type="button" data-backdrop-scale-delta="-1" aria-label="缩放比例减少 1%">−</button><div class="image-backdrop-scale-value"><input id="image-backdrop-scale" type="number" min="60" max="100" step="1" value="90" aria-label="当前图片缩放比例"><span>%</span></div><button type="button" data-backdrop-scale-delta="1" aria-label="缩放比例增加 1%">+</button></div></div>
+                <div class="image-backdrop-option" id="image-backdrop-gap-row" hidden><span>图片间隔</span><div class="typography-stepper image-backdrop-gap-control"><button type="button" data-backdrop-gap-delta="-2" aria-label="图片间隔减少 2 像素">−</button><div class="image-backdrop-scale-value"><input id="image-backdrop-gap" type="number" min="0" max="100" step="2" value="16" aria-label="并排图片间隔"><span>px</span></div><button type="button" data-backdrop-gap-delta="2" aria-label="图片间隔增加 2 像素">+</button></div></div>
+                <div class="image-backdrop-option" data-backdrop-dependent="true"><span>缩放比例</span><div class="typography-stepper image-backdrop-scale-control"><button type="button" data-backdrop-scale-delta="-2" aria-label="缩放比例减少 2%">−</button><div class="image-backdrop-scale-value"><input id="image-backdrop-scale" type="number" min="60" max="100" step="2" value="90" aria-label="当前图片缩放比例"><span>%</span></div><button type="button" data-backdrop-scale-delta="2" aria-label="缩放比例增加 2%">+</button></div></div>
                 <div class="image-backdrop-option" data-backdrop-dependent="true"><span>长宽比例</span><div class="typography-segmented image-backdrop-aspect-control" role="group" aria-label="当前图片长宽比例"><button type="button" data-backdrop-dialog-option="aspect" data-value="native">原生</button><button type="button" data-backdrop-dialog-option="aspect" data-value="4:3">4:3</button></div></div>
                 <div class="image-backdrop-option" data-backdrop-dependent="true"><span>阴影效果</span><div class="typography-segmented" role="group" aria-label="当前图片阴影"><button type="button" data-backdrop-dialog-option="shadow" data-value="on">开</button><button type="button" data-backdrop-dialog-option="shadow" data-value="off">关</button></div></div>
                 <div class="image-backdrop-option" data-backdrop-dependent="true"><span>圆角效果</span><div class="typography-segmented" role="group" aria-label="当前图片圆角"><button type="button" data-backdrop-dialog-option="radius" data-value="on">开</button><button type="button" data-backdrop-dialog-option="radius" data-value="off">关</button></div></div>
@@ -2751,7 +2758,7 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
             showStatus(`已清空 ${filenames.length} 张图片`, 'success');
         }
 
-        function collectReferencedImagesInMarkdown(includeCards = false) {
+        function collectReferencedImagesInMarkdown(includeCards = false, mergeSideBySide = false) {
             const lines = textarea.value.split('\n');
             const imageOrder = [];
 
@@ -2780,13 +2787,23 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
                     continue;
                 }
 
-                const sideMatch = trimmedLine.match(/^【([^【】]+)】[|｜]【([^【】]+)】(?:[|｜]【([^【】]+)】)?$/);
+                const sideMatch = trimmedLine.match(/^【([^【】]+)】\s*[|｜]\s*【([^【】]+)】(?:\s*[|｜]\s*【([^【】]+)】)?$/);
                 if (sideMatch) {
+                    const sideItems = [];
                     for (let j = 1; j <= 3; j++) {
                         if (!sideMatch[j]) continue;
                         const refText = sideMatch[j].trim();
                         const matched = findImageByReference(refText);
-                        if (matched) imageOrder.push({ refText, filename: matched.filename });
+                        if (matched) sideItems.push({ refText, filename: matched.filename });
+                    }
+                    if (mergeSideBySide && sideItems.length > 1) {
+                        imageOrder.push({
+                            refText: sideItems.map((item) => item.refText).join('｜'),
+                            filenames: sideItems.map((item) => item.filename),
+                            isSideBySide: true
+                        });
+                    } else {
+                        imageOrder.push(...sideItems);
                     }
                     continue;
                 }
@@ -2838,13 +2855,107 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
             return img.backdropDataUrl || img.displayDataUrl || img.originalDataUrl || '';
         }
 
-        async function downloadImagesAsZip(renameByOrder = false, includeCards = false) {
+        function loadImageForPackage(dataUrl) {
+            return new Promise((resolve, reject) => {
+                const image = new Image();
+                image.onload = () => resolve(image);
+                image.onerror = () => reject(new Error('图片读取失败'));
+                image.src = dataUrl;
+            });
+        }
+
+        function getSideBySideCellGap(count, customGap) {
+            const fallback = count === 3 ? 12 : 16;
+            const value = Number(customGap);
+            return Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value))) : fallback;
+        }
+
+        function getSideBySideBackdropKey(images) {
+            return `side-by-side:${images.map((image) => image?.filename).filter(Boolean).join('|')}`;
+        }
+
+        function getSideBySideAutoLayout(sources = []) {
+            if (!sources.length) return { gap: 60, scale: 90 };
+            const averageAspect = sources.reduce((sum, source) => sum + ((source.width || 1) / (source.height || 1)), 0) / sources.length;
+            const averageShortSide = sources.reduce((sum, source) => sum + Math.min(source.width || 1, source.height || 1), 0) / sources.length;
+            // 两个校准锚点：890×1360 截图约为 60px / 92%，1080×1324 截图约为 80px / 86%。
+            // 宽一些、分辨率更高的并排截图，需要更多中缝与略小缩放来保留视觉呼吸感。
+            const aspectFactor = Math.max(0, Math.min(1, (averageAspect - 0.65) / 0.17));
+            const resolutionFactor = Math.max(0, Math.min(1, (averageShortSide - 800) / 280));
+            return {
+                gap: Math.max(36, Math.min(100, Math.round(56 + aspectFactor * 14 + resolutionFactor * 10))),
+                scale: Math.max(78, Math.min(94, Math.round(93 - aspectFactor * 4 - resolutionFactor * 3)))
+            };
+        }
+
+        function getSideBySideGapSetting(setting = {}, count = 2, fallbackGap) {
+            return getSideBySideCellGap(count, setting.gap === undefined ? fallbackGap : setting.gap);
+        }
+
+        async function createSideBySideComposite(images, effects = {}) {
+            const dataUrls = await Promise.all(images.map((image) => image?.displayDataUrl || image?.originalDataUrl || image?.dataUrl || ''));
+            const sources = await Promise.all(dataUrls.map(loadImageForPackage));
+            const setting = imageBackdropSettings[getSideBySideBackdropKey(images)] || {};
+            const autoLayout = getSideBySideAutoLayout(sources);
+            const gap = getSideBySideGapSetting(setting, sources.length, autoLayout.gap);
+            const equalHeight = typographySettings.imageAlign !== 'width';
+            const maxHeight = Math.max(...sources.map((source) => source.height || 1));
+            const maxWidth = Math.max(...sources.map((source) => source.width || 1));
+            const targetHeight = equalHeight ? maxHeight : maxHeight;
+            const targetWidths = equalHeight
+                ? sources.map((source) => Math.max(1, Math.round((source.width / source.height) * targetHeight)))
+                : sources.map(() => maxWidth);
+            const targetHeights = equalHeight
+                ? sources.map(() => targetHeight)
+                : sources.map((source) => Math.max(1, Math.round((source.height / source.width) * maxWidth)));
+            const shadowPads = effects.shadow
+                ? targetWidths.map((width, index) => Math.max(2, Math.min(50, Math.round(Math.min(width, targetHeights[index]) / 33)) * 2))
+                : targetWidths.map(() => 0);
+            const outerPad = Math.max(0, ...shadowPads);
+            const canvas = document.createElement('canvas');
+            canvas.width = targetWidths.reduce((sum, width) => sum + width, 0) + gap * (sources.length - 1) + outerPad * 2;
+            canvas.height = Math.max(...targetHeights) + outerPad * 2;
+            const context = canvas.getContext('2d');
+            const drawCell = (targetCtx, source, x, y, width, height) => {
+                targetCtx.save();
+                if (effects.radius) drawRoundedRectPath(targetCtx, x, y, width, height, getUnifiedImageCornerRadius(width, height));
+                else { targetCtx.beginPath(); targetCtx.rect(x, y, width, height); }
+                targetCtx.clip();
+                targetCtx.drawImage(source, x, y, width, height);
+                targetCtx.restore();
+            };
+            let offsetX = outerPad;
+            sources.forEach((source, index) => {
+                const x = offsetX;
+                const y = outerPad;
+                if (effects.shadow) {
+                    const shadowLayer = document.createElement('canvas');
+                    shadowLayer.width = canvas.width;
+                    shadowLayer.height = canvas.height;
+                    const shadowCtx = shadowLayer.getContext('2d');
+                    drawCell(shadowCtx, source, x, y, targetWidths[index], targetHeights[index]);
+                    shadowCtx.globalCompositeOperation = 'source-in';
+                    shadowCtx.fillStyle = '#000';
+                    shadowCtx.fillRect(0, 0, canvas.width, canvas.height);
+                    context.save();
+                    context.filter = `blur(${Math.max(2, Math.round(shadowPads[index] / 2))}px)`;
+                    context.globalAlpha = 0.25;
+                    context.drawImage(shadowLayer, 0, 0);
+                    context.restore();
+                }
+                drawCell(context, source, x, y, targetWidths[index], targetHeights[index]);
+                offsetX += targetWidths[index] + gap;
+            });
+            return { dataUrl: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height, sources, autoLayout, gap };
+        }
+
+        async function downloadImagesAsZip(renameByOrder = false, includeCards = false, mergeSideBySide = false) {
             try {
                 const markdown = document.getElementById('markdown-input').value;
                 await ensureActivityCardsForMarkdown(markdown);
                 await ensureImageBackdropEligibility(markdown);
                 await prepareImageBackdropData(markdown);
-                const imageOrder = collectReferencedImagesInMarkdown(includeCards);
+                const imageOrder = collectReferencedImagesInMarkdown(includeCards, mergeSideBySide);
 
                 if (imageOrder.length === 0) {
                     showStatus('没有可打包的图片', 'error');
@@ -2859,12 +2970,19 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
 
                 for (let i = 0; i < imageOrder.length; i++) {
                     const item = imageOrder[i];
-                    const img = uploadedImages[item.filename];
-                    const dataUrl = await getImageDataUrlForWeChatPackage(img);
+                    const images = (item.isSideBySide ? item.filenames : [item.filename])
+                        .map((filename) => uploadedImages[filename])
+                        .filter(Boolean);
+                    const img = images[0];
+                    const dataUrl = item.isSideBySide
+                        ? await mergeImagesForWeChatPackage(images)
+                        : await getImageDataUrlForWeChatPackage(img);
                     if (!dataUrl) continue;
 
-                    const ext = getDataUrlExtension(dataUrl, img.displayName);
-                    const baseName = renameByOrder ? `图 ${i + 1}.${ext}` : (img.displayName || item.filename || `image-${i + 1}.${ext}`);
+                    const ext = getDataUrlExtension(dataUrl, item.isSideBySide ? 'merged.png' : img.displayName);
+                    const baseName = renameByOrder
+                        ? `图 ${i + 1}.${ext}`
+                        : (item.isSideBySide ? `并排图-${i + 1}.${ext}` : (img.displayName || item.filename || `image-${i + 1}.${ext}`));
                     const zipFilename = makeUniqueZipFilename(baseName, usedNames);
                     const base64 = dataUrl.split(',')[1];
                     folder.file(zipFilename, base64, { base64: true });
@@ -2895,7 +3013,8 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
         function downloadPackageFromOptions() {
             const renameByOrder = !document.getElementById('package-keep-original-name').checked;
             const includeCards = document.getElementById('package-include-cards').checked;
-            return downloadImagesAsZip(renameByOrder, includeCards);
+            const mergeSideBySide = document.getElementById('package-merge-side-by-side').checked;
+            return downloadImagesAsZip(renameByOrder, includeCards, mergeSideBySide);
         }
 
         function getQrReplacementStatus(image) {
@@ -3236,6 +3355,8 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
         }
 
         const imageBackdropSettings = {};
+        // 并排图在预览中的合成结果与原图分开保存，复制微信时仍可保留普通并排结构。
+        const sideBySideBackdropRecords = {};
         let activeBackdropFilename = '';
         let backdropAssetDataUrlsPromise = null;
 
@@ -3249,6 +3370,8 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
 
         function getImageBackdropStyle(block) {
             const image = uploadedImages[block.filename];
+            // 商品/活动卡片和普通并排图不进入正文图片加底链路；复制到微信时保持原始图片结构。
+            if (image?.backdropExcludedForCards) return '';
             if (image && image.backdropDataUrl) return '';
             const options = getImageBackdropOptions(block.filename, image?.backdropMode);
             if (!options.enabled || isGifImageBlock(block)) return '';
@@ -3266,16 +3389,18 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
         }
 
         function getBackdropSettingKey(filename, context = '') {
-            return context === 'product-card' ? `product-card:${filename}` : filename;
+            if (context === 'product-card') return `product-card:${filename}`;
+            return filename;
         }
 
         function getImageBackdropOptions(filename, mode = uploadedImages[filename]?.backdropMode, settingKey = filename) {
             const setting = imageBackdropSettings[settingKey] || {};
             const auto = getAutoImageBackdropOptions(mode);
             return {
-                // 全局开关决定正文图片是否生成底图；识别结果只用于决定阴影/圆角默认值。
-                // 不能再因为识别为 manual 就把“图片加底”开关静默变成不生效。
-                enabled: setting.enabled === undefined ? typographySettings.imageBackdrop === true : setting.enabled === true,
+                // “自动”只处理透明底或白边图；单图面板显式开启时才允许手动强制加底。
+                enabled: setting.enabled === undefined
+                    ? typographySettings.imageBackdrop === true && auto.enabled
+                    : setting.enabled === true,
                 shadow: setting.shadow === undefined ? auto.shadow : setting.shadow === true,
                 radius: setting.radius === undefined ? auto.radius : setting.radius === true
             };
@@ -3286,11 +3411,13 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
             return image && Number(image.height) > Number(image.width) ? '4:3' : 'native';
         }
 
-        function getImageBackdropAspect(filename, settingKey = filename) {
+        function getImageBackdropAspect(filename, settingKey = filename, dimensions = null) {
             const setting = imageBackdropSettings[settingKey] || {};
             return setting.aspect === '4:3' || setting.aspect === 'native'
                 ? setting.aspect
-                : getAutoImageBackdropAspect(filename);
+                : (dimensions && Number(dimensions.height) > Number(dimensions.width)
+                    ? '4:3'
+                    : getAutoImageBackdropAspect(filename));
         }
 
         function getUnifiedImageCornerRadius(width, height = width) {
@@ -3429,16 +3556,24 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
             return backdropAssetDataUrlsPromise;
         }
 
-        async function renderImageBackdrop(filename, imageRecord) {
-            if (!imageRecord || !imageRecord.displayDataUrl || isGifImageBlock(imageRecord)) return;
-            const source = await loadImageFromDataUrl(imageRecord.displayDataUrl);
-            const mode = detectBackdropMode(source);
-            const setting = imageBackdropSettings[filename] || {};
-            const aspect = getImageBackdropAspect(filename);
-            const autoScale = getAdaptiveBackdropScale(source, mode, aspect);
+        async function renderBackdropForRecord(settingKey, imageRecord, sourceDataUrl, suppliedMode = '', renderConfig = {}) {
+            if (!imageRecord || !sourceDataUrl || isGifImageBlock(imageRecord)) return;
+            const source = await loadImageFromDataUrl(sourceDataUrl);
+            const mode = suppliedMode || detectBackdropMode(source);
+            const setting = imageBackdropSettings[settingKey] || {};
+            const aspect = getImageBackdropAspect(settingKey, settingKey, {
+                width: source.naturalWidth,
+                height: source.naturalHeight
+            });
+            const autoScale = Number.isFinite(renderConfig.autoScale)
+                ? renderConfig.autoScale
+                : getAdaptiveBackdropScale(source, mode, aspect);
             const scale = getImageBackdropScale(setting, autoScale);
-            const options = getImageBackdropOptions(filename, mode);
-            const signature = JSON.stringify({ version: 'reference-assets-v6', mode, aspect, enabled: options.enabled, scale, shadow: options.shadow, radius: options.radius, source: imageRecord.displayDataUrl });
+            const options = getImageBackdropOptions(settingKey, mode, settingKey);
+            const foregroundOptions = renderConfig.foregroundEffectsPrepared
+                ? { ...options, shadow: false, radius: false }
+                : options;
+            const signature = JSON.stringify({ version: 'reference-assets-v8', mode, aspect, enabled: options.enabled, scale, shadow: options.shadow, radius: options.radius, prepared: Boolean(renderConfig.foregroundEffectsPrepared), source: sourceDataUrl });
             if (imageRecord.backdropSignature === signature) return;
             imageRecord.backdropMode = mode;
             imageRecord.backdropAutoScale = autoScale;
@@ -3456,7 +3591,7 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
             const sigma = Math.max(2, Math.min(50, Math.round(shortSide / 33)));
             const radius = getUnifiedImageCornerRadius(sourceWidth, sourceHeight);
             // 先生成统一圆角图，再用 -shadow 25xSigma 合成为带阴影临时图。
-            const pad = options.shadow ? sigma * 2 : 0;
+            const pad = foregroundOptions.shadow ? sigma * 2 : 0;
             const foregroundWidth = sourceWidth + pad * 2;
             const foregroundHeight = sourceHeight + pad * 2;
             const scaleRatio = scale / 100;
@@ -3499,13 +3634,13 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
             const compositeCtx = compositedImage.getContext('2d');
             const drawSource = (targetCtx, x, y) => {
                 targetCtx.save();
-                if (options.radius) drawRoundedRectPath(targetCtx, x, y, sourceWidth, sourceHeight, radius);
+                if (foregroundOptions.radius) drawRoundedRectPath(targetCtx, x, y, sourceWidth, sourceHeight, radius);
                 else { targetCtx.beginPath(); targetCtx.rect(x, y, sourceWidth, sourceHeight); }
                 targetCtx.clip();
                 targetCtx.drawImage(source, x, y, sourceWidth, sourceHeight);
                 targetCtx.restore();
             };
-            if (options.shadow) {
+            if (foregroundOptions.shadow) {
                 // ImageMagick 的 -shadow 25xSigma 是将原图 alpha 蒙版染黑后再高斯扩散。
                 // 不能直接使用 Canvas shadowBlur：两者的扩散范围和边缘浓度并不等价。
                 const shadowLayer = document.createElement('canvas');
@@ -3533,13 +3668,18 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
             } catch (error) {
                 // 某些历史图片可能来自没有 CORS 许可的远程地址。
                 // 这种图片不能导出 canvas，但不能因此让整篇预览失败；回退到原图。
-                console.warn(`图片加底跳过（${filename}）：画布不可导出`, error);
+                console.warn(`图片加底跳过（${settingKey}）：画布不可导出`, error);
                 imageRecord.backdropDataUrl = '';
                 imageRecord.backdropWidth = 0;
                 imageRecord.backdropHeight = 0;
                 imageRecord.backdropMode = mode;
                 imageRecord.backdropSignature = '';
             }
+        }
+
+        async function renderImageBackdrop(filename, imageRecord) {
+            if (!imageRecord || isGifImageBlock(imageRecord)) return;
+            return renderBackdropForRecord(filename, imageRecord, imageRecord.displayDataUrl);
         }
 
         function getCardReferencedImageFilenames(markdown) {
@@ -3587,6 +3727,73 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
             return filenames;
         }
 
+        function getSideBySideImageGroups(markdown) {
+            const groups = [];
+            String(markdown || '').split('\n').forEach((line) => {
+                const match = line.trim().match(/^【([^【】]+)】\s*[|｜]\s*【([^【】]+)】(?:\s*[|｜]\s*【([^【】]+)】)?$/);
+                if (!match) return;
+                const images = [];
+                for (let index = 1; index <= 3; index++) {
+                    const reference = String(match[index] || '').trim();
+                    if (!reference) continue;
+                    const image = findImageByReference(reference, false) || findMatchingImage(reference, false, false);
+                    if (image?.filename && !isGifImageBlock(image)) images.push(image);
+                }
+                if (images.length > 1) groups.push(images);
+            });
+            return groups;
+        }
+
+        function getSideBySideBackdropMode(sources) {
+            const modes = sources.map((source) => detectBackdropMode(source));
+            if (modes.length && modes.every((mode) => mode === 'transparent')) return 'transparent';
+            if (modes.length && modes.every((mode) => mode === 'white-edge')) return 'white-edge';
+            return 'manual';
+        }
+
+        async function buildSideBySideBackdropRecord(images) {
+            const key = getSideBySideBackdropKey(images);
+            const preliminary = await createSideBySideComposite(images);
+            const mode = getSideBySideBackdropMode(preliminary.sources);
+            const options = getImageBackdropOptions(key, mode, key);
+            const composite = await createSideBySideComposite(images, {
+                radius: options.radius,
+                shadow: options.shadow
+            });
+            const record = sideBySideBackdropRecords[key] || (sideBySideBackdropRecords[key] = {});
+            record.rawDataUrl = composite.dataUrl;
+            record.rawWidth = composite.width;
+            record.rawHeight = composite.height;
+            record.filename = key;
+            record.imageCount = images.length;
+            record.autoGap = composite.autoLayout.gap;
+            record.displayName = images.map((image) => image.displayName || image.filename).join('｜');
+            await renderBackdropForRecord(key, record, composite.dataUrl, mode, {
+                autoScale: composite.autoLayout.scale,
+                foregroundEffectsPrepared: options.radius || options.shadow
+            });
+            return record;
+        }
+
+        async function mergeImagesForWeChatPackage(images) {
+            // 下载时强制走与预览完全相同的合成链路，不能因缓存缺失而退回原始拼接图。
+            const record = await buildSideBySideBackdropRecord(images);
+            return record.backdropDataUrl || record.rawDataUrl || '';
+        }
+
+        async function prepareSideBySideBackdropData(markdown = '') {
+            const activeKeys = new Set();
+            const groups = getSideBySideImageGroups(markdown);
+            await Promise.allSettled(groups.map(async (images) => {
+                const key = getSideBySideBackdropKey(images);
+                activeKeys.add(key);
+                await buildSideBySideBackdropRecord(images);
+            }));
+            Object.keys(sideBySideBackdropRecords).forEach((key) => {
+                if (!activeKeys.has(key)) delete sideBySideBackdropRecords[key];
+            });
+        }
+
         function getBackdropExcludedImageFilenames(markdown) {
             const filenames = getCardReferencedImageFilenames(markdown);
             getSideBySideReferencedImageFilenames(markdown).forEach((filename) => filenames.add(filename));
@@ -3621,6 +3828,7 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
                     }
                 }
             });
+            await prepareSideBySideBackdropData(markdown);
         }
 
         async function ensureImageBackdropEligibility(markdown = '') {
@@ -4542,7 +4750,7 @@ function processTextSpacing(text) {
                 if (!equalHeight) return count === 3 ? '33.3333%' : '50%';
                 return `${((widthWeights[index] / totalWeight) * 100).toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}%`;
             };
-            const cellGap = count === 3 ? '6px' : '8px';
+            const cellGap = `${getSideBySideCellGap(count)}px`;
             // 表格左右外侧的 border-spacing 会被单独抵消；图片之间只保留 count - 1 个中间缝。
             // 因此图片实际总宽应按“正文宽度 - 中间缝总宽”计算，避免并排图片整体偏窄。
             const gapWidth = parseFloat(cellGap) * Math.max(0, count - 1);
@@ -4589,6 +4797,24 @@ function processTextSpacing(text) {
                 return tableHTML;
             }
             return `<section class="personal-mode-image-group" style="width: 100% !important; border: 2px dashed rgb(192, 204, 92); padding: 8px; background: #ffffff; box-sizing: border-box; visibility: visible !important; margin: 0;">${tableHTML}</section>`;
+        }
+
+        function generateSideBySidePreviewHTML(images, withPersonalFrame = false) {
+            if (images.some((image) => image.placeholder || isGifImageBlock(image))) {
+                return generateSideBySideImagesHTML(images, false, withPersonalFrame);
+            }
+            const record = sideBySideBackdropRecords[getSideBySideBackdropKey(images)];
+            const dataUrl = record?.backdropDataUrl || record?.rawDataUrl;
+            if (!record || !dataUrl) return generateSideBySideImagesHTML(images, false, withPersonalFrame);
+            const width = record.backdropWidth || record.rawWidth;
+            const height = record.backdropHeight || record.rawHeight;
+            const ratio = width && height ? (height / width).toFixed(8).replace(/0+$/, '').replace(/\.$/, '') : '1';
+            const style = 'width: 100% !important; height: auto !important; visibility: visible !important;';
+            const imageHTML = `<img data-img-filename="${record.filename}" data-backdrop-context="side-by-side" data-src="${dataUrl}" class="rich_pages wxw-img" style="${style}" src="${dataUrl}" alt="并排图片" data-ratio="${ratio}" data-type="png" data-w="${width}" data-backw="578" data-backh="${Math.round(578 * Number(ratio))}" data-original-style="width:100%;height:auto !important;">`;
+            const wrapped = `<section style="text-align: center; margin: 0; padding: 0;">${imageHTML}</section>`;
+            return withPersonalFrame
+                ? `<section class="personal-mode-image-group" style="width: 100% !important; border: 2px dashed rgb(192, 204, 92); padding: 8px; background: #ffffff; box-sizing: border-box; visibility: visible !important; margin: 0;">${wrapped}</section>`
+                : wrapped;
         }
 
         function generateProductCardHTML(block) {
@@ -5476,7 +5702,7 @@ function processTextSpacing(text) {
                         return generateSeamlessImagesHTML(block.images, false);
                     }
                     case 'side-by-side-images': {
-                        return generateSideBySideImagesHTML(block.images, false, isPersonalMode);
+                        return generateSideBySidePreviewHTML(block.images, isPersonalMode);
                     }
                     case 'image-placeholder': {
                         return `<div style="text-align: center; padding: 20px; background: #f5f5f5; border: 1px dashed rgb(192, 204, 92); margin: 10px 0; color: #999; font-size: 14px;">
@@ -6570,12 +6796,20 @@ function processTextSpacing(text) {
             activeBackdropContext = context;
             activeBackdropSettingKey = getBackdropSettingKey(filename, context);
             const setting = imageBackdropSettings[activeBackdropSettingKey] || {};
-            const image = uploadedImages[filename];
+            const image = context === 'side-by-side' ? sideBySideBackdropRecords[filename] : uploadedImages[filename];
+            const gapRow = document.getElementById('image-backdrop-gap-row');
+            gapRow.hidden = context !== 'side-by-side';
+            if (context === 'side-by-side') {
+                document.getElementById('image-backdrop-gap').value = getSideBySideGapSetting(setting, image?.imageCount || 2, image?.autoGap);
+            }
             const mode = context === 'product-card' ? 'manual' : image?.backdropMode;
             const options = getImageBackdropOptions(filename, mode, activeBackdropSettingKey);
             const fallbackScale = context === 'product-card' ? 90 : (image?.backdropAutoScale || 90);
             document.getElementById('image-backdrop-scale').value = getImageBackdropScale(setting, fallbackScale);
-            setBackdropDialogValue('aspect', getImageBackdropAspect(filename, activeBackdropSettingKey));
+            setBackdropDialogValue('aspect', getImageBackdropAspect(filename, activeBackdropSettingKey, {
+                width: image?.rawWidth || image?.width,
+                height: image?.rawHeight || image?.height
+            }));
             setBackdropDialogOption('enabled', options.enabled);
             setBackdropDialogOption('shadow', options.shadow);
             setBackdropDialogOption('radius', options.radius);
@@ -6614,12 +6848,16 @@ function processTextSpacing(text) {
 
         function applyImageBackdropDialog() {
             if (!activeBackdropFilename) return;
+            const activeSideBySideCount = sideBySideBackdropRecords[activeBackdropFilename]?.imageCount || 2;
             imageBackdropSettings[activeBackdropSettingKey || activeBackdropFilename] = {
                 scale: getImageBackdropScale({ scale: document.getElementById('image-backdrop-scale').value }),
                 aspect: document.querySelector('[data-backdrop-dialog-option="aspect"].is-active')?.dataset.value || getImageBackdropAspect(activeBackdropFilename, activeBackdropSettingKey || activeBackdropFilename),
                 enabled: document.querySelector('[data-backdrop-dialog-option="enabled"].is-active')?.dataset.value === 'on',
                 shadow: document.querySelector('[data-backdrop-dialog-option="shadow"].is-active')?.dataset.value === 'on',
-                radius: document.querySelector('[data-backdrop-dialog-option="radius"].is-active')?.dataset.value === 'on'
+                radius: document.querySelector('[data-backdrop-dialog-option="radius"].is-active')?.dataset.value === 'on',
+                ...(activeBackdropContext === 'side-by-side' ? {
+                    gap: getSideBySideCellGap(activeSideBySideCount, document.getElementById('image-backdrop-gap').value)
+                } : {})
             };
             saveImageBackdropSettings();
             closeImageBackdropDialog();
@@ -7068,6 +7306,13 @@ curl -fsSL https://example.com/install.sh | bash
                 button.addEventListener('click', function() {
                     const input = document.getElementById('image-backdrop-scale');
                     input.value = getImageBackdropScale({ scale: Number(input.value) + Number(this.dataset.backdropScaleDelta) });
+                });
+            });
+            document.querySelectorAll('[data-backdrop-gap-delta]').forEach((button) => {
+                button.addEventListener('click', function() {
+                    const input = document.getElementById('image-backdrop-gap');
+                    const count = sideBySideBackdropRecords[activeBackdropFilename]?.imageCount || 2;
+                    input.value = getSideBySideCellGap(count, Number(input.value) + Number(this.dataset.backdropGapDelta));
                 });
             });
             document.getElementById('image-backdrop-dialog').addEventListener('click', function(event) {
