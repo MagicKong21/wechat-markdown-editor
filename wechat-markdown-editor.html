@@ -1740,6 +1740,12 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
         // 防抖定时器
         let previewUpdateTimer = null;
         const PREVIEW_UPDATE_DELAY = 300; // 防抖延迟（毫秒）
+
+        // 编辑区与预览区同步滚动
+        let isSynchronizingScroll = false;
+        let scrollSyncFrame = null;
+        let scrollSyncAnchors = [];
+        let scrollSyncMirror = null;
         
         /* ==================== 预编译正则表达式（性能优化） ==================== */
         
@@ -5046,7 +5052,7 @@ function processTextSpacing(text) {
         function appendRenderedContentBlocks(contentBlocks, renderBlock, spacing) {
             let html = '';
             contentBlocks.forEach((block, index) => {
-                const blockHTML = renderBlock(block);
+                let blockHTML = renderBlock(block);
                 if (!blockHTML) return;
 
                 if (index > 0) {
@@ -5060,6 +5066,12 @@ function processTextSpacing(text) {
                     }
                 }
 
+                if (spacing.addScrollAnchors) {
+                    blockHTML = blockHTML.replace(
+                        /^(\s*<[a-zA-Z][\w:-]*)/,
+                        `$1 data-scroll-block-index="${index}"`
+                    );
+                }
                 html += blockHTML;
             });
             return html;
@@ -5920,7 +5932,11 @@ function processTextSpacing(text) {
                 }
             }
 
-            html += appendRenderedContentBlocks(contentBlocks, generateBlockHTML, { singleBr, doubleBr });
+            html += appendRenderedContentBlocks(contentBlocks, generateBlockHTML, {
+                singleBr,
+                doubleBr,
+                addScrollAnchors: true
+            });
 
             // 添加底部（根据模式选择）
             if (includeFixedContent) {
@@ -6706,6 +6722,226 @@ function processTextSpacing(text) {
         
         /* ==================== 预览与复制 ==================== */
 
+        function normalizeScrollAnchorText(text) {
+            return String(text || '')
+                .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+                .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+                .replace(/^#{1,6}\s+/, '')
+                .replace(/^[-*+]\s+/, '')
+                .replace(/^\d+(?:[.)、）])\s*/, '')
+                .replace(/^(?:商品小卡片|商品卡片|活动卡片)[:：]\s*/, '')
+                .replace(/^｜｜|｜｜$/g, '')
+                .replace(/[【】`*_~=<>\s]/g, '')
+                .toLowerCase();
+        }
+
+        function getScrollAnchorElementText(element) {
+            const imageText = Array.from(element.querySelectorAll?.('img') || [])
+                .map((img) => `${img.alt || ''}${img.dataset.imgFilename || ''}`)
+                .join('');
+            return normalizeScrollAnchorText(`${element.textContent || ''}${imageText}`);
+        }
+
+        function findBestScrollAnchorElement(block, needle) {
+            const candidates = [block, ...block.querySelectorAll('p, li, div, section, span, img, table')];
+            let bestMatch = null;
+            let bestTextLength = Infinity;
+
+            candidates.forEach((candidate) => {
+                const candidateText = candidate.tagName === 'IMG'
+                    ? normalizeScrollAnchorText(`${candidate.alt || ''}${candidate.dataset.imgFilename || ''}`)
+                    : getScrollAnchorElementText(candidate);
+                if (candidateText.includes(needle) && candidateText.length < bestTextLength) {
+                    bestMatch = candidate;
+                    bestTextLength = candidateText.length;
+                }
+            });
+            return bestMatch;
+        }
+
+        function rebuildEditorLineOffsets() {
+            if (!scrollSyncMirror) {
+                scrollSyncMirror = document.createElement('div');
+                scrollSyncMirror.setAttribute('aria-hidden', 'true');
+                document.body.appendChild(scrollSyncMirror);
+            }
+
+            const styles = getComputedStyle(textarea);
+            Object.assign(scrollSyncMirror.style, {
+                position: 'fixed',
+                visibility: 'hidden',
+                pointerEvents: 'none',
+                left: '-100000px',
+                top: '0',
+                width: `${textarea.clientWidth}px`,
+                padding: styles.padding,
+                border: '0',
+                fontFamily: styles.fontFamily,
+                fontSize: styles.fontSize,
+                fontWeight: styles.fontWeight,
+                fontStyle: styles.fontStyle,
+                lineHeight: styles.lineHeight,
+                letterSpacing: styles.letterSpacing,
+                whiteSpace: 'pre-wrap',
+                overflowWrap: 'break-word',
+                wordBreak: styles.wordBreak,
+                boxSizing: 'border-box'
+            });
+
+            const fragment = document.createDocumentFragment();
+            textarea.value.split('\n').forEach((line) => {
+                const lineElement = document.createElement('div');
+                lineElement.textContent = line || '\u200b';
+                fragment.appendChild(lineElement);
+            });
+            scrollSyncMirror.replaceChildren(fragment);
+
+            const mirrorTop = scrollSyncMirror.getBoundingClientRect().top;
+            return Array.from(scrollSyncMirror.children).map((lineElement) => {
+                const rect = lineElement.getBoundingClientRect();
+                return {
+                    top: rect.top - mirrorTop,
+                    center: rect.top - mirrorTop + rect.height / 2
+                };
+            });
+        }
+
+        function rebuildScrollSyncAnchors() {
+            const previewContent = document.getElementById('preview-content');
+            const previewBlocks = Array.from(document.querySelectorAll('#wx-preview [data-scroll-block-index]'));
+            const lineOffsets = rebuildEditorLineOffsets();
+            const markdownLines = textarea.value.split('\n');
+            const anchors = [];
+            let blockCursor = 0;
+
+            markdownLines.forEach((line, lineIndex) => {
+                const needle = normalizeScrollAnchorText(line);
+                if (needle.length < 2) return;
+
+                for (let blockIndex = blockCursor; blockIndex < previewBlocks.length; blockIndex++) {
+                    const matchedElement = findBestScrollAnchorElement(previewBlocks[blockIndex], needle);
+                    if (!matchedElement) continue;
+
+                    anchors.push({
+                        sourceCenter: lineOffsets[lineIndex]?.center || 0,
+                        previewElement: matchedElement
+                    });
+                    blockCursor = blockIndex;
+                    break;
+                }
+            });
+
+            scrollSyncAnchors = anchors;
+            // 读取一次，确保调用方在下一帧同步时能获得更新后的布局。
+            void previewContent.scrollHeight;
+        }
+
+        function getPreviewElementCenter(element, previewContent) {
+            const elementRect = element.getBoundingClientRect();
+            const previewRect = previewContent.getBoundingClientRect();
+            return previewContent.scrollTop
+                + elementRect.top - previewRect.top
+                + elementRect.height / 2;
+        }
+
+        function getScrollSyncPoints(previewContent) {
+            const points = [{ source: 0, preview: 0 }];
+            scrollSyncAnchors.forEach((anchor) => {
+                if (!anchor.previewElement.isConnected) return;
+                points.push({
+                    source: anchor.sourceCenter,
+                    preview: getPreviewElementCenter(anchor.previewElement, previewContent)
+                });
+            });
+            points.push({
+                source: textarea.scrollHeight,
+                preview: previewContent.scrollHeight
+            });
+            return points;
+        }
+
+        function interpolateScrollPosition(points, value, fromKey, toKey) {
+            for (let index = 1; index < points.length; index++) {
+                const previous = points[index - 1];
+                const next = points[index];
+                if (value > next[fromKey]) continue;
+
+                const distance = next[fromKey] - previous[fromKey];
+                if (distance <= 0) return next[toKey];
+                const progress = Math.max(0, Math.min(1, (value - previous[fromKey]) / distance));
+                return previous[toKey] + (next[toKey] - previous[toKey]) * progress;
+            }
+            return points[points.length - 1][toKey];
+        }
+
+        function synchronizeScrollPosition(source, target) {
+            const previewContent = document.getElementById('preview-content');
+            const points = getScrollSyncPoints(previewContent);
+            const sourceScrollableHeight = Math.max(0, source.scrollHeight - source.clientHeight);
+            const targetScrollableHeight = Math.max(0, target.scrollHeight - target.clientHeight);
+
+            if (source.scrollTop <= 1) {
+                target.scrollTop = 0;
+                return;
+            }
+            if (sourceScrollableHeight > 0 && source.scrollTop >= sourceScrollableHeight - 1) {
+                target.scrollTop = targetScrollableHeight;
+                return;
+            }
+
+            if (scrollSyncAnchors.length < 2) {
+                const ratio = sourceScrollableHeight > 0 ? source.scrollTop / sourceScrollableHeight : 0;
+                target.scrollTop = ratio * targetScrollableHeight;
+                return;
+            }
+
+            if (source === textarea) {
+                const sourceCenter = textarea.scrollTop + textarea.clientHeight / 2;
+                const previewCenter = interpolateScrollPosition(points, sourceCenter, 'source', 'preview');
+                previewContent.scrollTop = Math.max(0, previewCenter - previewContent.clientHeight / 2);
+            } else {
+                const previewCenter = previewContent.scrollTop + previewContent.clientHeight / 2;
+                const sourceCenter = interpolateScrollPosition(points, previewCenter, 'preview', 'source');
+                textarea.scrollTop = Math.max(0, sourceCenter - textarea.clientHeight / 2);
+            }
+        }
+
+        function scheduleSynchronizedScroll(source, target) {
+            if (isSynchronizingScroll) return;
+
+            if (scrollSyncFrame) {
+                cancelAnimationFrame(scrollSyncFrame);
+            }
+
+            scrollSyncFrame = requestAnimationFrame(() => {
+                isSynchronizingScroll = true;
+                synchronizeScrollPosition(source, target);
+                scrollSyncFrame = null;
+
+                // 等目标容器的 scroll 事件处理完毕后再解除锁，避免双向监听互相触发。
+                requestAnimationFrame(() => {
+                    isSynchronizingScroll = false;
+                });
+            });
+        }
+
+        function setupSynchronizedScrolling() {
+            const previewContent = document.getElementById('preview-content');
+
+            textarea.addEventListener('scroll', () => {
+                scheduleSynchronizedScroll(textarea, previewContent);
+            }, { passive: true });
+
+            previewContent.addEventListener('scroll', () => {
+                scheduleSynchronizedScroll(previewContent, textarea);
+            }, { passive: true });
+
+            window.addEventListener('resize', () => {
+                rebuildScrollSyncAnchors();
+                scheduleSynchronizedScroll(textarea, previewContent);
+            });
+        }
+
         function tightenFooterPreviewSpacing() {
             document.querySelectorAll('#wx-preview .footer-jump-image, #wx-preview .footer-img').forEach((el) => {
                 el.style.setProperty('margin', '4px 0', 'important');
@@ -6753,6 +6989,17 @@ function processTextSpacing(text) {
                   document.getElementById('wx-preview').innerHTML = html;
                   tightenFooterPreviewSpacing();
                   bindPreviewImageBackdropControls();
+                  requestAnimationFrame(() => {
+                      rebuildScrollSyncAnchors();
+                      scheduleSynchronizedScroll(textarea, document.getElementById('preview-content'));
+                  });
+                  document.querySelectorAll('#wx-preview img').forEach((img) => {
+                      if (!img.complete) {
+                          img.addEventListener('load', () => {
+                              scheduleSynchronizedScroll(textarea, document.getElementById('preview-content'));
+                          }, { once: true });
+                      }
+                  });
 
                   // 个人模式：设置背景色
                   const previewContent = document.getElementById('preview-content');
@@ -7208,6 +7455,7 @@ curl -fsSL https://example.com/install.sh | bash
             const restoredDraft = restoreDraftIfAvailable();
             undoStack.push(textarea.value); // 初始值入栈
             loadImageBackdropSettings();
+            setupSynchronizedScrolling();
             
             // 初始渲染
             updatePreview();
