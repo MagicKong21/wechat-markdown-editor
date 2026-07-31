@@ -1509,10 +1509,10 @@
             </div>
             <!-- ==================== 控制按钮区 ==================== -->
             <div class="controls">
-                <button class="btn btn-primary" id="copy-btn">
+                <button class="btn" id="copy-btn">
                     <i class="fas fa-copy"></i> 复制预览内容
                 </button>
-                <button class="btn btn-secondary" id="copy-body-btn">
+                <button class="btn btn-primary" id="copy-body-btn">
                     <i class="fas fa-file-lines"></i> 仅复制正文
                 </button>
                 <div class="image-upload-area">
@@ -1739,7 +1739,8 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
         
         // 防抖定时器
         let previewUpdateTimer = null;
-        const PREVIEW_UPDATE_DELAY = 300; // 防抖延迟（毫秒）
+        let previewRenderVersion = 0;
+        const PREVIEW_UPDATE_DELAY = 0; // 输入后的下一帧立即刷新，避免编辑与预览脱节
 
         // 编辑区与预览区同步滚动
         let isSynchronizingScroll = false;
@@ -2958,6 +2959,11 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
         async function downloadImagesAsZip(renameByOrder = false, includeCards = false, mergeSideBySide = false) {
             try {
                 const markdown = document.getElementById('markdown-input').value;
+                // 锁定此刻预览正在展示的并排合成图，下载必须与用户刚调好的预览逐像素一致。
+                const previewSideBySideData = new Map(Object.entries(sideBySideBackdropRecords).map(([key, record]) => [
+                    key,
+                    record?.backdropDataUrl || record?.rawDataUrl || ''
+                ]));
                 await ensureActivityCardsForMarkdown(markdown);
                 await ensureImageBackdropEligibility(markdown);
                 await prepareImageBackdropData(markdown);
@@ -2981,7 +2987,7 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
                         .filter(Boolean);
                     const img = images[0];
                     const dataUrl = item.isSideBySide
-                        ? await mergeImagesForWeChatPackage(images)
+                        ? await mergeImagesForWeChatPackage(images, previewSideBySideData.get(getSideBySideBackdropKey(images)))
                         : await getImageDataUrlForWeChatPackage(img);
                     if (!dataUrl) continue;
 
@@ -3321,7 +3327,7 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
             ];
             if (width > 0) attrs.push(`data-w="${width}"`);
             if (width > 0) attrs.push(`data-backw="${backWidth}"`);
-            if (width > 0 && height > 0) attrs.push(`data-backh="${Math.round((height / width) * backWidth)}"`);
+            if (width > 0 && height > 0) attrs.push(`data-backh="${Math.max(1, Math.round(Number(options.backHeight) || ((height / width) * backWidth)))}"`);
             if (ratio) attrs.push(`data-ratio="${ratio}"`);
             return attrs.join(' ');
         }
@@ -3478,15 +3484,17 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
                 // 合成后要求“可见内容”四边处在一个舒适区间，而不是简单按原图尺寸缩放。
                 // 内容贴边的图会降到 80 左右，透明/半透明区域较宽的图则保留 90，
                 // 必要时略微放大，避免套上底图后主体显得过小。
-                const targetMargin = aspect === '4:3' && image.naturalHeight > image.naturalWidth ? 0.095 : 0.105;
-                const upperMargin = aspect === '4:3' && image.naturalHeight > image.naturalWidth ? 0.155 : 0.145;
+                // 自动档以可见主体而非整张源图计算：主体贴边时必须显著缩小；
+                // 原图自带较宽透明/白边时，才允许维持较大的前景。
+                const targetMargin = aspect === '4:3' && image.naturalHeight > image.naturalWidth ? 0.11 : 0.12;
+                const upperMargin = aspect === '4:3' && image.naturalHeight > image.naturalWidth ? 0.17 : 0.16;
                 const innerMargins = [
                     bounds.minX / bounds.size,
                     bounds.minY / bounds.size,
                     (bounds.size - 1 - bounds.maxX) / bounds.size,
                     (bounds.size - 1 - bounds.maxY) / bounds.size
                 ];
-                let maxScale = 0.90;
+                let maxScale = 0.92;
                 innerMargins.forEach((innerMargin) => {
                     if (innerMargin >= targetMargin || innerMargin >= 0.5) return;
                     const limit = (0.5 - targetMargin) / (0.5 - innerMargin);
@@ -3579,7 +3587,7 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
             const foregroundOptions = renderConfig.foregroundEffectsPrepared
                 ? { ...options, shadow: false, radius: false }
                 : options;
-            const signature = JSON.stringify({ version: 'reference-assets-v8', mode, aspect, enabled: options.enabled, scale, shadow: options.shadow, radius: options.radius, prepared: Boolean(renderConfig.foregroundEffectsPrepared), source: sourceDataUrl });
+            const signature = JSON.stringify({ version: 'reference-assets-v9', mode, aspect, enabled: options.enabled, scale, shadow: options.shadow, radius: options.radius, prepared: Boolean(renderConfig.foregroundEffectsPrepared), source: sourceDataUrl });
             if (imageRecord.backdropSignature === signature) return;
             imageRecord.backdropMode = mode;
             imageRecord.backdropAutoScale = autoScale;
@@ -3618,6 +3626,12 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
                 bgWidth = Math.round(foregroundAspect < 1 ? foregroundWidth / scaleRatio : foregroundWidth / scaleRatio * (1 - compensation));
                 bgHeight = Math.round(foregroundAspect > 1 ? foregroundHeight / scaleRatio : foregroundHeight / scaleRatio * (1 - compensation));
             }
+            // 安全边距是渲染层面的硬约束，不能只依赖自动缩放的估算。
+            // 尤其是横/竖图的 native 补偿可能压缩一个维度；这里确保前景（包括阴影预留）
+            // 到背景四边至少各留短边 10% 的空间，永远不会贴边或相交。
+            const minimumBackdropMargin = Math.max(18, Math.round(shortSide * 0.10));
+            bgWidth = Math.max(bgWidth, foregroundWidth + minimumBackdropMargin * 2);
+            bgHeight = Math.max(bgHeight, foregroundHeight + minimumBackdropMargin * 2);
             const assetDataUrls = await getBackdropAssetDataUrls();
             const [header, footer] = await Promise.all([
                 loadImageFromDataUrl(assetDataUrls.header),
@@ -3685,6 +3699,25 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
 
         async function renderImageBackdrop(filename, imageRecord) {
             if (!imageRecord || isGifImageBlock(imageRecord)) return;
+            // 正文仅改文字时，图片的源数据和设置都没有变化。直接复用已生成的成品，
+            // 不再为每次键入重新解码全部图片和画布，避免预览明显滞后。
+            const mode = imageRecord.backdropMode;
+            const autoScale = Number(imageRecord.backdropAutoScale);
+            if (mode && Number.isFinite(autoScale)) {
+                const setting = imageBackdropSettings[filename] || {};
+                const aspect = getImageBackdropAspect(filename, filename, {
+                    width: imageRecord.width,
+                    height: imageRecord.height
+                });
+                const scale = getImageBackdropScale(setting, autoScale);
+                const options = getImageBackdropOptions(filename, mode, filename);
+                const signature = JSON.stringify({
+                    version: 'reference-assets-v9', mode, aspect, enabled: options.enabled, scale,
+                    shadow: options.shadow, radius: options.radius, prepared: false,
+                    source: imageRecord.displayDataUrl
+                });
+                if (imageRecord.backdropSignature === signature) return;
+            }
             return renderBackdropForRecord(filename, imageRecord, imageRecord.displayDataUrl);
         }
 
@@ -3759,6 +3792,15 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
 
         async function buildSideBySideBackdropRecord(images) {
             const key = getSideBySideBackdropKey(images);
+            const existingRecord = sideBySideBackdropRecords[key];
+            // 并排成品生成涉及多次 Canvas 合成；编辑普通文字时不应重复做这项工作。
+            const cacheSignature = JSON.stringify({
+                sources: images.map((image) => [image.filename, image.displayDataUrl, image.width, image.height]),
+                setting: imageBackdropSettings[key] || {},
+                globalEnabled: typographySettings.imageBackdrop === true,
+                alignment: typographySettings.imageAlign || ''
+            });
+            if (existingRecord?.sideBySideSignature === cacheSignature) return existingRecord;
             const preliminary = await createSideBySideComposite(images);
             const mode = getSideBySideBackdropMode(preliminary.sources);
             const options = getImageBackdropOptions(key, mode, key);
@@ -3778,11 +3820,13 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
                 autoScale: composite.autoLayout.scale,
                 foregroundEffectsPrepared: options.radius || options.shadow
             });
+            record.sideBySideSignature = cacheSignature;
             return record;
         }
 
-        async function mergeImagesForWeChatPackage(images) {
-            // 下载时强制走与预览完全相同的合成链路，不能因缓存缺失而退回原始拼接图。
+        async function mergeImagesForWeChatPackage(images, previewDataUrl = '') {
+            // 优先使用用户当前预览的确切成品，避免下载时重算产生缩放差异。
+            if (previewDataUrl) return previewDataUrl;
             const record = await buildSideBySideBackdropRecord(images);
             return record.backdropDataUrl || record.rawDataUrl || '';
         }
@@ -4752,17 +4796,17 @@ function processTextSpacing(text) {
                 return width > 0 && height > 0 ? width / height : 1;
             });
             const totalWeight = widthWeights.reduce((sum, weight) => sum + weight, 0) || count;
-            const getCellWidth = (index) => {
-                if (!equalHeight) return count === 3 ? '33.3333%' : '50%';
-                return `${((widthWeights[index] / totalWeight) * 100).toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}%`;
-            };
             const cellGap = `${getSideBySideCellGap(count)}px`;
-            // 表格左右外侧的 border-spacing 会被单独抵消；图片之间只保留 count - 1 个中间缝。
-            // 因此图片实际总宽应按“正文宽度 - 中间缝总宽”计算，避免并排图片整体偏窄。
-            const gapWidth = parseFloat(cellGap) * Math.max(0, count - 1);
+            const gapPx = parseFloat(cellGap);
+            // 微信将 border-spacing 计入表格的左右外沿：两图有 3 份 gap、三图有 4 份。
+            // 这与导出的公众号编辑器源码一致，必须按这个可用宽度计算等高图片的像素宽。
+            const gapWidth = gapPx * (count + 1);
             const getImageWidthRatio = (index) => equalHeight ? widthWeights[index] / totalWeight : 1 / count;
             const getFallbackImageWidth = (index) => Math.max(1, (wechatEditorWidth - gapWidth) * getImageWidthRatio(index));
-            const getFallbackBackWidth = (index) => Math.max(1, Math.round((wechatBackWidth - gapWidth) * getImageWidthRatio(index)));
+            const getFallbackBackWidth = (index) => Math.max(1, Math.round(wechatBackWidth * getImageWidthRatio(index)));
+            const getCellWidth = (index) => {
+                return `${(getImageWidthRatio(index) * 100).toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}%`;
+            };
             const colgroup = images.map((_, index) => {
                 const cellWidth = getCellWidth(index);
                 return `<col style="width: ${cellWidth};">`;
@@ -4771,10 +4815,11 @@ function processTextSpacing(text) {
                 const cellWidth = getCellWidth(index);
                 const fallbackImageWidth = `${formatCssNumber(getFallbackImageWidth(index))}px`;
                 const fallbackImageStyle = equalHeight
+                    // 只锁定按原始宽高比推导出的宽度，height 必须保持 auto，才能等高且绝不拉伸。
                     ? `display: block; width: ${fallbackImageWidth} !important; height: auto !important; visibility: visible !important; margin: 0 !important; padding: 0 !important; ${getImageBackdropStyle(img)}`
                     : `display: block; width: 100% !important; height: auto !important; visibility: visible !important; margin: 0 !important; padding: 0 !important; ${getImageBackdropStyle(img)}`;
                 if (img.placeholder) {
-                    return `<td style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; box-sizing: border-box;">
+                    return `<td data-colwidth="${cellWidth}" width="${cellWidth}" style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; box-sizing: border-box;">
                         <section style="text-align: center; padding: 18px 4px; background: rgb(245, 245, 245); border: 1px dashed rgb(192, 204, 92); color: rgb(153, 153, 153); font-size: 13px; box-sizing: border-box; overflow: hidden;">【${img.text}】</section>
                     </td>`;
                 }
@@ -4784,21 +4829,18 @@ function processTextSpacing(text) {
                     const gifAdaptiveAttrs = equalHeight
                         ? `data-backw="${getFallbackBackWidth(index)}" data-backh="${Math.round(getFallbackBackWidth(index) * 0.24444444)}" data-original-style="${fallbackImageStyle}"`
                         : 'data-original-style="width: 100%;height: auto !important;"';
-                    return `<td style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
+                    return `<td data-colwidth="${cellWidth}" width="${cellWidth}" style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
                         <img data-src="${placeholderSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="0.24444444" data-s="300,640" data-type="png" data-w="900" ${gifAdaptiveAttrs} style="${fallbackImageStyle}" src="${placeholderSrc}" alt="GIF待替换：${name}">
                     </td>`;
                 }
                 const adaptiveAttrs = equalHeight
                     ? getWeChatAdaptiveImageAttrs(img, { backWidth: getFallbackBackWidth(index), originalStyle: fallbackImageStyle })
                     : getWeChatAdaptiveImageAttrs(img);
-                return `<td style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
+                return `<td data-colwidth="${cellWidth}" width="${cellWidth}" style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
                     <img data-img-filename="${img.filename}" data-src="${img.dataUrl}" class="rich_pages wxw-img" style="${fallbackImageStyle}" src="${img.dataUrl}" alt="${img.alt}" ${adaptiveAttrs}>
                 </td>`;
             }).join('');
-            // border-spacing 会在表格左右各额外产生一个 gap；抵消这两个外侧 gap，
-            // 让“图片总宽 + 中间缝”与单图正文宽度严格一致。
-            const gapPx = parseFloat(cellGap);
-            const tableHTML = `<table style="width: calc(100% + ${gapPx * 2}px); table-layout: fixed; border: 0; border-collapse: separate; border-spacing: ${cellGap} 0; margin: 0 0 0 -${gapPx}px; padding: 0;"><colgroup>${colgroup}</colgroup><tbody><tr>${cells}</tr></tbody></table>`;
+            const tableHTML = `<table style="width: ${wechatEditorWidth}px; table-layout: fixed; border: 0; border-collapse: separate; border-spacing: ${cellGap} 0; margin: 0 auto; padding: 0;"><colgroup>${colgroup}</colgroup><tbody><tr>${cells}</tr></tbody></table>`;
             if (!withPersonalFrame) {
                 return tableHTML;
             }
@@ -6957,6 +6999,7 @@ function processTextSpacing(text) {
                 clearTimeout(previewUpdateTimer);
             }
             previewUpdateTimer = setTimeout(function() {
+                previewUpdateTimer = null;
                 updatePreview();
             }, PREVIEW_UPDATE_DELAY);
         }
@@ -6969,7 +7012,7 @@ function processTextSpacing(text) {
                 clearTimeout(previewUpdateTimer);
                 previewUpdateTimer = null;
             }
-            updatePreview();
+            return updatePreview();
         }
         
         /**
@@ -6977,6 +7020,7 @@ function processTextSpacing(text) {
          */
          async function updatePreview() {
              try {
+                 const renderVersion = ++previewRenderVersion;
                  // 先清零所有图片的使用计数
                  for (const filename of Object.keys(uploadedImages)) {
                      uploadedImages[filename].useCount = 0;
@@ -6985,6 +7029,8 @@ function processTextSpacing(text) {
                   await ensureActivityCardsForMarkdown(markdown);
                   await ensureImageBackdropEligibility(markdown);
                   await prepareImageBackdropData(markdown);
+                  // 输入很快时，旧的异步图片处理不能覆盖后一次编辑的预览。
+                  if (renderVersion !== previewRenderVersion) return;
                   const html = markdownToWeChatHTML(markdown);
                   document.getElementById('wx-preview').innerHTML = html;
                   tightenFooterPreviewSpacing();
