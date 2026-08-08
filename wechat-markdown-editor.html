@@ -1740,6 +1740,9 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
         // 防抖定时器
         let previewUpdateTimer = null;
         let previewRenderVersion = 0;
+        let imagePreparationTimer = null;
+        let imagePreparationVersion = 0;
+        let scrollAnchorRebuildTimer = null;
         const PREVIEW_UPDATE_DELAY = 0; // 输入后的下一帧立即刷新，避免编辑与预览脱节
 
         // 编辑区与预览区同步滚动
@@ -4798,14 +4801,18 @@ function processTextSpacing(text) {
             const totalWeight = widthWeights.reduce((sum, weight) => sum + weight, 0) || count;
             const cellGap = `${getSideBySideCellGap(count)}px`;
             const gapPx = parseFloat(cellGap);
-            // 微信将 border-spacing 计入表格的左右外沿：两图有 3 份 gap、三图有 4 份。
-            // 这与导出的公众号编辑器源码一致，必须按这个可用宽度计算等高图片的像素宽。
-            const gapWidth = gapPx * (count + 1);
+            // 中缝只放在第二张及后续图片之前。border-spacing 会在表格左右也生成间距，
+            // 粘贴进公众号后就会表现成与正文相同的 16px 左右缩进，因此不能用它实现并排图间距。
+            const gapWidth = gapPx * Math.max(0, count - 1);
+            const availableImageWidth = Math.max(1, wechatEditorWidth - gapWidth);
+            const availableBackWidth = Math.max(1, wechatBackWidth - gapWidth);
             const getImageWidthRatio = (index) => equalHeight ? widthWeights[index] / totalWeight : 1 / count;
-            const getFallbackImageWidth = (index) => Math.max(1, (wechatEditorWidth - gapWidth) * getImageWidthRatio(index));
-            const getFallbackBackWidth = (index) => Math.max(1, Math.round(wechatBackWidth * getImageWidthRatio(index)));
+            const getFallbackImageWidth = (index) => Math.max(1, availableImageWidth * getImageWidthRatio(index));
+            const getFallbackBackWidth = (index) => Math.max(1, Math.round(availableBackWidth * getImageWidthRatio(index)));
             const getCellWidth = (index) => {
-                return `${(getImageWidthRatio(index) * 100).toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}%`;
+                const imageWidth = availableImageWidth * getImageWidthRatio(index);
+                const columnWidth = imageWidth + (index > 0 ? gapPx : 0);
+                return `${((columnWidth / wechatEditorWidth) * 100).toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}%`;
             };
             const colgroup = images.map((_, index) => {
                 const cellWidth = getCellWidth(index);
@@ -4813,13 +4820,14 @@ function processTextSpacing(text) {
             }).join('');
             const cells = images.map((img, index) => {
                 const cellWidth = getCellWidth(index);
+                const cellPadding = index > 0 ? `padding: 0 0 0 ${cellGap};` : 'padding: 0;';
                 const fallbackImageWidth = `${formatCssNumber(getFallbackImageWidth(index))}px`;
                 const fallbackImageStyle = equalHeight
                     // 只锁定按原始宽高比推导出的宽度，height 必须保持 auto，才能等高且绝不拉伸。
                     ? `display: block; width: ${fallbackImageWidth} !important; height: auto !important; visibility: visible !important; margin: 0 !important; padding: 0 !important; ${getImageBackdropStyle(img)}`
                     : `display: block; width: 100% !important; height: auto !important; visibility: visible !important; margin: 0 !important; padding: 0 !important; ${getImageBackdropStyle(img)}`;
                 if (img.placeholder) {
-                    return `<td data-colwidth="${cellWidth}" width="${cellWidth}" style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; box-sizing: border-box;">
+                    return `<td data-colwidth="${cellWidth}" width="${cellWidth}" style="width: ${cellWidth}; border: 0; ${cellPadding} vertical-align: top; box-sizing: border-box;">
                         <section style="text-align: center; padding: 18px 4px; background: rgb(245, 245, 245); border: 1px dashed rgb(192, 204, 92); color: rgb(153, 153, 153); font-size: 13px; box-sizing: border-box; overflow: hidden;">【${img.text}】</section>
                     </td>`;
                 }
@@ -4829,31 +4837,56 @@ function processTextSpacing(text) {
                     const gifAdaptiveAttrs = equalHeight
                         ? `data-backw="${getFallbackBackWidth(index)}" data-backh="${Math.round(getFallbackBackWidth(index) * 0.24444444)}" data-original-style="${fallbackImageStyle}"`
                         : 'data-original-style="width: 100%;height: auto !important;"';
-                    return `<td data-colwidth="${cellWidth}" width="${cellWidth}" style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
+                    return `<td data-colwidth="${cellWidth}" width="${cellWidth}" style="width: ${cellWidth}; border: 0; ${cellPadding} vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
                         <img data-src="${placeholderSrc}" class="rich_pages wxw-img" width="100%" _width="100%" data-ratio="0.24444444" data-s="300,640" data-type="png" data-w="900" ${gifAdaptiveAttrs} style="${fallbackImageStyle}" src="${placeholderSrc}" alt="GIF待替换：${name}">
                     </td>`;
                 }
                 const adaptiveAttrs = equalHeight
                     ? getWeChatAdaptiveImageAttrs(img, { backWidth: getFallbackBackWidth(index), originalStyle: fallbackImageStyle })
                     : getWeChatAdaptiveImageAttrs(img);
-                return `<td data-colwidth="${cellWidth}" width="${cellWidth}" style="width: ${cellWidth}; border: 0; padding: 0; vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
+                return `<td data-colwidth="${cellWidth}" width="${cellWidth}" style="width: ${cellWidth}; border: 0; ${cellPadding} vertical-align: top; font-size: 0; line-height: 0; box-sizing: border-box;">
                     <img data-img-filename="${img.filename}" data-src="${img.dataUrl}" class="rich_pages wxw-img" style="${fallbackImageStyle}" src="${img.dataUrl}" alt="${img.alt}" ${adaptiveAttrs}>
                 </td>`;
             }).join('');
-            const tableHTML = `<table style="width: ${wechatEditorWidth}px; table-layout: fixed; border: 0; border-collapse: separate; border-spacing: ${cellGap} 0; margin: 0 auto; padding: 0;"><colgroup>${colgroup}</colgroup><tbody><tr>${cells}</tr></tbody></table>`;
+            const tableHTML = `<table width="100%" style="width: 100%; max-width: ${wechatEditorWidth}px; table-layout: fixed; border: 0; border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0;"><colgroup>${colgroup}</colgroup><tbody><tr>${cells}</tr></tbody></table>`;
             if (!withPersonalFrame) {
                 return tableHTML;
             }
             return `<section class="personal-mode-image-group" style="width: 100% !important; border: 2px dashed rgb(192, 204, 92); padding: 8px; background: #ffffff; box-sizing: border-box; visibility: visible !important; margin: 0;">${tableHTML}</section>`;
         }
 
+        function generateSideBySidePreviewFallbackHTML(images, withPersonalFrame = false) {
+            // 预览区不能复用微信导出的固定 677px 表格：当图片尚未上传时，
+            // 固定宽度会在宽预览内溢出并让占位框看起来向右偏移。
+            // 复制到微信仍走 generateSideBySideImagesHTML，保持已验证的导出效果不变。
+            const gap = getSideBySideCellGap(images.length);
+            const weights = images.map((image) => {
+                const width = Number(image.width) || 0;
+                const height = Number(image.height) || 0;
+                return width > 0 && height > 0 ? Math.max(0.35, width / height) : 1;
+            });
+            const cells = images.map((image, index) => {
+                const weight = formatCssNumber(weights[index]);
+                const cellStyle = `flex: ${weight} 1 0; min-width: 0;`;
+                if (image.placeholder) {
+                    return `<section style="${cellStyle} height: 64px; min-height: 64px; display: flex; align-items: center; justify-content: center; padding: 8px; background: rgb(245, 245, 245); border: 1px dashed rgb(192, 204, 92); color: rgb(153, 153, 153); font-size: 13px; line-height: 1.4; text-align: center; box-sizing: border-box; overflow: hidden;">【${image.text}】</section>`;
+                }
+                const imageStyle = 'display: block; width: 100% !important; height: auto !important; margin: 0 !important; padding: 0 !important; visibility: visible !important;';
+                return `<section style="${cellStyle} display: flex; align-items: flex-start; min-width: 0;"><img data-img-filename="${image.filename}" data-src="${image.dataUrl}" class="rich_pages wxw-img" style="${imageStyle}" src="${image.dataUrl}" alt="${image.alt || image.displayName || ''}"></section>`;
+            }).join('');
+            const layout = `<section style="display: flex; align-items: flex-start; width: 100%; gap: ${gap}px; margin: 0; padding: 0; box-sizing: border-box;">${cells}</section>`;
+            return withPersonalFrame
+                ? `<section class="personal-mode-image-group" style="width: 100% !important; border: 2px dashed rgb(192, 204, 92); padding: 8px; background: #ffffff; box-sizing: border-box; visibility: visible !important; margin: 0;">${layout}</section>`
+                : layout;
+        }
+
         function generateSideBySidePreviewHTML(images, withPersonalFrame = false) {
             if (images.some((image) => image.placeholder || isGifImageBlock(image))) {
-                return generateSideBySideImagesHTML(images, false, withPersonalFrame);
+                return generateSideBySidePreviewFallbackHTML(images, withPersonalFrame);
             }
             const record = sideBySideBackdropRecords[getSideBySideBackdropKey(images)];
             const dataUrl = record?.backdropDataUrl || record?.rawDataUrl;
-            if (!record || !dataUrl) return generateSideBySideImagesHTML(images, false, withPersonalFrame);
+            if (!record || !dataUrl) return generateSideBySidePreviewFallbackHTML(images, withPersonalFrame);
             const width = record.backdropWidth || record.rawWidth;
             const height = record.backdropHeight || record.rawHeight;
             const ratio = width && height ? (height / width).toFixed(8).replace(/0+$/, '').replace(/\.$/, '') : '1';
@@ -6878,6 +6911,14 @@ function processTextSpacing(text) {
             void previewContent.scrollHeight;
         }
 
+        function scheduleScrollAnchorRebuild(delay = 120) {
+            if (scrollAnchorRebuildTimer) clearTimeout(scrollAnchorRebuildTimer);
+            scrollAnchorRebuildTimer = setTimeout(() => {
+                scrollAnchorRebuildTimer = null;
+                requestAnimationFrame(rebuildScrollSyncAnchors);
+            }, delay);
+        }
+
         function getPreviewElementCenter(element, previewContent) {
             const elementRect = element.getBoundingClientRect();
             const previewRect = previewContent.getBoundingClientRect();
@@ -6979,8 +7020,8 @@ function processTextSpacing(text) {
             }, { passive: true });
 
             window.addEventListener('resize', () => {
-                rebuildScrollSyncAnchors();
-                scheduleSynchronizedScroll(textarea, previewContent);
+                // 仅重建映射；不能在窗口变化时擅自重设用户正在看的预览位置。
+                scheduleScrollAnchorRebuild(80);
             });
         }
 
@@ -7000,7 +7041,8 @@ function processTextSpacing(text) {
             }
             previewUpdateTimer = setTimeout(function() {
                 previewUpdateTimer = null;
-                updatePreview();
+                // 键入只走快速文本渲染；图片识别和 Canvas 合成留给空闲后的后台任务。
+                updatePreview({ deferImagePreparation: true });
             }, PREVIEW_UPDATE_DELAY);
         }
         
@@ -7015,61 +7057,86 @@ function processTextSpacing(text) {
             return updatePreview();
         }
         
+        function renderPreviewMarkup(markdown) {
+            const previewContent = document.getElementById('preview-content');
+            const preview = document.getElementById('wx-preview');
+            // innerHTML 替换会让滚动容器在内容变短时被浏览器钳到 0。先记住位置，
+            // 再恢复到新内容允许的最近位置，避免编辑时无故跳到页头或页尾。
+            const previousScrollTop = previewContent.scrollTop;
+            preview.innerHTML = markdownToWeChatHTML(markdown);
+            previewContent.scrollTop = Math.max(0, Math.min(
+                previousScrollTop,
+                Math.max(0, previewContent.scrollHeight - previewContent.clientHeight)
+            ));
+            tightenFooterPreviewSpacing();
+            bindPreviewImageBackdropControls();
+
+            const wxArticle = document.querySelector('.wx-article');
+            if (isPersonalMode) {
+                previewContent.style.background = '#fafafa';
+                if (wxArticle) wxArticle.style.backgroundColor = 'transparent';
+            } else {
+                previewContent.style.background = '#ffffff';
+                if (wxArticle) wxArticle.style.backgroundColor = 'white';
+            }
+
+            // 锚点测量会遍历所有行和预览块，延迟到用户短暂停止输入后再做。
+            scheduleScrollAnchorRebuild();
+            document.querySelectorAll('#wx-preview img').forEach((img) => {
+                if (!img.complete) {
+                    img.addEventListener('load', () => scheduleScrollAnchorRebuild(40), { once: true });
+                }
+            });
+            updatePreviewStats();
+            updateImagePreviewUseCounts();
+        }
+
+        async function prepareImagesForPreview(markdown, renderVersion) {
+            const preparationVersion = ++imagePreparationVersion;
+            await ensureActivityCardsForMarkdown(markdown);
+            await ensureImageBackdropEligibility(markdown);
+            await prepareImageBackdropData(markdown);
+            // 只允许最新的一次后台结果刷新预览，防止旧任务覆盖新输入。
+            if (renderVersion !== previewRenderVersion
+                || preparationVersion !== imagePreparationVersion
+                || document.getElementById('markdown-input').value !== markdown) return;
+            renderPreviewMarkup(markdown);
+        }
+
+        function queueImagePreparation(markdown, renderVersion) {
+            if (imagePreparationTimer) clearTimeout(imagePreparationTimer);
+            imagePreparationTimer = setTimeout(() => {
+                imagePreparationTimer = null;
+                prepareImagesForPreview(markdown, renderVersion).catch((error) => {
+                    console.warn('图片后台预处理失败，已保留即时预览：', error);
+                });
+            }, 180);
+        }
+
         /**
-         * 更新预览区域内容
+         * 更新预览区域内容。文本立即更新，图片合成不阻塞输入。
          */
-         async function updatePreview() {
-             try {
-                 const renderVersion = ++previewRenderVersion;
-                 // 先清零所有图片的使用计数
-                 for (const filename of Object.keys(uploadedImages)) {
-                     uploadedImages[filename].useCount = 0;
-                 }
-                  const markdown = document.getElementById('markdown-input').value;
-                  await ensureActivityCardsForMarkdown(markdown);
-                  await ensureImageBackdropEligibility(markdown);
-                  await prepareImageBackdropData(markdown);
-                  // 输入很快时，旧的异步图片处理不能覆盖后一次编辑的预览。
-                  if (renderVersion !== previewRenderVersion) return;
-                  const html = markdownToWeChatHTML(markdown);
-                  document.getElementById('wx-preview').innerHTML = html;
-                  tightenFooterPreviewSpacing();
-                  bindPreviewImageBackdropControls();
-                  requestAnimationFrame(() => {
-                      rebuildScrollSyncAnchors();
-                      scheduleSynchronizedScroll(textarea, document.getElementById('preview-content'));
-                  });
-                  document.querySelectorAll('#wx-preview img').forEach((img) => {
-                      if (!img.complete) {
-                          img.addEventListener('load', () => {
-                              scheduleSynchronizedScroll(textarea, document.getElementById('preview-content'));
-                          }, { once: true });
-                      }
-                  });
+        async function updatePreview(options = {}) {
+            try {
+                const renderVersion = ++previewRenderVersion;
+                for (const filename of Object.keys(uploadedImages)) uploadedImages[filename].useCount = 0;
+                const markdown = document.getElementById('markdown-input').value;
+                renderPreviewMarkup(markdown);
 
-                  // 个人模式：设置背景色
-                  const previewContent = document.getElementById('preview-content');
-                  const wxArticle = document.querySelector('.wx-article');
-
-                  if (isPersonalMode) {
-                      previewContent.style.background = '#fafafa';
-                      if (wxArticle) {
-                          wxArticle.style.backgroundColor = 'transparent';
-                      }
-                  } else {
-                      previewContent.style.background = '#ffffff';
-                      if (wxArticle) {
-                          wxArticle.style.backgroundColor = 'white';
-                      }
-                  }
-
-	                  updatePreviewStats();
-	                  updateImagePreviewUseCounts();
-             } catch (e) {
-                 console.error('预览更新失败:', e);
-                 document.getElementById('wx-preview').innerHTML = `<div style="padding: 20px; color: red;">渲染出错：${e.message}</div>`;
-             }
-          }
+                if (options.deferImagePreparation) {
+                    queueImagePreparation(markdown, renderVersion);
+                    return;
+                }
+                if (imagePreparationTimer) {
+                    clearTimeout(imagePreparationTimer);
+                    imagePreparationTimer = null;
+                }
+                await prepareImagesForPreview(markdown, renderVersion);
+            } catch (e) {
+                console.error('预览更新失败:', e);
+                document.getElementById('wx-preview').innerHTML = `<div style="padding: 20px; color: red;">渲染出错：${e.message}</div>`;
+            }
+        }
 
         function bindPreviewImageBackdropControls() {
             document.querySelectorAll('#wx-preview img[data-img-filename]').forEach((img) => {
