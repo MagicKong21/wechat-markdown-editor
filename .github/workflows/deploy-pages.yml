@@ -25,7 +25,7 @@ jobs:
       - name: Prepare static site
         run: |
           mkdir -p _site
-          cp -R assets images product-qr-replacer.html wechat-markdown-editor.html index.html _site/
+          cp -R assets images product-qr-replacer.html index.html _site/
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
