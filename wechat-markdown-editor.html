@@ -673,15 +673,15 @@
             display: none;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 12px;
             background: rgba(4, 6, 12, 0.72);
         }
         .image-backdrop-dialog.is-open { display: flex; }
         .image-backdrop-card {
             width: min(920px, 100%);
-            max-height: min(720px, calc(100vh - 40px));
+            max-height: min(680px, calc(100vh - 24px));
             overflow: hidden;
-            padding: 18px;
+            padding: 14px 18px 12px;
             border: 1px solid var(--border-strong);
             border-radius: var(--radius-lg);
             background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.045)), var(--surface-solid);
@@ -689,14 +689,14 @@
             color: var(--text-strong);
             backdrop-filter: blur(24px) saturate(1.15);
         }
-        .image-backdrop-card h3 { margin: 0 0 18px; padding: 0 0 14px; border-bottom: 1px solid rgba(255,255,255,.11); color: var(--text-strong); font-size: 16px; text-align: center; }
-        .image-backdrop-body { display: grid; grid-template-columns: minmax(320px, 360px) minmax(0, 1fr); align-items: stretch; gap: 20px; min-height: 470px; }
+        .image-backdrop-card h3 { margin: 0 0 12px; padding: 0 0 10px; border-bottom: 1px solid rgba(255,255,255,.11); color: var(--text-strong); font-size: 16px; text-align: center; }
+        .image-backdrop-body { display: grid; grid-template-columns: 326px minmax(0, 1fr); align-items: stretch; gap: 30px; min-height: 440px; }
         .image-backdrop-preview { display: grid; place-items: center; min-width: 0; padding: 20px; border: 1px solid rgba(255,255,255,.10); border-radius: var(--radius-md); background-color: #151925; background-image: linear-gradient(45deg, rgba(255,255,255,.055) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,.055) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255,255,255,.055) 75%), linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.055) 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0; overflow: hidden; }
         .image-backdrop-preview-stage { position: relative; display: grid; place-items: center; width: 100%; max-width: 480px; max-height: 430px; overflow: hidden; background-color: #8cc6ff; background-repeat: no-repeat; background-position: top center, bottom center; background-size: 100% auto, 100% auto; box-shadow: 0 18px 42px rgba(0,0,0,.28); }
         .image-backdrop-preview-stage.is-transparent { box-shadow: none; background-color: transparent; background-image: none !important; }
         .image-backdrop-preview-stage img { display: block; width: auto; height: auto; max-width: none; max-height: none; transform: scale(var(--foreground-scale, .9)); transform-origin: center; filter: var(--foreground-shadow, none); border-radius: var(--foreground-radius, 0); }
-        .image-backdrop-options { width: 100%; margin: 0 auto; }
-        .image-backdrop-option { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: 12px; margin: 12px 0; font-size: 14px; color: var(--text-strong); }
+        .image-backdrop-options { width: 100%; margin: 0; }
+        .image-backdrop-option { display: grid; grid-template-columns: 82px minmax(0, 1fr); align-items: center; gap: 10px; margin: 11px 0; font-size: 14px; color: var(--text-strong); }
         .image-backdrop-option > span { text-align: right; }
         .image-backdrop-option .typography-segmented { justify-self: start; }
         .image-backdrop-option.is-disabled { color: var(--text-muted); opacity: .42; }
@@ -704,7 +704,7 @@
         .image-backdrop-option.is-disabled input { cursor: not-allowed; }
         .image-backdrop-option.is-disabled .typography-segmented,
         .image-backdrop-option.is-disabled .typography-stepper { pointer-events: none; }
-        .image-backdrop-range-control { display: grid; grid-template-columns: minmax(0, 1fr) 58px; align-items: center; gap: 10px; width: 100%; }
+        .image-backdrop-range-control { display: grid; grid-template-columns: minmax(0, 1fr) 44px; align-items: center; gap: 6px; width: 100%; max-width: 224px; }
         .image-backdrop-range-control input[type="range"] { width: 100%; accent-color: #4a9cff; cursor: pointer; }
         .image-backdrop-range-value { color: #4a9cff; font-size: 13px; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
         .image-backdrop-gap-control { width: 135px; justify-self: start; }
@@ -716,12 +716,12 @@
         .image-backdrop-gap-control input { flex: 1; width: 0; min-width: 0; height: 100%; padding: 0 2px 0 6px; border: 0; outline: 0; color: #fff; background: transparent; font: inherit; font-size: 13px; font-weight: 700; text-align: right; }
         .image-backdrop-gap-control input::-webkit-inner-spin-button, .image-backdrop-gap-control input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         .image-backdrop-option[hidden] { display: none; }
-        .image-backdrop-backgrounds { display: grid; grid-template-columns: repeat(5, 48px); justify-content: start; gap: 8px; }
-        .image-backdrop-background { position: relative; width: 48px; aspect-ratio: 1; min-width: 0; padding: 0; overflow: hidden; border: 2px solid transparent; border-radius: 10px; background: var(--tile-background, #8cc6ff); box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); cursor: pointer; transition: border-color .16s ease, transform .16s ease; }
+        .image-backdrop-backgrounds { display: grid; grid-template-columns: repeat(5, 42px); justify-content: start; gap: 7px; }
+        .image-backdrop-background { position: relative; width: 42px; aspect-ratio: 1; min-width: 0; padding: 0; overflow: hidden; border: 2px solid transparent; border-radius: 9px; background: var(--tile-background, #8cc6ff); box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); cursor: pointer; transition: border-color .16s ease, transform .16s ease; }
         .image-backdrop-background.is-transparent-choice { background-color: #151925; background-image: linear-gradient(45deg, rgba(255,255,255,.075) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,.075) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255,255,255,.075) 75%), linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.075) 75%); background-size: 14px 14px; background-position: 0 0, 0 7px, 7px -7px, -7px 0; }
         .image-backdrop-background:hover { transform: translateY(-1px); }
         .image-backdrop-background.is-active { border-color: #4a9cff; box-shadow: 0 0 0 2px rgba(74,156,255,.18), inset 0 0 0 1px rgba(255,255,255,.22); }
-        .image-backdrop-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+        .image-backdrop-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
         .image-backdrop-actions .btn { min-height: 32px; padding: 7px 12px; font-size: 12px; }
         @media (max-width: 760px) {
             .image-backdrop-card { overflow: auto; }
