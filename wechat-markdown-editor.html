@@ -7311,6 +7311,21 @@ function processTextSpacing(text) {
             const previewImage = document.getElementById('image-backdrop-preview-image');
             const width = Math.max(1, Number(record.rawWidth || record.width) || 1);
             const height = Math.max(1, Number(record.rawHeight || record.height) || 1);
+            previewImage.src = sourceDataUrl;
+            if (!settings.enabled) {
+                // “图片加底”关闭时，预览必须严格回到原图。不能因为面板仍记住
+                // 上一次的背景选项，就在尚未启用功能时提前显示背景或前景效果。
+                stage.style.aspectRatio = `${width} / ${height}`;
+                stage.classList.add('is-transparent');
+                stage.style.background = 'transparent';
+                previewImage.style.maxWidth = '100%';
+                previewImage.style.maxHeight = '100%';
+                previewImage.style.setProperty('--foreground-scale', '1');
+                previewImage.style.setProperty('--foreground-shadow', 'none');
+                previewImage.style.setProperty('--foreground-radius', '0');
+                previewImage.style.setProperty('corner-shape', 'round');
+                return;
+            }
             stage.style.aspectRatio = settings.aspect === '4:3' ? '4 / 3' : `${width} / ${height}`;
             stage.classList.toggle('is-transparent', settings.background === 'none');
             stage.style.backgroundImage = 'none';
@@ -7329,7 +7344,6 @@ function processTextSpacing(text) {
             } else {
                 stage.style.background = 'transparent';
             }
-            previewImage.src = sourceDataUrl;
             previewImage.style.maxWidth = settings.background === 'none' ? '100%' : '96.5%';
             previewImage.style.maxHeight = settings.background === 'none' ? '100%' : '96.5%';
             previewImage.style.setProperty('--foreground-scale', String(settings.background === 'none' ? 1 : settings.scale / 100));
