@@ -716,11 +716,11 @@
         .image-backdrop-gap-control input { flex: 1; width: 0; min-width: 0; height: 100%; padding: 0 2px 0 6px; border: 0; outline: 0; color: #fff; background: transparent; font: inherit; font-size: 13px; font-weight: 700; text-align: right; }
         .image-backdrop-gap-control input::-webkit-inner-spin-button, .image-backdrop-gap-control input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         .image-backdrop-option[hidden] { display: none; }
-        .image-backdrop-backgrounds { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
-        .image-backdrop-background { position: relative; aspect-ratio: 1; min-width: 0; padding: 0; overflow: hidden; border: 2px solid transparent; border-radius: 12px; background: var(--tile-background, #8cc6ff); box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); cursor: pointer; transition: border-color .16s ease, transform .16s ease; }
+        .image-backdrop-backgrounds { display: grid; grid-template-columns: repeat(5, 48px); justify-content: start; gap: 8px; }
+        .image-backdrop-background { position: relative; width: 48px; aspect-ratio: 1; min-width: 0; padding: 0; overflow: hidden; border: 2px solid transparent; border-radius: 10px; background: var(--tile-background, #8cc6ff); box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); cursor: pointer; transition: border-color .16s ease, transform .16s ease; }
+        .image-backdrop-background.is-transparent-choice { background-color: #151925; background-image: linear-gradient(45deg, rgba(255,255,255,.075) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,.075) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(255,255,255,.075) 75%), linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.075) 75%); background-size: 14px 14px; background-position: 0 0, 0 7px, 7px -7px, -7px 0; }
         .image-backdrop-background:hover { transform: translateY(-1px); }
         .image-backdrop-background.is-active { border-color: #4a9cff; box-shadow: 0 0 0 2px rgba(74,156,255,.18), inset 0 0 0 1px rgba(255,255,255,.22); }
-        .image-backdrop-background::after { content: attr(aria-label); position: absolute; inset: auto 4px 4px; overflow: hidden; color: #fff; font-size: 10px; font-weight: 800; text-align: center; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 4px rgba(0,0,0,.65); }
         .image-backdrop-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
         .image-backdrop-actions .btn { min-height: 32px; padding: 7px 12px; font-size: 12px; }
         @media (max-width: 760px) {
@@ -1676,17 +1676,16 @@
                 <div class="image-backdrop-option"><span>图片加底</span><div class="typography-segmented" role="group" aria-label="当前图片加底"><button type="button" data-backdrop-dialog-option="enabled" data-value="on">开</button><button type="button" data-backdrop-dialog-option="enabled" data-value="off">关</button></div></div>
                 <div class="image-backdrop-option" id="image-backdrop-gap-row" hidden><span>图片间隔</span><div class="typography-stepper image-backdrop-gap-control"><button type="button" data-backdrop-gap-delta="-2" aria-label="图片间隔减少 2 像素">−</button><div class="image-backdrop-scale-value"><input id="image-backdrop-gap" type="number" min="0" max="100" step="2" value="16" aria-label="并排图片间隔"><span>px</span></div><button type="button" data-backdrop-gap-delta="2" aria-label="图片间隔增加 2 像素">+</button></div></div>
                 <div class="image-backdrop-option" data-backdrop-dependent="true"><span>背景样式</span><div class="image-backdrop-backgrounds" role="group" aria-label="背景样式">
-                    <button type="button" class="image-backdrop-background" data-backdrop-background="lizhi" aria-label="荔枝默认" style="--tile-background:#8cc6ff"></button>
-                    <button type="button" class="image-backdrop-background" data-backdrop-background="blue" aria-label="荔枝蓝" style="--tile-background:#3fb9ff"></button>
-                    <button type="button" class="image-backdrop-background" data-backdrop-background="none" aria-label="无背景" style="--tile-background:linear-gradient(45deg,#dfe5ee 25%,#fff 25%,#fff 75%,#dfe5ee 75%) 0 0/14px 14px"></button>
-                    <button type="button" class="image-backdrop-background" data-backdrop-background="aurora" aria-label="极光" style="--tile-background:linear-gradient(135deg,#a8edea,#fed6e3)"></button>
-                    <button type="button" class="image-backdrop-background" data-backdrop-background="midnight" aria-label="午夜" style="--tile-background:linear-gradient(135deg,#1b2755,#6b4fa1)"></button>
+                    <button type="button" class="image-backdrop-background" data-backdrop-background="lizhi" aria-label="荔枝默认" title="荔枝默认" style="--tile-background:#8cc6ff"></button>
+                    <button type="button" class="image-backdrop-background" data-backdrop-background="golden-gate" aria-label="macOS 27 壁纸" title="macOS 27 壁纸" style="--tile-background:url('assets/image-backdrop/macos-27-golden-gate.jpg') center/cover"></button>
+                    <button type="button" class="image-backdrop-background is-transparent-choice" data-backdrop-background="none" aria-label="无背景" title="无背景"></button>
+                    <button type="button" class="image-backdrop-background" data-backdrop-background="aurora" aria-label="极光" title="极光" style="--tile-background:linear-gradient(135deg,#a8edea,#fed6e3)"></button>
+                    <button type="button" class="image-backdrop-background" data-backdrop-background="midnight" aria-label="午夜" title="午夜" style="--tile-background:linear-gradient(135deg,#1b2755,#6b4fa1)"></button>
                 </div></div>
                 <div class="image-backdrop-option" id="image-backdrop-scale-row" data-backdrop-dependent="true"><span>缩放比例</span><div class="image-backdrop-range-control"><input id="image-backdrop-scale" type="range" min="60" max="100" step="1" value="90" aria-label="当前图片缩放比例"><strong class="image-backdrop-range-value" id="image-backdrop-scale-value">90%</strong></div></div>
+                <div class="image-backdrop-option" id="image-backdrop-radius-row" data-backdrop-dependent="true"><span>圆角大小</span><div class="image-backdrop-range-control"><input id="image-backdrop-radius-size" type="range" min="0" max="64" step="1" value="32" aria-label="当前图片圆角大小"><strong class="image-backdrop-range-value" id="image-backdrop-radius-value">32 px</strong></div></div>
                 <div class="image-backdrop-option" id="image-backdrop-aspect-row" data-backdrop-dependent="true"><span>长宽比例</span><div class="typography-segmented image-backdrop-aspect-control" role="group" aria-label="当前图片长宽比例"><button type="button" data-backdrop-dialog-option="aspect" data-value="native">原生</button><button type="button" data-backdrop-dialog-option="aspect" data-value="4:3">4:3</button></div></div>
                 <div class="image-backdrop-option" data-backdrop-dependent="true"><span>阴影效果</span><div class="typography-segmented" role="group" aria-label="当前图片阴影"><button type="button" data-backdrop-dialog-option="shadow" data-value="on">开</button><button type="button" data-backdrop-dialog-option="shadow" data-value="off">关</button></div></div>
-                <div class="image-backdrop-option" data-backdrop-dependent="true"><span>圆角效果</span><div class="typography-segmented" role="group" aria-label="当前图片圆角"><button type="button" data-backdrop-dialog-option="radius" data-value="on">开</button><button type="button" data-backdrop-dialog-option="radius" data-value="off">关</button></div></div>
-                <div class="image-backdrop-option" id="image-backdrop-radius-row" data-backdrop-dependent="true"><span>圆角大小</span><div class="image-backdrop-range-control"><input id="image-backdrop-radius-size" type="range" min="0" max="64" step="1" value="32" aria-label="当前图片圆角大小"><strong class="image-backdrop-range-value" id="image-backdrop-radius-value">32 px</strong></div></div>
               </div>
               <div class="image-backdrop-preview"><div class="image-backdrop-preview-stage" id="image-backdrop-preview-stage"><img id="image-backdrop-preview-image" alt="当前图片效果预览"></div></div>
             </div>
@@ -3401,8 +3400,12 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
 
         const imageBackdropSettings = {};
         const IMAGE_BACKDROP_DEFAULT_RADIUS = 32;
-        const CONTINUOUS_CORNER_EXPONENT = 4;
-        const CONTINUOUS_CORNER_EXTENT = 1.52866483;
+        // CSS corner-shape 的 superellipse(1.3) 对应指数 2^1.3：
+        // 比普通圆弧柔和，但不会像旧版 superellipse(2) 那样把顶部拉得过平。
+        const CONTINUOUS_CORNER_PARAMETER = 1.3;
+        const CONTINUOUS_CORNER_EXPONENT = Math.pow(2, CONTINUOUS_CORNER_PARAMETER);
+        const IMAGE_BACKDROP_DISPLAY_WIDTH = 578;
+        const IMAGE_BACKDROP_GOLDEN_GATE_URL = 'assets/image-backdrop/macos-27-golden-gate.jpg';
         const IMAGE_BACKDROP_GRADIENTS = {
             aurora: ['#A8EDEA', '#FED6E3'],
             midnight: ['#1B2755', '#6B4FA1']
@@ -3427,10 +3430,10 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
             if (image && image.backdropDataUrl) return '';
             const options = getImageBackdropOptions(block.filename, image?.backdropMode);
             if (!options.enabled || isGifImageBlock(block)) return '';
-            const radius = getUnifiedImageCornerRadius(Number(block.width) || 0, Number(block.height) || 0);
+            const radius = options.radiusSize;
             const styles = [];
             if (options.shadow) styles.push('box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28) !important;');
-            if (options.radius) styles.push(`border-radius: ${radius}px !important;`);
+            if (options.radius) styles.push(`border-radius: ${radius}px !important; corner-shape: superellipse(${CONTINUOUS_CORNER_PARAMETER}) !important;`);
             return styles.join(' ');
         }
 
@@ -3454,7 +3457,7 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
                     ? typographySettings.imageBackdrop === true && auto.enabled
                     : setting.enabled === true,
                 shadow: setting.shadow === undefined ? auto.shadow : setting.shadow === true,
-                radius: setting.radius === undefined ? auto.radius : setting.radius === true,
+                radius: getImageBackdropRadiusSize(setting) > 0,
                 radiusSize: getImageBackdropRadiusSize(setting),
                 background: getImageBackdropBackground(setting)
             };
@@ -3462,7 +3465,8 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
 
         function getImageBackdropBackground(setting = {}) {
             const value = String(setting.background || 'lizhi');
-            return value === 'blue' || value === 'lizhi' || value === 'none' || IMAGE_BACKDROP_GRADIENTS[value]
+            if (value === 'blue') return 'golden-gate';
+            return value === 'golden-gate' || value === 'lizhi' || value === 'none' || IMAGE_BACKDROP_GRADIENTS[value]
                 ? value
                 : 'lizhi';
         }
@@ -3489,10 +3493,11 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
         }
 
         function getUnifiedImageCornerRadius(width, height = width, designRadius = IMAGE_BACKDROP_DEFAULT_RADIUS) {
-            // 圆角参数采用 1000px 短边的设计坐标，再映射到源图像素。
-            // 因此 1x/2x 截图或不同分辨率图片会获得一致的视觉曲率。
+            // 圆角滑杆使用文章预览的 CSS 像素语义。按微信正文常用的 578px
+            // 显示宽度映射回源图，1x/2x 截图最终显示出的圆角大小保持一致。
             const shortSide = Math.max(1, Math.min(Number(width) || 1, Number(height) || Number(width) || 1));
-            return Math.min(shortSide / 2, Math.max(0, Number(designRadius) || 0) * shortSide / 1000);
+            const sourceWidth = Math.max(1, Number(width) || 1);
+            return Math.min(shortSide / 2, Math.max(0, Number(designRadius) || 0) * sourceWidth / IMAGE_BACKDROP_DISPLAY_WIDTH);
         }
 
         function getImageBackdropScale(setting = {}, fallback = 90) {
@@ -3602,7 +3607,12 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
         }
 
         function drawRoundedRectPath(ctx, x, y, width, height, radius) {
-            const r = Math.max(0, Math.min(radius * CONTINUOUS_CORNER_EXTENT, width / 2, height / 2));
+            const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+            if (r <= 0) {
+                ctx.beginPath();
+                ctx.rect(x, y, width, height);
+                return;
+            }
             const power = 2 / CONTINUOUS_CORNER_EXPONENT;
             const steps = 24;
             const addCorner = (centerX, centerY, xSign, ySign, start, end) => {
@@ -3657,7 +3667,7 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
             const foregroundOptions = renderConfig.foregroundEffectsPrepared
                 ? { ...options, shadow: false, radius: false }
                 : options;
-            const signature = JSON.stringify({ version: 'image-workbench-v2', mode, aspect, enabled: options.enabled, scale, shadow: options.shadow, radius: options.radius, radiusSize: options.radiusSize, background: options.background, prepared: Boolean(renderConfig.foregroundEffectsPrepared), source: sourceDataUrl });
+            const signature = JSON.stringify({ version: 'image-workbench-v3', mode, aspect, enabled: options.enabled, scale, shadow: options.shadow, radius: options.radius, radiusSize: options.radiusSize, background: options.background, prepared: Boolean(renderConfig.foregroundEffectsPrepared), source: sourceDataUrl });
             if (imageRecord.backdropSignature === signature) return;
             imageRecord.backdropMode = mode;
             imageRecord.backdropAutoScale = autoScale;
@@ -3723,9 +3733,12 @@ window.__IMAGE_BACKDROP_ASSETS__ = { header: "data:image/png;base64,iVBORw0KGgoA
                 gradient.addColorStop(1, to);
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, 0, bgWidth, bgHeight);
-            } else if (options.background === 'blue') {
-                ctx.fillStyle = '#3FB9FF';
-                ctx.fillRect(0, 0, bgWidth, bgHeight);
+            } else if (options.background === 'golden-gate') {
+                const wallpaper = await loadImageFromDataUrl(IMAGE_BACKDROP_GOLDEN_GATE_URL);
+                const coverScale = Math.max(bgWidth / wallpaper.naturalWidth, bgHeight / wallpaper.naturalHeight);
+                const coverWidth = wallpaper.naturalWidth * coverScale;
+                const coverHeight = wallpaper.naturalHeight * coverScale;
+                ctx.drawImage(wallpaper, (bgWidth - coverWidth) / 2, (bgHeight - coverHeight) / 2, coverWidth, coverHeight);
             } else {
                 const assetDataUrls = await getBackdropAssetDataUrls();
                 const [header, footer] = await Promise.all([
@@ -7248,8 +7261,8 @@ function processTextSpacing(text) {
                 aspect: document.querySelector('[data-backdrop-dialog-option="aspect"].is-active')?.dataset.value || getImageBackdropAspect(activeBackdropFilename, activeBackdropSettingKey || activeBackdropFilename),
                 enabled: document.querySelector('[data-backdrop-dialog-option="enabled"].is-active')?.dataset.value === 'on',
                 shadow: document.querySelector('[data-backdrop-dialog-option="shadow"].is-active')?.dataset.value === 'on',
-                radius: document.querySelector('[data-backdrop-dialog-option="radius"].is-active')?.dataset.value === 'on',
                 radiusSize: getImageBackdropRadiusSize({ radiusSize: document.getElementById('image-backdrop-radius-size').value }),
+                radius: getImageBackdropRadiusSize({ radiusSize: document.getElementById('image-backdrop-radius-size').value }) > 0,
                 background: document.querySelector('[data-backdrop-background].is-active')?.dataset.backdropBackground || 'lizhi',
                 ...(activeBackdropContext === 'side-by-side' ? {
                     gap: getSideBySideCellGap(activeSideBySideCount, document.getElementById('image-backdrop-gap').value)
@@ -7265,10 +7278,6 @@ function processTextSpacing(text) {
             document.getElementById('image-backdrop-radius-size').value = radius;
             document.getElementById('image-backdrop-radius-value').textContent = `${radius} px`;
             const backdropEnabled = document.querySelector('[data-backdrop-dialog-option="enabled"].is-active')?.dataset.value === 'on';
-            const radiusEnabled = backdropEnabled && document.querySelector('[data-backdrop-dialog-option="radius"].is-active')?.dataset.value === 'on';
-            const radiusRow = document.getElementById('image-backdrop-radius-row');
-            radiusRow.classList.toggle('is-disabled', !radiusEnabled);
-            radiusRow.querySelector('input').disabled = !radiusEnabled;
             const background = document.querySelector('[data-backdrop-background].is-active')?.dataset.backdropBackground || 'lizhi';
             const foregroundScalingEnabled = backdropEnabled && background !== 'none';
             ['image-backdrop-scale-row', 'image-backdrop-aspect-row'].forEach((id) => {
@@ -7308,8 +7317,8 @@ function processTextSpacing(text) {
             if (IMAGE_BACKDROP_GRADIENTS[settings.background]) {
                 const [from, to] = IMAGE_BACKDROP_GRADIENTS[settings.background];
                 stage.style.background = `linear-gradient(135deg, ${from}, ${to})`;
-            } else if (settings.background === 'blue') {
-                stage.style.background = '#3FB9FF';
+            } else if (settings.background === 'golden-gate') {
+                stage.style.background = `url(${IMAGE_BACKDROP_GOLDEN_GATE_URL}) center/cover`;
             } else if (settings.background === 'lizhi') {
                 const assets = window.__IMAGE_BACKDROP_ASSETS__;
                 stage.style.backgroundColor = '#8CC6FF';
@@ -7325,8 +7334,10 @@ function processTextSpacing(text) {
             previewImage.style.maxHeight = settings.background === 'none' ? '100%' : '96.5%';
             previewImage.style.setProperty('--foreground-scale', String(settings.background === 'none' ? 1 : settings.scale / 100));
             previewImage.style.setProperty('--foreground-shadow', settings.shadow ? 'drop-shadow(0 9px 16px rgba(0,0,0,.28))' : 'none');
-            previewImage.style.setProperty('--foreground-radius', settings.radius ? `${settings.radiusSize / 10}%` : '0');
-            previewImage.style.setProperty('corner-shape', settings.radius ? 'superellipse(2)' : 'round');
+            const renderedWidth = Math.max(1, previewImage.clientWidth || stage.clientWidth * 0.965);
+            const previewRadius = Math.min((previewImage.clientHeight || stage.clientHeight) / 2, settings.radiusSize * renderedWidth / IMAGE_BACKDROP_DISPLAY_WIDTH);
+            previewImage.style.setProperty('--foreground-radius', settings.radius ? `${previewRadius}px` : '0');
+            previewImage.style.setProperty('corner-shape', settings.radius ? `superellipse(${CONTINUOUS_CORNER_PARAMETER})` : 'round');
         }
 
         function openImageBackdropDialog(filename, context = '') {
@@ -7352,7 +7363,6 @@ function processTextSpacing(text) {
             }));
             setBackdropDialogOption('enabled', options.enabled);
             setBackdropDialogOption('shadow', options.shadow);
-            setBackdropDialogOption('radius', options.radius);
             updateBackdropDialogAvailability(options.enabled);
             updateBackdropDialogValues();
             document.getElementById('image-backdrop-preview-image').src = image?.rawDataUrl || image?.displayDataUrl || image?.originalDataUrl || '';
